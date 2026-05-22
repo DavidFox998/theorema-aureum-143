@@ -3,12 +3,24 @@ Chain: C01 → C07
 Repo: github.com/DavidFox998/theorema-aureum-143
 License: MIT
 TIMESTAMP_UTC: 2026-05-22T02:48:02Z
+COMMIT_SHA: ca98c590b6568f7dded2225dac76724e6cf76bcfbabef782dab701257cc4679a
+LAKE_BUILD: PENDING VERIFICATION
 
-SHA256 Hashes:
-lean/.gitignore         : e525c5052b288162e291cd8d8c1fbc1d9ab19c266308be87638dca2638ca16ed
-lean/TheoremaAureum.lean: 63cd5af0c94d20e019234e793c644ccd3be6bb19d9b78090d8ed4c591ec45598
-lean/lakefile.lean      : 684eec3de98472e530f86a4075233ec78338b7f2e99320d4aa6331...
-[add rest of C01-C07, Main.lean from that manifest]
+/lean/ SHA256 Hashes:
+lean/.gitignore                                 : e525c5052b288162e291cd8d8c1fbc1d9ab19c266308be87638dca2638ca16ed
+lean/TheoremaAureum.lean                        : 63cd5af0c94d20e019234e793c644ccd3be6bb19d9b78090d8ed4c591ec45598
+lean/lakefile.lean                              : 684eec3de98472e530f86a4075233ec78338b7f2e99320d4aa6331c8ccb5aec1
+lean/TheoremaAureum/C01_Arakelov.lean           : 2c2e9ef6e52773fd74ad0dbe35f28a33789c981dd0031df7243426a723645000
+lean/TheoremaAureum/C02_Modularity.lean          : 0c8ee7b9ba66bb74f9261e1bfd842b6d3d9873b48e8c6e9eae28111e5f5b15e1
+lean/TheoremaAureum/C03_Positivity.lean         : cfa48eaad7214132535cf7aa3f7aeb2ba8c97358881a8e78a004b9348102e093
+lean/TheoremaAureum/C04_HeightBound.lean        : 91333c89c31577a0f990a04b462ed9298c9550efd4e34ac5bca056e5306dcfef
+lean/TheoremaAureum/C05_Discriminant.lean       : f7a2c4dd9c6bdebbb91900fce0ce3dcf7dbee864d853fdae58a553cb5d8e9ce1
+lean/TheoremaAureum/C06_ZetaControl.lean        : 915b85adc471246395d27d27aa1f49820d9498d9676ae33634f43bdf1940565b
+lean/TheoremaAureum/C07_RH.lean                 : 0f7faf2c4e604e9c17619d5472ece16c1bfcb2591476169c7f21bca7377f9c3e
+
+/certs/ SHA256 Hashes:
+certs/FINAL_CERTIFICATE.txt                     : e27737c48d51c26273c43bd32e15d29b433638faea10608f5c562c40f5c924ed
+certs/M06_MANIFEST.txt                          : 4767c30205da09c51b1aa3f0d53f18bd3fb521e0da6333c97952ee9400f419c7
 
 Status: SKELETON HASHED - ALL THEOREMS SORRY
-Next: C01 proof submission for re-hash
+Next: C01 proof submission for re-hash and verification
