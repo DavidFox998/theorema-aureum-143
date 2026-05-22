@@ -1,5 +1,4 @@
-import C01_Arakelov
-import C04_HeightBound
+import TheoremaAureum.C04_HeightBound
 
 namespace TheoremaAureum
 
