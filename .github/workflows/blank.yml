@@ -1,0 +1,33 @@
+name: Lean Build Verification
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Lean
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+          
+      - name: Build Theorema Aureum
+        run: |
+          cd lean
+          lake exe cache get
+          lake build
+          
+      - name: Update Cert Status
+        if: success()
+        run: |
+          sed -i 's/LAKE_BUILD: PENDING VERIFICATION/LAKE_BUILD: VERIFIED TRUE/' certs/THEOREMA_AUREUM_CERT.txt
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add certs/THEOREMA_AUREUM_CERT.txt
+          git commit -m "Lake build passed: C01→C07 chain verified"
+          git push
