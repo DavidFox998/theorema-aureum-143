@@ -1,10 +1,10 @@
-import TheoremaAureum.C03_Positivity
+import TheoremaAureum.C03_Arakelov
+import TheoremaAureum.RHStatement
 
 namespace TheoremaAureum
 
-/-- Placeholder for Height Bound from Arakelov + Bost
-Proof omitted for timestamp.
--/
-axiom C04_HeightBound : Prop
+/-- H2: Weil Positivity Transfer. Hypothesis 2 from your paper.
+"If VALOR > 0, then GRH holds for L(s,E)" -/
+axiom H2_WeilTransfer : H1_ArakelovPositivity → GRH_E_143a1
 
 end TheoremaAureum
