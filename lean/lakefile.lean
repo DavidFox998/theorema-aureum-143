@@ -1,11 +1,9 @@
 import Lake
 open Lake DSL
 
-package «theorema-aureum-143» where
-  leanOptions := #[⟨`autoImplicit, false⟩]
+package «theorema-aureum-143»
 
-lean_lib «TheoremaAureum» where
-  srcDir := "."
+lean_lib TheoremaAureum
 
 @[default_target]
 lean_exe «theorema-aureum-143» where
