@@ -18,4 +18,4 @@ def main : IO Unit := do
 This repository timestamps the conditional result.  
 -/
 
-#check TheoremaAureum.Theorema_Aureum_143
+#check TheoremaAureum.C07_RiemannHypothesis
