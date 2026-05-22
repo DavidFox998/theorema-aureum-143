@@ -1,7 +1,13 @@
 import Lake
 open Lake DSL
 
-package «theorema-aureum-143»
+package «theorema-aureum-143» where
+  dependencies := #[
+    {
+      name := `mathlib,
+      src := Source.git "https://github.com/leanprover-community/mathlib4.git" "v4.12.0"
+    }
+  ]
 
 lean_lib TheoremaAureum
 
