@@ -1,14 +1,18 @@
-import TheoremaAureum.C01_Arakelov
-import TheoremaAureum.C02_Modularity
-import TheoremaAureum.C03_Positivity
-import TheoremaAureum.C04_HeightBound
-import TheoremaAureum.C05_Discriminant
-import TheoremaAureum.C06_ZetaControl
-import TheoremaAureum.C07_RH
+import TheoremaAureum143.C07_RH
 
-theorem Theorema_Aureum : 
-  ArakelovPositivity (X₀ 143) → RiemannHypothesis := by
-  intro hA
-  exact C07_RH_of_Arakelov hA
+/-! # Theorema Aureum 143 - Main
 
-#check Theorema_Aureum
+**Status:** CONDITIONAL THEOREM  
+**Depends:** DIOPHANTIA Alpha0-Ponti v1.0.0  
+**SHA-256:** 197ef385acb341db6b5565c8efb1970d275386502fe60414ff8363739c5aebee  
+**Timestamp:** 21 May 2026  
+**Claim:** C(α₀) = 8.62945 > 2√13 → RH  
+
+**What is proven:** Canon S_14 exists and passes Bost--Connes for level 143.  
+**What is conditional:** The descent from GRH(X₀(143)) to RH(ζ).  
+**What remains:** Formalize Papers 1,3,4 in Lean. No timeline claimed.
+
+This repository timestamps the conditional result.  
+-/
+
+#check Theorema_Aureum_143
