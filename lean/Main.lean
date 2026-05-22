@@ -1,4 +1,4 @@
-import C07_RH
+import TheoremaAureum.C07_RH
 
 def main : IO Unit := do
   IO.println "Theorema Aureum C01→C07 chain verified"
@@ -18,4 +18,4 @@ def main : IO Unit := do
 This repository timestamps the conditional result.  
 -/
 
-#check Theorema_Aureum_143
+#check TheoremaAureum.Theorema_Aureum_143
