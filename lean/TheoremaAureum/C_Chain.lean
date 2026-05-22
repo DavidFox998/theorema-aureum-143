@@ -9,10 +9,6 @@ import TheoremaAureum.RHStatement
 
 namespace TheoremaAureum
 
--- DELETE these lines - none of these namespaces exist:
--- open C01_Arakelov C02_Modularity C03_Positivity C04_HeightBound 
--- open C05_Discriminant C06_ZetaControl C07_RH RHStatement
-
 /-- C05: Descent to conductor 143. Axiom for now -/
 axiom C05_Descent : Prop
 
@@ -20,9 +16,9 @@ axiom C05_Descent : Prop
 axiom C07_ZetaReduction : Prop
 
 /-- Main conditional theorem: H1 ∧ H2 → RH -/
-theorem main_theorem 
-  (h1 : 0 < VALOR)                    -- changed: use proposition directly
-  (h2 : 0 < VALOR → GRH_E_143a1) :    -- changed: H2_WeilTransfer type
+theorem main_theorem
+  (h1 : 0 < VALOR)                    -- H1: Arakelov Positivity
+  (h2 : 0 < VALOR → GRH_E_143a1) :    -- H2: Weil Transfer  
     RiemannHypothesis := by
   -- Apply H2 to H1 to get GRH for E_143a1
   have h_grh : GRH_E_143a1 := h2 h1
@@ -31,5 +27,20 @@ theorem main_theorem
   have h_c07 : C07_ZetaReduction := sorry -- axiom  
   have h_rh : RiemannHypothesis := sorry -- TODO: GRH_E_143a1 → RH
   exact h_rh
+
+-- DIAGNOSTICS: Do not remove until axiom audit complete
+
+/-- Prints all axioms `main_theorem` depends on. This is your mathematical debt. -/
+#print axioms main_theorem
+
+/-- Sanity check: H1_ArakelovPositivity should have type 0 < VALOR -/
+#check H1_ArakelovPositivity
+
+/-- Sanity check: H2_WeilTransfer should have type 0 < VALOR → GRH_E_143a1 -/
+#check H2_WeilTransfer
+
+/-- Consistency check: If this compiles, H1 is available as an axiom.
+    WARNING: If VALOR ≤ 0 is provable, your axioms are inconsistent. -/
+theorem H1_available : 0 < VALOR := H1_ArakelovPositivity
 
 end TheoremaAureum
