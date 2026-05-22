@@ -1,5 +1,4 @@
-import C01_Arakelov
-import C03_Positivity
+import TheoremaAureum.C03_Positivity
 
 namespace TheoremaAureum
 
