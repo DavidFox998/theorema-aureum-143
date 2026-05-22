@@ -1,4 +1,4 @@
-import TheoremaAureum.C01_Arakelov
+import TheoremaAureum.C06_ZetaControl
 
 namespace TheoremaAureum
 
