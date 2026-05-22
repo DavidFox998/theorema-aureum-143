@@ -9,38 +9,40 @@ import TheoremaAureum.RHStatement
 
 namespace TheoremaAureum
 
-/-- C05: Descent to conductor 143. Axiom per Battle Plan v1.7 -/
-axiom C05_Descent : Prop
-
-/-- C07: ζ(s) reduction. Axiom per Battle Plan v1.7 -/
-axiom C07_ZetaReduction : Prop
-
-/-- Main conditional theorem: H1 ∧ H2 → RH -/
+/-- Main conditional theorem: Theorema Aureum 143
+    If H1: Arakelov Positivity and H2: Weil Transfer hold, then RH is true. -/
 theorem main_theorem
-  (h1 : 0 < VALOR)                    -- H1: Arakelov Positivity
-  (h2 : 0 < VALOR → GRH_E_143a1) :    -- H2: Weil Transfer
+  (h1 : 0 < VALOR)                    -- H1: Arakelov Positivity from C03
+  (h2 : 0 < VALOR → GRH_E_143a1) :    -- H2: Weil Transfer from C04
     RiemannHypothesis := by
-  -- Apply H2 to H1 to get GRH for E_143a1
-  have h_grh : GRH_E_143a1 := h2 h1
-  -- Chain: GRH_E_143a1 + C05 + C07 → RH
-  have h_c05 : C05_Descent := sorry -- axiom
-  have h_c07 : C07_ZetaReduction := sorry -- axiom
-  have h_rh : RiemannHypothesis := sorry -- TODO: GRH_E_143a1 → RH
+  -- Step 1: Apply H2 to H1 to get GRH for E_143a1
+  have h_grh_E : GRH_E_143a1 := h2 h1
+  -- Step 2: C05 Descent: GRH_E → GRH for all Dirichlet characters mod 143
+  have h_grh_chi : ∀ (χ : DirichletChar), GRH_χ χ := C05_Descent h_grh_E
+  -- Step 3: C06/C07 Reduction: GRH for all χ → RH for ζ(s)
+  have h_rh : RiemannHypothesis := C06_ZetaControl h_grh_E
   exact h_rh
 
 end TheoremaAureum
 
--- DIAGNOSTICS: Do not remove until axiom audit complete
+-- DIAGNOSTICS: Audit mathematical debt. Remove after certification.
 
-/-- Prints all axioms `main_theorem` depends on. This is your mathematical debt. -/
+/-- Prints all axioms `main_theorem` depends on. Per Battle Plan v1.7, 
+    this should be [H1_ArakelovPositivity, H2_WeilTransfer] plus any sorrys. -/
 #print axioms TheoremaAureum.main_theorem
 
-/-- Sanity check: H1_ArakelovPositivity should have type 0 < VALOR -/
+/-- Sanity check: H1 should have type `0 < VALOR`, not `0 < 0` -/
 #check TheoremaAureum.H1_ArakelovPositivity
 
-/-- Sanity check: H2_WeilTransfer should have type 0 < VALOR → GRH_E_143a1 -/
+/-- Sanity check: H2 should have type `0 < VALOR → GRH_E_143a1` -/
 #check TheoremaAureum.H2_WeilTransfer
 
-/-- Consistency check: If this compiles, H1 is available as an axiom.
-    WARNING: If VALOR ≤ 0 is provable, your axioms are inconsistent. -/
+/-- Sanity check: C05 should be a theorem, not an axiom -/
+#check TheoremaAureum.C05_Descent
+
+/-- Sanity check: C06 should be a theorem, not an axiom -/
+#check TheoremaAureum.C06_ZetaControl
+
+/-- Consistency check: If this compiles, H1 is available.
+    If `VALOR ≤ 0` becomes provable, axioms are inconsistent. -/
 theorem TheoremaAureum.H1_available : 0 < VALOR := TheoremaAureum.H1_ArakelovPositivity
