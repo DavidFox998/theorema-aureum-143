@@ -1,23 +1,21 @@
-import Mathlib.NumberTheory.LSeries.RiemannZeta
-import Mathlib.NumberTheory.DirichletCharacter.Basic
 import Mathlib.Analysis.Complex.Basic
+import Mathlib.NumberTheory.LSeries.RiemannZeta
 
 namespace TheoremaAureum
 
-open Complex
+/-- Riemann zeta function zeros statement -/
+def RiemannHypothesis : Prop :=
+  ∀ (ρ : ℂ), riemannZeta ρ = 0 ∧ ρ ≠ 1 → ρ.re = 1/2
 
-/-- The Riemann Hypothesis -/
-def RiemannHypothesis : Prop := 
-  ∀ ρ : ℂ, riemannZeta ρ = 0 ∧ ρ ≠ 1 ∧ 0 < ρ.re ∧ ρ.re < 1 → ρ.re = 1/2
+/-- Xi function for E_143a1. Define this based on your C02 L-function. -/
+noncomputable def riemannXi_E_143a1 : ℂ → ℂ := sorry -- TODO: Define from L-function of E
 
-/-- Hasse-Weil L-function of E: y² = x³ - x + 1, conductor 143.
-Mathlib doesn't have this curve yet, so we axiom the function. -/
-axiom E_143a1_LFunction : ℂ → ℂ
+/-- Generalized Riemann Hypothesis for E_143a1. 
+    This is a DEFINITION, not an axiom. Battle Plan H2 targets this. -/
+def GRH_E_143a1 : Prop := 
+  ∀ (ρ : ℂ), riemannXi_E_143a1 ρ = 0 → ρ.re = 1/2
 
-/-- GRH for E_143a1. We axiom the statement. -/
-axiom GRH_E_143a1 : Prop
-
-axiom grh_E_143a1_iff : GRH_E_143a1 ↔ 
-  ∀ ρ : ℂ, E_143a1_LFunction ρ = 0 ∧ 0 < ρ.re ∧ ρ.re < 1 → ρ.re = 1/2
+/-- GRH for Dirichlet character χ. Used in C05 descent. -/
+def GRH_χ (χ : DirichletChar) : Prop := sorry -- TODO: Define from Dirichlet L-function
 
 end TheoremaAureum
