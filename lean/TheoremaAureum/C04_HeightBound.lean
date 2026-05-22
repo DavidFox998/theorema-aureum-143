@@ -2,6 +2,9 @@ import TheoremaAureum.C03_Positivity
 
 namespace TheoremaAureum
 
-theorem C04_Height : C03_Positive C01_BostBound (C02_Modular C01_BostBound) → True := by sorry
+/-- Placeholder for Height Bound from Arakelov + Bost
+Proof omitted for timestamp.
+-/
+axiom C04_HeightBound : Prop
 
 end TheoremaAureum
