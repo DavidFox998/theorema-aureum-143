@@ -1,0 +1,19 @@
+Theorema Aureum Certificate
+Chain: C01 → C07
+Repo: github.com/DavidFox998/theorema-aureum-143
+License: MIT
+Date: 2026-05-21
+
+SHA256 Hashes:
+C01_Arakelov.lean      : PENDING
+C02_Modularity.lean    : PENDING
+C03_Positivity.lean    : PENDING
+C04_HeightBound.lean   : PENDING
+C05_Discriminant.lean  : PENDING
+C06_ZetaControl.lean   : PENDING
+C07_RH.lean           : PENDING
+Main.lean             : PENDING
+TheoremaAureum.lean   : PENDING
+
+Status: SKELETON COMMITTED
+Replicit-Verify: lake build && lake env lean --run lean/Main.lean
