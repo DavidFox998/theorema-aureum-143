@@ -3,8 +3,7 @@ import Mathlib.Data.Real.Basic
 namespace TheoremaAureum
 
 /-- Arakelov self-intersection for X_0(143). 
-    Value computed by c03_arakelov.py.
-    Battle Plan v1.7: H1 claims this is > 0. -/
+    Value computed by c03_arakelov.py per Battle Plan v1.7. -/
 axiom VALOR : ℝ
 
 /-- H1: Arakelov Positivity. Hypothesis 1 from Theorema Aureum 143.
