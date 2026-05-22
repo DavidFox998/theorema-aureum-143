@@ -2,18 +2,13 @@ Theorema Aureum Certificate
 Chain: C01 → C07
 Repo: github.com/DavidFox998/theorema-aureum-143
 License: MIT
-Date: 2026-05-21
+TIMESTAMP_UTC: 2026-05-22T02:48:02Z
 
 SHA256 Hashes:
-C01_Arakelov.lean      : PENDING
-C02_Modularity.lean    : PENDING
-C03_Positivity.lean    : PENDING
-C04_HeightBound.lean   : PENDING
-C05_Discriminant.lean  : PENDING
-C06_ZetaControl.lean   : PENDING
-C07_RH.lean           : PENDING
-Main.lean             : PENDING
-TheoremaAureum.lean   : PENDING
+lean/.gitignore         : e525c5052b288162e291cd8d8c1fbc1d9ab19c266308be87638dca2638ca16ed
+lean/TheoremaAureum.lean: 63cd5af0c94d20e019234e793c644ccd3be6bb19d9b78090d8ed4c591ec45598
+lean/lakefile.lean      : 684eec3de98472e530f86a4075233ec78338b7f2e99320d4aa6331...
+[add rest of C01-C07, Main.lean from that manifest]
 
-Status: SKELETON COMMITTED
-Replicit-Verify: lake build && lake env lean --run lean/Main.lean
+Status: SKELETON HASHED - ALL THEOREMS SORRY
+Next: C01 proof submission for re-hash
