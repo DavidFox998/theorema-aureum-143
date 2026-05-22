@@ -1,4 +1,4 @@
-import TheoremaAureum.C07_RH
+import C07_RH
 
 def main : IO Unit := do
   IO.println "Theorema Aureum C01→C07 chain verified"
