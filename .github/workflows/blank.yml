@@ -8,28 +8,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./lean
+    
     steps:
-      - uses: actions/checkout@v4
-        with:
-          path: .
+      - name: Checkout repository
+        uses: actions/checkout@v4
       
-      - name: Install elan
+      - name: Install Lean
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
       
       - name: Build Theorema Aureum
-        working-directory: ./lean
         run: |
           lake update
           lake build
-      
-      - name: Update Cert Status
-        if: success()
-        run: |
-          sed -i 's/PENDING VERIFICATION/VERIFIED TRUE/' certs/THEOREMA_AUREUM_CERT.txt
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add certs/THEOREMA_AUREUM_CERT.txt
-          git commit -m "LAKE_BUILD: VERIFIED TRUE" || exit 0
-          git push
+          echo "LAKE_BUILD: VERIFIED TRUE"
