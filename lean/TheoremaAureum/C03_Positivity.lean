@@ -1,8 +1,10 @@
-import C01_Arakelov
-import C02_Modularity
+import TheoremaAureum.C02_Modularity
 
 namespace TheoremaAureum
 
-theorem C03_Positive : C01_BostBound → C02_Modular C01_BostBound → True := by sorry
+/-- Placeholder for Positivity / Noether inequality
+Proof omitted for timestamp.
+-/
+axiom C03_Positivity : Prop
 
 end TheoremaAureum
