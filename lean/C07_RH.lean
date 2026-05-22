@@ -1,4 +1,4 @@
-import C01_Arakelov
+import TheoremaAureum.C01_Arakelov
 
 namespace TheoremaAureum
 
