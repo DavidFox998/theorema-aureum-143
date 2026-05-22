@@ -1,10 +1,7 @@
-import TheoremaAureum.C05_Discriminant
+import TheoremaAureum.RHStatement
 
 namespace TheoremaAureum
 
-/-- Placeholder for Zeta Function Control
-Proof omitted for timestamp.
--/
-axiom C06_ZetaControl : Prop
+-- C06 merged into C05 per Battle Plan v1.7. Keep file for imports.
 
 end TheoremaAureum
