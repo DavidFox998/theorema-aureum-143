@@ -1,16 +1,12 @@
 import Lake
 open Lake DSL
 
-package «TheoremaAureum» where
-  name := "TheoremaAureum"
-  version := "0.1.0"
+package «theorema-aureum-143» where
+  leanOptions := #[⟨`autoImplicit, false⟩]
 
-require mathlib from git
-  "https://github.com/leanprover-community/mathlib4" @ "v4.14.0"
+lean_lib «TheoremaAureum» where
+  srcDir := "."
 
 @[default_target]
-lean_lib «TheoremaAureum» where
-  globs := #[.andSubmodules `TheoremaAureum]
-
-lean_lib «Main» where
-  globs := #[.submodules `TheoremaAureum]
+lean_exe «theorema-aureum-143» where
+  root := `Main
