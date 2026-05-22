@@ -4,6 +4,6 @@ namespace TheoremaAureum
 Used as input for Height Bound.
 Proof omitted for timestamp. Full proof in DIOPHANTIA Paper 1.
 -/
-axiom C01_BostBound : True
+axiom C01_BostBound : Prop
 
 end TheoremaAureum
