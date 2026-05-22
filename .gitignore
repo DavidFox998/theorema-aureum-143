@@ -1,0 +1,13 @@
+# Lean
+/build/
+/lake-packages/
+*.olean
+
+# OS
+.DS_Store
+Thumbs.db
+
+# No Python allowed
+*.py
+*.pyc
+__pycache__/
