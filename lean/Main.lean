@@ -13,5 +13,4 @@ def main : IO Unit := do
   IO.println "C07: ζ(s) reduction                 [SORRY]"
   IO.println ""
   IO.println "Main theorem type-checked by Lean 4 + mathlib."
-  IO.println "Timestamp: Commit " ++ (← IO.Process.output {cmd := "git", args := #["rev-parse", "HEAD"]}).stdout
   IO.println "Status: Conditional. Kill H1/H2 to solve RH."
