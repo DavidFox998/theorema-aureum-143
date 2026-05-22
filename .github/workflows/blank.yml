@@ -17,9 +17,9 @@ jobs:
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
           
       - name: Build Theorema Aureum
+        working-directory: ./lean
         run: |
-          cd lean
-          lake exe cache get
+          lake update
           lake build
           
       - name: Update Cert Status
