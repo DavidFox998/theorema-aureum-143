@@ -1,0 +1,9 @@
+MorningStar-Lab v1.0 — M13 sandbox certificate
+date: 2026-05-24
+scope: sandbox; NOT part of the v1.8-BC certified spine
+parent_checkpoint: b76d41ab68a192df8d01d00fab74de8923a779bd
+parent_sha256: fe856b3007e1cbeac34c4cbc641e4a2913c6f18a11fe0678f0592d2e04728647
+seed: 437, 1094, axioms=[]
+notes: hit_437 and hit_1094 are tautologies (True := trivial). No
+       number-theoretic claim is encoded by their names. M17/M18
+       probes return {"status": "not_yet_proved"}.

@@ -112,6 +112,25 @@ Set `STRICT_LEAN_CHECK=1` when invoking the script manually to require an actual
 - `README.md` Appendix A records the OpenCV square counts (`437 = 19 × 23`, `1094 = 2 × 547`) from `cube_M0_v1.jpg` / `cube_M0_v2.jpg` as **observations only**. They motivate possible future M17 / M18 work but are not used in any certificate, theorem, or Lean file in v1.8-BC.
 - No `sorry` and no `axiom` is allowed in `lean-proof/`. The CI drift guard (`scripts/check-lean-proof.sh`, strict mode in the `lean-proof` workflow) enforces this on every merge.
 
+## MorningStar-Lab v1.0 sandbox (`morningstar-lab/`)
+
+Standalone 4D sandbox implementing the seven-layer spec. **NOT part of the
+v1.8-BC certified spine**: lives outside `lean-proof/`, uses its own minimal
+Lean project (no mathlib), and is never imported by `TheoremaAureum`.
+
+- `morningstar-lab/data/hits.txt` — append-only ledger, seed `437\n1094\naxioms=[] 2026-05-24`
+- `morningstar-lab/kernel.py` — `probe(h,N,re_s,im_s)`; placeholder transport, logs SHA-256 audit hash
+- `morningstar-lab/router.py` — N=19→M17 (Mazur), h=2→M18 (Stark), labelled `status: not_yet_proved`
+- `morningstar-lab/lab.py` — Layer 7 REPL/CLI; `--seed`, `-c "probe(1,19,0.5,0)"`
+- `morningstar-lab/lean_bridge.py` — emits `lean/AutoLemmas.lean`; refuses to write `sorry`/`axiom`
+- `morningstar-lab/lean/AutoLemmas.lean` — `theorem hit_437 : True := trivial` (and hit_1094); axiom debt `[]`
+- `morningstar-lab/run.sh` — validator: probe + bridge + `lean AutoLemmas.lean` axiom check
+
+Run: `bash morningstar-lab/run.sh`. On success prints:
+`MorningStar-Lab v1.0 online. 4D stable. W=h Z=N X=Re Y=Im. CERTIFICATE at morningstar-lab/data/M13_CERT.txt`
+
+**Honest-scope guards:** `hit_437`/`hit_1094` are tautologies (`True := trivial`); their names reference the OpenCV cube counts from README Appendix A but their statements claim nothing about number theory. `kernel.probe` returns `L_nonvanish: None` (unknown, never fabricated) and `RH_ok` is literally `re_s == 0.5`. M17/M18 are placeholder paths.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
