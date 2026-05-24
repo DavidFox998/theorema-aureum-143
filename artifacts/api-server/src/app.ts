@@ -6,6 +6,8 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+app.set("trust proxy", "loopback");
+
 app.use(
   pinoHttp({
     logger,

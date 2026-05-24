@@ -124,9 +124,99 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 type RebuildAuthResult =
   | { ok: true }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; retryAfterSec?: number };
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
+const FAILURE_WINDOW_MS = 15 * 60 * 1000;
+const MAX_TRACKED_IPS = 10_000;
+
+interface FailureRecord {
+  count: number;
+  firstFailureAt: number;
+  lockedUntil: number;
+}
+
+const failuresByIp = new Map<string, FailureRecord>();
+
+function getClientIp(req: import("express").Request): string {
+  // Relies on `app.set("trust proxy", ...)` in app.ts so req.ip reflects the
+  // real peer only when the request actually came through a trusted proxy
+  // hop. We deliberately do NOT parse raw X-Forwarded-For here — that would
+  // let any caller spoof the throttle key.
+  return req.ip ?? req.socket.remoteAddress ?? "unknown";
+}
+
+function evictExpiredFailures(now: number): void {
+  for (const [ip, rec] of failuresByIp) {
+    const lockoutExpired = rec.lockedUntil > 0 && rec.lockedUntil <= now;
+    const windowExpired =
+      rec.lockedUntil === 0 && now - rec.firstFailureAt > FAILURE_WINDOW_MS;
+    if (lockoutExpired || windowExpired) {
+      failuresByIp.delete(ip);
+    }
+  }
+}
+
+function checkLockout(ip: string): { locked: false } | { locked: true; retryAfterMs: number } {
+  const rec = failuresByIp.get(ip);
+  if (!rec) return { locked: false };
+  const now = Date.now();
+  if (rec.lockedUntil > now) {
+    return { locked: true, retryAfterMs: rec.lockedUntil - now };
+  }
+  if (rec.lockedUntil > 0 && rec.lockedUntil <= now) {
+    failuresByIp.delete(ip);
+  }
+  return { locked: false };
+}
+
+function recordAuthFailure(ip: string, log: import("pino").Logger): void {
+  const now = Date.now();
+  const rec = failuresByIp.get(ip);
+  if (!rec || now - rec.firstFailureAt > FAILURE_WINDOW_MS) {
+    if (failuresByIp.size >= MAX_TRACKED_IPS) {
+      evictExpiredFailures(now);
+      if (failuresByIp.size >= MAX_TRACKED_IPS) {
+        // Evict the oldest insertion to keep the map bounded.
+        const oldest = failuresByIp.keys().next();
+        if (!oldest.done) failuresByIp.delete(oldest.value);
+      }
+    }
+    failuresByIp.set(ip, { count: 1, firstFailureAt: now, lockedUntil: 0 });
+    return;
+  }
+  rec.count += 1;
+  if (rec.count >= MAX_FAILED_ATTEMPTS && rec.lockedUntil === 0) {
+    rec.lockedUntil = now + LOCKOUT_MS;
+    log.warn(
+      { ip, failedAttempts: rec.count, lockoutMs: LOCKOUT_MS },
+      "Rebuild IP locked out after repeated bad-token attempts",
+    );
+  }
+}
+
+function clearAuthFailures(ip: string): void {
+  failuresByIp.delete(ip);
+}
 
 function checkRebuildAuth(req: import("express").Request): RebuildAuthResult {
+  const ip = getClientIp(req);
+  const lockout = checkLockout(ip);
+  if (lockout.locked) {
+    const retryAfterSec = Math.ceil(lockout.retryAfterMs / 1000);
+    req.log.warn(
+      { ip, retryAfterSec },
+      "Rebuild blocked: IP is locked out from repeated bad-token attempts",
+    );
+    return {
+      ok: false,
+      status: 429,
+      retryAfterSec,
+      error: `Too many failed referee-token attempts from this IP. Try again in ${retryAfterSec}s.`,
+    };
+  }
+
   const expectedToken = process.env["LEAN_REBUILD_TOKEN"];
   if (!expectedToken || expectedToken.length === 0) {
     req.log.warn("Rebuild blocked: LEAN_REBUILD_TOKEN not configured");
@@ -139,7 +229,8 @@ function checkRebuildAuth(req: import("express").Request): RebuildAuthResult {
   }
   const provided = extractBearerToken(req.headers["authorization"]);
   if (!provided || !timingSafeEqual(provided, expectedToken)) {
-    req.log.warn({ hasHeader: Boolean(provided) }, "Rebuild blocked: bad token");
+    recordAuthFailure(ip, req.log);
+    req.log.warn({ ip, hasHeader: Boolean(provided) }, "Rebuild blocked: bad token");
     return {
       ok: false,
       status: 401,
@@ -147,7 +238,17 @@ function checkRebuildAuth(req: import("express").Request): RebuildAuthResult {
         "Unauthorized: a valid referee rebuild token is required (Authorization: Bearer <token>).",
     };
   }
+  clearAuthFailures(ip);
   return { ok: true };
+}
+
+function applyAuthFailureHeaders(
+  res: import("express").Response,
+  auth: Extract<RebuildAuthResult, { ok: false }>,
+): void {
+  if (auth.status === 429 && typeof auth.retryAfterSec === "number") {
+    res.setHeader("Retry-After", String(auth.retryAfterSec));
+  }
 }
 
 router.post("/lean/verify/rebuild/stream", (req, res) => {
@@ -155,6 +256,7 @@ router.post("/lean/verify/rebuild/stream", (req, res) => {
 
   const auth = checkRebuildAuth(req);
   if (!auth.ok) {
+    applyAuthFailureHeaders(res, auth);
     res.status(auth.status).json({ error: auth.error });
     return;
   }
@@ -362,6 +464,7 @@ router.post("/lean/verify/rebuild/stream", (req, res) => {
 router.post("/lean/verify/rebuild/cancel", (req, res) => {
   const auth = checkRebuildAuth(req);
   if (!auth.ok) {
+    applyAuthFailureHeaders(res, auth);
     res.status(auth.status).json({ ok: false, error: auth.error });
     return;
   }
@@ -390,6 +493,7 @@ router.post("/lean/verify/rebuild", (req, res) => {
 
   const auth = checkRebuildAuth(req);
   if (!auth.ok) {
+    applyAuthFailureHeaders(res, auth);
     res.status(auth.status).json({
       ok: false,
       exitCode: -1,
