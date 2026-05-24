@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import CertificatesPage from "@/pages/certificates";
 import CertificateDetailPage from "@/pages/certificates/[moduleId]";
+import MiegakurePage from "@/pages/miegakure";
 import { Layout } from "@/components/layout";
 
 const queryClient = new QueryClient({
@@ -24,6 +25,7 @@ function Router() {
         <Route path="/" component={DashboardPage} />
         <Route path="/certificates" component={CertificatesPage} />
         <Route path="/certificates/:moduleId" component={CertificateDetailPage} />
+        <Route path="/miegakure" component={MiegakurePage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

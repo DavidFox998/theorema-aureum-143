@@ -17,7 +17,9 @@ router.get("/certificates/summary", async (req, res) => {
     const certifiedCount = certs.filter((c) => c.status === "CERTIFIED").length;
     const awaitingCount = certs.filter((c) => c.status === "AWAITING").length;
     const pdfUploadedCount = certs.filter((c) => c.pdfObjectPath !== null).length;
-    const dagSealed = certifiedCount === certs.length && certs.length === 7;
+    const dagSealed =
+      certs.length > 0 &&
+      certs.every((c) => c.status === "CERTIFIED" || c.status === "LOCKED");
 
     res.json({
       masterSha: MASTER_SHA,

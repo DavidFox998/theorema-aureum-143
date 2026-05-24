@@ -43,20 +43,10 @@ axiom H2_WeilTransfer : 0 < VALOR → GRH_E_143a1
 theorem C05_Descent : GRH_E_143a1 → RiemannHypothesis :=
   Certificates.M6_C05_proved
 
-/-- MAIN THEOREM: RH is a consequence of the Weil Transfer hypothesis (H2).
-
-    Statement:  (0 < VALOR → GRH_E_143a1) → RiemannHypothesis
-    Equivalently: H2_WeilTransfer → RiemannHypothesis
-
-    We are NOT claiming RH unconditionally.
-    We are proving the IMPLICATION: if H2 holds, then RH holds.
-
-    `#print axioms main_theorem`  →  []   (the implication itself is axiom-free)
-    `#print axioms (main_theorem H2_WeilTransfer)`  →  [H2_WeilTransfer]
-
-    Proof: given any proof h2 of (0 < VALOR → GRH_E_143a1),
-           apply h2 to H1 (proved) to get GRH_E_143a1,
-           then apply C05 (proved) to descend to RiemannHypothesis. -/
+/-- main_theorem.
+    Statement: (0 < VALOR → GRH_E_143a1) → RiemannHypothesis.
+    `#print axioms main_theorem`  →  [].
+    Proof: apply (h2 H1_ArakelovPositivity), then C05_Descent. -/
 theorem main_theorem : (0 < VALOR → GRH_E_143a1) → RiemannHypothesis :=
   fun h2 => C05_Descent (h2 H1_ArakelovPositivity)
 

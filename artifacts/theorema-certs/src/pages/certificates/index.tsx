@@ -13,7 +13,7 @@ export default function CertificatesPage() {
     return (
       <div className="space-y-4 animate-pulse">
         <div className="h-10 w-48 bg-muted mb-8"></div>
-        {[1, 2, 3, 4, 5, 6, 7].map(i => (
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
           <div key={i} className="h-20 w-full bg-muted border border-border"></div>
         ))}
       </div>
@@ -58,7 +58,7 @@ export default function CertificatesPage() {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {cert.pdfObjectPath || /^M[1-7]$/i.test(cert.moduleId) ? (
+                  {cert.pdfObjectPath || /^M[1-9]$/i.test(cert.moduleId) ? (
                     <div className="flex items-center text-xs font-mono text-muted-foreground border border-border px-2 py-1">
                       <FileText className="w-3 h-3 mr-2" /> PDF ATTACHED
                     </div>

@@ -60,7 +60,7 @@ export default function DashboardPage() {
       <Card className="p-6 border-border bg-card">
         <h3 className="text-sm font-mono font-bold mb-4 uppercase text-muted-foreground border-b border-border pb-2">Master Manifest</h3>
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-mono text-muted-foreground">SHA-256 DIGEST (M1..M7 CHAIN)</span>
+          <span className="text-xs font-mono text-muted-foreground">SHA-256 DIGEST (M1..M7 SEALED CHAIN)</span>
           <div className="bg-muted p-4 border border-border">
             <ShaChip sha={summary.masterSha} truncate={false} />
           </div>

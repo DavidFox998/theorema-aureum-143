@@ -1,5 +1,9 @@
 import { useParams } from "wouter";
-import { useGetCertificate, getGetCertificateQueryKey } from "@workspace/api-client-react";
+import {
+  useGetCertificate,
+  getGetCertificateQueryKey,
+  useGetCertificateSummary,
+} from "@workspace/api-client-react";
 import { ShaChip } from "@/components/sha-chip";
 import { StatusBadge } from "@/components/status-badge";
 import { PdfUploader } from "@/components/pdf-uploader";
@@ -9,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { format } from "date-fns";
 
 function getStaticPdfPath(moduleId: string): string | null {
-  const match = moduleId.match(/^M([1-7])$/i);
+  const match = moduleId.match(/^M([1-9])$/i);
   if (!match) return null;
   return `${import.meta.env.BASE_URL}pdfs/m${match[1]}.pdf`;
 }
@@ -21,6 +25,7 @@ export default function CertificateDetailPage() {
   const { data: cert, isLoading } = useGetCertificate(moduleId, {
     query: { enabled: !!moduleId, queryKey: getGetCertificateQueryKey(moduleId) }
   });
+  const { data: summary } = useGetCertificateSummary();
 
   if (isLoading) {
     return <div className="animate-pulse space-y-4">
@@ -125,7 +130,7 @@ export default function CertificateDetailPage() {
             <div className="space-y-3">
               <div>
                 <div className="text-[10px] font-mono text-muted-foreground mb-1 uppercase">DAG Position</div>
-                <div className="font-mono text-sm">{cert.dagPosition} / 7</div>
+                <div className="font-mono text-sm">{cert.dagPosition} / {summary?.totalModules ?? "—"}</div>
               </div>
               <div>
                 <div className="text-[10px] font-mono text-muted-foreground mb-2 uppercase">Parent Bindings</div>

@@ -1,6 +1,6 @@
-# Theorema Aureum 143 — Certificate Ledger
+# Entangled Technologies — The Morning Star Project
 
-A machine-proof certificate dashboard tracking the M1→M7 cryptographic proof chain for the Riemann Hypothesis conditional on GRH for X_0(143).
+Volume I: **Theorema Aureum 143 — Certificate Ledger.** A machine-proof certificate dashboard tracking the M1→M9 cryptographic proof chain (plus the Miegakure 600-cell visualization) for the Riemann Hypothesis pipeline routed through GRH for X_0(143) and the X_0(N) family at N ∈ {143, 199, 311}.
 
 ## Run & Operate
 
@@ -31,8 +31,11 @@ A machine-proof certificate dashboard tracking the M1→M7 cryptographic proof c
 - `artifacts/api-server/src/routes/storage.ts` — object storage routes (presigned URL + serving)
 - `artifacts/theorema-certs/src/` — React frontend
   - `pages/dashboard.tsx` — proof chain overview + master manifest
-  - `pages/certificates/index.tsx` — all 7 modules with upload buttons
+  - `pages/certificates/index.tsx` — all modules (M1–M9) with upload buttons
   - `pages/certificates/[moduleId].tsx` — single certificate detail + inline PDF viewer
+  - `pages/miegakure.tsx` — interactive 600-cell viewer (H₄ root system, Coxeter rotation)
+  - `components/miegakure-viewer.tsx` — react-three-fiber canvas with WebGL fallback
+  - `lib/h4-600cell.ts` — 120-vertex / 720-edge generation, 4D rotation, stereographic projection
   - `components/sha-chip.tsx` — SHA-256 display with copy-on-click
   - `components/status-badge.tsx` — CERTIFIED / AWAITING / LOCKED badge
   - `components/pdf-uploader.tsx` — presigned URL upload flow
