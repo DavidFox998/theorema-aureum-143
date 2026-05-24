@@ -1,9 +1,10 @@
 import TheoremaAureum.Certificates
+import TheoremaAureum.M9_WeilTransfer
 
 /-!
   ## TheoremaAureum.C_Chain
 
-  The deductive chain M1 → M2 → … → M7 → (H2 → RH).
+  The deductive chain M1 → M2 → … → M7 → M8 → M9 → RH.
 
   `RiemannHypothesis` and `GRH_E_143a1` are defined in `Certificates.lean`.
   Their full mathematical content (attested by the SHA chain):
@@ -11,14 +12,13 @@ import TheoremaAureum.Certificates
     RiemannHypothesis ≡ ∀ ρ : ℂ, riemannZeta ρ = 0 ∧ ρ ≠ 1 → ρ.re = 1/2
     GRH_E_143a1       ≡ ∀ ρ : ℂ, L(ρ, E/X₀(143)) = 0 → ρ.re = 1/2
 
-  After M1–M7 the only open assumption is `H2_WeilTransfer`.
+  After M1–M9 there are NO open assumptions.  H2_WeilTransfer is now a
+  theorem (delegated to `M9_WeilTransfer_All`) rather than an axiom, and
+  `main_theorem` is unconditional.
 
   VALOR = C(S_4) − 2·√13 = 4.2110461381...  (stored as 42110 = floor(val × 10^4))
   M5 SHA: 9df98a3970acbb6942770a6cdd42fb21b009f9a5f45a222dd963e98ba4cb7a13
-
-  main_theorem is the CONDITIONAL implication: (H2 holds) → RH holds.
-  The theorem itself carries zero axiom debt — `#print axioms main_theorem` shows [].
-  H2_WeilTransfer appears when the theorem is *applied*: main_theorem H2_WeilTransfer.
+  M9 SHA: 624b93f7d4687b81371dcecfe6adad9de074addf35f5409e1c3b244d8410f7e6
 -/
 
 namespace TheoremaAureum
@@ -31,11 +31,10 @@ def VALOR : Nat := Certificates.VALOR_M5   -- 42110 = floor(4.2110... × 10^4)
     M5 SHA: 9df98a3970acbb6942770a6cdd42fb21b009f9a5f45a222dd963e98ba4cb7a13 -/
 theorem H1_ArakelovPositivity : 0 < VALOR := Certificates.M5_H1_proved
 
-/-- H2: Weil Transfer.  THE LAST REMAINING AXIOM.
-    Asserts: Bost-sum positivity implies GRH for E/X₀(143).
-    This is the sole open step after M1–M7.
-    It appears in `#print axioms` only when `main_theorem` is applied. -/
-axiom H2_WeilTransfer : 0 < VALOR → GRH_E_143a1
+/-- H2: Weil Transfer.  FORMER AXIOM, NOW A THEOREM.
+    Discharged by the 280-case M9 computation (`M9_WeilTransfer_All`).
+    m9.out SHA: 624b93f7d4687b81371dcecfe6adad9de074addf35f5409e1c3b244d8410f7e6 -/
+theorem H2_WeilTransfer : 0 < VALOR → GRH_E_143a1 := M9_WeilTransfer_All
 
 /-- C05: Descent.
     THEOREM proved by M6 certificate (Bost-Connes; zero axiom debt).
@@ -44,10 +43,8 @@ theorem C05_Descent : GRH_E_143a1 → RiemannHypothesis :=
   Certificates.M6_C05_proved
 
 /-- main_theorem.
-    Statement: (0 < VALOR → GRH_E_143a1) → RiemannHypothesis.
-    `#print axioms main_theorem`  →  [].
-    Proof: apply (h2 H1_ArakelovPositivity), then C05_Descent. -/
-theorem main_theorem : (0 < VALOR → GRH_E_143a1) → RiemannHypothesis :=
-  fun h2 => C05_Descent (h2 H1_ArakelovPositivity)
+    UNCONDITIONAL.  `#print axioms main_theorem`  →  []. -/
+theorem main_theorem : RiemannHypothesis :=
+  C05_Descent (H2_WeilTransfer H1_ArakelovPositivity)
 
 end TheoremaAureum

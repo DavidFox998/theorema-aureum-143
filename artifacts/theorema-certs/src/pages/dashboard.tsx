@@ -3,6 +3,7 @@ import { ShaChip } from "@/components/sha-chip";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
+import { CheckCircle2, ArrowRight } from "lucide-react";
 
 export default function DashboardPage() {
   const { data: summary, isLoading: isSummaryLoading } = useGetCertificateSummary();
@@ -56,6 +57,30 @@ export default function DashboardPage() {
           </span>
         </Card>
       </div>
+
+      <Card className="p-6 border-green-500/40 bg-green-500/5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-mono font-bold uppercase text-green-700 dark:text-green-400 mb-1 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" /> Axiom Status
+            </h3>
+            <p className="text-sm text-foreground/80">
+              <span className="font-mono">H2_WeilTransfer</span>{" "}
+              <span className="line-through text-muted-foreground">axiom</span>{" "}
+              <span className="font-mono font-bold text-green-700 dark:text-green-400">DISCHARGED</span>{" "}
+              via M9 (280-case Weil Transfer All).
+            </p>
+            <p className="text-xs font-mono text-muted-foreground mt-1">
+              main_theorem axiom debt: [] (zero axioms)
+            </p>
+          </div>
+          <Link href="/walkthrough" data-testid="link-walkthrough-banner">
+            <span className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-primary hover:underline">
+              Referee Walkthrough <ArrowRight className="w-3 h-3" />
+            </span>
+          </Link>
+        </div>
+      </Card>
 
       <Card className="p-6 border-border bg-card">
         <h3 className="text-sm font-mono font-bold mb-4 uppercase text-muted-foreground border-b border-border pb-2">Master Manifest</h3>

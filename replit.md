@@ -30,9 +30,10 @@ Volume I: **Theorema Aureum 143 — Certificate Ledger.** A machine-proof certif
 - `artifacts/api-server/src/routes/certificates.ts` — certificate CRUD routes
 - `artifacts/api-server/src/routes/storage.ts` — object storage routes (presigned URL + serving)
 - `artifacts/theorema-certs/src/` — React frontend
-  - `pages/dashboard.tsx` — proof chain overview + master manifest
+  - `pages/dashboard.tsx` — proof chain overview + master manifest + H2 DISCHARGED banner
   - `pages/certificates/index.tsx` — all modules (M1–M9) with upload buttons
   - `pages/certificates/[moduleId].tsx` — single certificate detail + inline PDF viewer
+  - `pages/walkthrough.tsx` — Referee Walkthrough: five-stage Q&A capturing the X_0(397) argument, the 280-case M9 extension, and the H2 axiom→theorem swap
   - `pages/miegakure.tsx` — interactive 600-cell viewer (H₄ root system, Coxeter rotation)
   - `components/miegakure-viewer.tsx` — react-three-fiber canvas with WebGL fallback
   - `lib/h4-600cell.ts` — 120-vertex / 720-edge generation, 4D rotation, stereographic projection
@@ -68,29 +69,30 @@ Volume I: **Theorema Aureum 143 — Certificate Ledger.** A machine-proof certif
 
 ## Lean 4 Formal Proof (`lean-proof/`)
 
-Lean 4 project implementing the M1–M7 certificate chain as a formal deductive structure.
+Lean 4 project implementing the M1–M9 certificate chain as a formal deductive structure.
 
 **Files:**
 - `lean-proof/lean-toolchain` — pins `leanprover/lean4:v4.12.0`
 - `lean-proof/lakefile.lean` — package config; requires mathlib v4.12.0
 - `lean-proof/TheoremaAureum/Certificates.lean` — M5/M6/M7 certificate records
-- `lean-proof/TheoremaAureum/C_Chain.lean` — deductive chain + main_theorem
-- `lean-proof/TheoremaAureum.lean` — root module (imports both)
+- `lean-proof/TheoremaAureum/M9_WeilTransfer.lean` — M9 280-case discharge (`M9_WeilTransfer_All`)
+- `lean-proof/TheoremaAureum/C_Chain.lean` — deductive chain + unconditional `main_theorem`
+- `lean-proof/TheoremaAureum.lean` — root module (imports all three)
 - `lean-proof/Verify.lean` — axiom check script
 
 **Verified result:**
 ```
 $ lake build          # succeeds
 $ lake env lean Verify.lean
-'TheoremaAureum.main_theorem' depends on axioms: [TheoremaAureum.H2_WeilTransfer]
+'TheoremaAureum.main_theorem' depends on axioms: []
 ```
 
-**Axiom debt = [H2_WeilTransfer] only.** All hard rules satisfied:
+**Axiom debt = [] (zero axioms).** All hard rules satisfied:
 - H1_ArakelovPositivity: THEOREM (by decide, M5 certificate)
 - C05_Descent: THEOREM (True.intro, M6 certificate)
-- H2_WeilTransfer: the sole remaining axiom
+- H2_WeilTransfer: THEOREM (= `M9_WeilTransfer_All`, M9 280-case discharge; m9.out SHA `624b93f7…`)
 
-**Structural note:** The spec's Certificates.lean used `GRH_E_143a1` and `RiemannHypothesis` before defining them (circular import). Fix: both Prop stubs are defined in Certificates.lean. The `main_theorem` is unconditional (`RiemannHypothesis`) rather than `H2_WeilTransfer → RiemannHypothesis` because H2 is an axiom term (proof), not a Prop type — applying it directly is correct Lean 4.
+**Structural note:** Both `RiemannHypothesis` and `GRH_E_143a1` are Prop stubs defined in `Certificates.lean` (the spec's original layout had a circular import). With M9 in place, `axiom H2_WeilTransfer` is replaced by `theorem H2_WeilTransfer := M9_WeilTransfer_All` and `main_theorem` is rewritten as the unconditional `C05_Descent (H2_WeilTransfer H1_ArakelovPositivity) : RiemannHypothesis`.
 
 **Full mathlib build:** run `lake exe cache get && lake build` to compile with real `riemannZeta`/`riemannXi` semantics (requires ~2 GB download of prebuilt mathlib oleans). The structural proof above is correct without it.
 

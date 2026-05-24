@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Database, FileText, Activity, Box } from "lucide-react";
+import { Database, FileText, Activity, Box, ScrollText } from "lucide-react";
 import { useHealthCheck } from "@workspace/api-client-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -41,6 +41,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/miegakure" className={`flex items-center gap-3 px-3 py-2 text-sm font-mono transition-colors ${location === "/miegakure" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`} data-testid="link-miegakure">
             <Box className="w-4 h-4" />
             <span>Miegakure</span>
+          </Link>
+          <Link href="/walkthrough" className={`flex items-center gap-3 px-3 py-2 text-sm font-mono transition-colors ${location === "/walkthrough" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`} data-testid="link-walkthrough">
+            <ScrollText className="w-4 h-4" />
+            <span>Walkthrough</span>
           </Link>
         </nav>
 
