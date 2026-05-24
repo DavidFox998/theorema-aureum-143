@@ -14,12 +14,10 @@
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
     "@workspace/db": "workspace:*",
-    "drizzle-orm": "catalog:",
-    "pdfkit": "^0.18.0"
+    "drizzle-orm": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@types/pdfkit": "^0.17.6",
     "tsx": "catalog:"
   }
 }
