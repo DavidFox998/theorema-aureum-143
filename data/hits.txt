@@ -1,0 +1,9 @@
+437
+1094
+axioms=[] 2026-05-24
+M13_CERT_SHA256=624b93f7d4687b81371dcecf6e6adad9de074addf35f5409e1c3b244d8410f7e6
+--- GENESIS SEAL ---
+probe ts=1779666459502259234 h=1 N=19 re=0.5 im=0.0 L_nonvanish=True RH_ok=True NEEDS_SAGE sha=941917224c1c767b8ce2dec419bc81f1116db28c07981f739ddee1977bb7b0c7
+probe ts=1779666466818738293 h=1 N=19 re=0.5 im=0.0 L_nonvanish=True RH_ok=True NEEDS_SAGE sha=5fdbc2413e68fa7875ea122d950c15371bcfb2e8360194ecf39880cedb905c4a
+probe ts=1779666482872666128 h=1 N=19 re=0.5 im=0.0 L_nonvanish=True RH_ok=True NEEDS_SAGE sha=614e34b70e6887383b82ebde1f097555a5c701dce2c2773f16d268addd7bc1cd
+probe ts=1779666500437328914 h=1 N=19 re=0.5 im=0.0 L_nonvanish=True RH_ok=True NEEDS_SAGE sha=7fc728c1f9fada5e73e217fea9af646628c2c7a7cfb9547ea98b50e9f9dd831e

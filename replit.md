@@ -112,24 +112,45 @@ Set `STRICT_LEAN_CHECK=1` when invoking the script manually to require an actual
 - `README.md` Appendix A records the OpenCV square counts (`437 = 19 × 23`, `1094 = 2 × 547`) from `cube_M0_v1.jpg` / `cube_M0_v2.jpg` as **observations only**. They motivate possible future M17 / M18 work but are not used in any certificate, theorem, or Lean file in v1.8-BC.
 - No `sorry` and no `axiom` is allowed in `lean-proof/`. The CI drift guard (`scripts/check-lean-proof.sh`, strict mode in the `lean-proof` workflow) enforces this on every merge.
 
-## MorningStar-Lab v1.0 sandbox (`morningstar-lab/`)
+## MorningStar-Lab v1.0 — seven-layer 4D research surface
 
-Standalone 4D sandbox implementing the seven-layer spec. **NOT part of the
-v1.8-BC certified spine**: lives outside `lean-proof/`, uses its own minimal
-Lean project (no mathlib), and is never imported by `TheoremaAureum`.
+A standalone CLI surface at the repo root that lets a researcher type
+`probe(h, N, Re(s), Im(s))` in a REPL, records every probe as an
+append-only line in a genesis-sealed ledger, and emits Lean lemmas that
+compile inside the existing `lean-proof/` Lake project with axiom debt `[]`.
 
-- `morningstar-lab/data/hits.txt` — append-only ledger, seed `437\n1094\naxioms=[] 2026-05-24`
-- `morningstar-lab/kernel.py` — `probe(h,N,re_s,im_s)`; placeholder transport, logs SHA-256 audit hash
-- `morningstar-lab/router.py` — N=19→M17 (Mazur), h=2→M18 (Stark), labelled `status: not_yet_proved`
-- `morningstar-lab/lab.py` — Layer 7 REPL/CLI; `--seed`, `-c "probe(1,19,0.5,0)"`
-- `morningstar-lab/lean_bridge.py` — emits `lean/AutoLemmas.lean`; refuses to write `sorry`/`axiom`
-- `morningstar-lab/lean/AutoLemmas.lean` — `theorem hit_437 : True := trivial` (and hit_1094); axiom debt `[]`
-- `morningstar-lab/run.sh` — validator: probe + bridge + `lean AutoLemmas.lean` axiom check
+- `data/hits.txt` — append-only ledger. Lines 1–5 are the immutable Genesis:
+  `437`, `1094`, `axioms=[] 2026-05-24`, `M13_CERT_SHA256=624b93f7…`,
+  `--- GENESIS SEAL ---`. Line 6+ are probe outputs.
+- `data/M13_CERT.txt` — human-readable M13 certificate header.
+- `kernel.py` — Layer 4. `probe(h, N, re_s, im_s)`. Verifies the Genesis
+  seal before every append. Honest-scope stub: `L_nonvanish=True` always,
+  every ledger line tagged `NEEDS_SAGE` (no SageMath installed).
+- `lab.py` — Layer 7. Banner + REPL + `-c "probe(...)"` one-shot.
+- `lean_bridge.py` — Layer 2. Reads only the five Genesis lines, emits
+  `lean-proof/TheoremaAureum/AutoLemmas.lean` (`theorem hit_<n> : True := trivial`),
+  ensures `TheoremaAureum.lean` imports it, then `lake build` + runtime
+  `#print axioms` check that each `hit_<n>` is axiom-free. Refuses to
+  write `sorry`/`axiom `/`admit ` in non-comment code.
+- `scripts/check-genesis-seal.py` — verifies SHA-256 of lines 1–5 against
+  the baked-in seal `88e6f4ff…c63e`. Called by `kernel.py` before any append.
+- `scripts/validate-morningstar.sh` — full harness. Runs probe → bridge
+  → `lake build` → `Verify.lean` + `hit_437`/`hit_1094` axiom check.
+  Prints the v1.0-online line on success. **Not** wired into
+  `scripts/post-merge.sh` or the `lean-proof` validation workflow — the
+  v1.8-BC drift guard keeps running unchanged.
 
-Run: `bash morningstar-lab/run.sh`. On success prints:
-`MorningStar-Lab v1.0 online. 4D stable. W=h Z=N X=Re Y=Im. CERTIFICATE at morningstar-lab/data/M13_CERT.txt`
+Run: `python lab.py -c "probe(1,19,0.5,0)"` for a single probe, or
+`bash scripts/validate-morningstar.sh` for the full chain. On success the
+harness prints `MorningStar-Lab v1.0 online. 4D stable. W=h Z=N X=Re Y=Im.
+CERTIFICATE at /data/M13_CERT.txt`.
 
-**Honest-scope guards:** `hit_437`/`hit_1094` are tautologies (`True := trivial`); their names reference the OpenCV cube counts from README Appendix A but their statements claim nothing about number theory. `kernel.probe` returns `L_nonvanish: None` (unknown, never fabricated) and `RH_ok` is literally `re_s == 0.5`. M17/M18 are placeholder paths.
+**Honest-scope guards:** `hit_437`/`hit_1094` are tautologies
+(`True := trivial`). Their *names* reference the OpenCV cube counts from
+README Appendix A; their *statements* claim nothing about number theory.
+`probe()` never calls SageMath — every ledger line carries `NEEDS_SAGE`
+so the stubbed `L_nonvanish=True` cannot be mistaken for a real
+L-function evaluation.
 
 ## Pointers
 

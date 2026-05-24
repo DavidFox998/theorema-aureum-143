@@ -1,0 +1,5 @@
+{"log":
+ [{"message":
+   ".> LEAN_PATH=././.lake/build/lib LD_LIBRARY_PATH= /home/runner/.elan/toolchains/leanprover--lean4---v4.12.0/bin/lean ././././TheoremaAureum/AutoLemmas.lean -R ./././. -o ././.lake/build/lib/TheoremaAureum/AutoLemmas.olean -i ././.lake/build/lib/TheoremaAureum/AutoLemmas.ilean -c ././.lake/build/ir/TheoremaAureum/AutoLemmas.c --json",
+   "level": "trace"}],
+ "depHash": "3082968985836654261"}

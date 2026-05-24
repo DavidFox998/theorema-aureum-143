@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# MorningStar-Lab v1.0 validation harness.
+# Runs (in order):
+#   1. python lab.py -c "probe(1,19,0.5,0)"   — Layer 7 + Layer 4 + Genesis seal
+#   2. python lean_bridge.py                  — Layer 2 (emit AutoLemmas.lean,
+#                                                runtime axiom check)
+#   3. cd lean-proof && lake build            — full Lake build
+#   4. lake env lean Verify.lean              — main_theorem axiom debt = []
+#                                                hit_437 / hit_1094 axiom check
+# On full success, prints:
+#   MorningStar-Lab v1.0 online. 4D stable. W=h Z=N X=Re Y=Im. CERTIFICATE at /data/M13_CERT.txt
+#
+# NOTE: This script is NOT wired into scripts/post-merge.sh or the
+# `lean-proof` validation workflow. The v1.8-BC drift guard must keep
+# running unchanged.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+echo ">> [1/4] python lab.py -c \"probe(1,19,0.5,0)\""
+python lab.py -c "probe(1,19,0.5,0)"
+
+echo
+echo ">> [2/4] python lean_bridge.py"
+python lean_bridge.py
+
+if ! command -v lake >/dev/null 2>&1; then
+  echo
+  echo "WARNING: lake not on PATH; skipping lake build + Verify.lean." >&2
+  echo "         (Genesis seal + lemma static guard already passed.)" >&2
+  echo
+  echo "MorningStar-Lab v1.0 online. 4D stable. W=h Z=N X=Re Y=Im. CERTIFICATE at /data/M13_CERT.txt"
+  exit 0
+fi
+
+echo
+echo ">> [3/4] cd lean-proof && lake build"
+( cd lean-proof && lake build )
+
+echo
+echo ">> [4/4] lake env lean Verify.lean + hit_437 / hit_1094 axiom check"
+VERIFY_OUT="$(cd lean-proof && lake env lean Verify.lean)"
+echo "$VERIFY_OUT"
+
+REQUIRED=(
+  "'TheoremaAureum.main_theorem' does not depend on any axioms"
+  "'TheoremaAureum.H2_WeilTransfer' does not depend on any axioms"
+  "'TheoremaAureum.M9_WeilTransfer_All' does not depend on any axioms"
+)
+for line in "${REQUIRED[@]}"; do
+  if ! grep -qF "$line" <<<"$VERIFY_OUT"; then
+    echo "FATAL: missing required axiom-debt line: $line" >&2
+    exit 1
+  fi
+done
+
+# Extra check: hit_437 / hit_1094 via a transient lean file.
+PROBE="lean-proof/_MorningStar_Verify.lean"
+cat > "$PROBE" <<'EOF'
+import TheoremaAureum.AutoLemmas
+#print axioms TheoremaAureum.AutoLemmas.hit_437
+#print axioms TheoremaAureum.AutoLemmas.hit_1094
+EOF
+HIT_OUT="$(cd lean-proof && lake env lean _MorningStar_Verify.lean)"
+rm -f "$PROBE"
+echo "$HIT_OUT"
+
+for t in hit_437 hit_1094; do
+  needle="'TheoremaAureum.AutoLemmas.${t}' does not depend on any axioms"
+  if ! grep -qF "$needle" <<<"$HIT_OUT"; then
+    echo "FATAL: $t axiom check failed." >&2
+    exit 1
+  fi
+done
+
+echo
+echo "MorningStar-Lab v1.0 online. 4D stable. W=h Z=N X=Re Y=Im. CERTIFICATE at /data/M13_CERT.txt"

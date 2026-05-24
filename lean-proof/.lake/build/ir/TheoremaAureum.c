@@ -1,6 +1,6 @@
 // Lean compiler output
 // Module: TheoremaAureum
-// Imports: Init TheoremaAureum.Certificates TheoremaAureum.M9_WeilTransfer TheoremaAureum.C_Chain
+// Imports: Init TheoremaAureum.Certificates TheoremaAureum.M9_WeilTransfer TheoremaAureum.C_Chain TheoremaAureum.AutoLemmas
 #include <lean/lean.h>
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wunused-parameter"
@@ -17,6 +17,7 @@ lean_object* initialize_Init(uint8_t builtin, lean_object*);
 lean_object* initialize_TheoremaAureum_Certificates(uint8_t builtin, lean_object*);
 lean_object* initialize_TheoremaAureum_M9__WeilTransfer(uint8_t builtin, lean_object*);
 lean_object* initialize_TheoremaAureum_C__Chain(uint8_t builtin, lean_object*);
+lean_object* initialize_TheoremaAureum_AutoLemmas(uint8_t builtin, lean_object*);
 static bool _G_initialized = false;
 LEAN_EXPORT lean_object* initialize_TheoremaAureum(uint8_t builtin, lean_object* w) {
 lean_object * res;
@@ -32,6 +33,9 @@ res = initialize_TheoremaAureum_M9__WeilTransfer(builtin, lean_io_mk_world());
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 res = initialize_TheoremaAureum_C__Chain(builtin, lean_io_mk_world());
+if (lean_io_result_is_error(res)) return res;
+lean_dec_ref(res);
+res = initialize_TheoremaAureum_AutoLemmas(builtin, lean_io_mk_world());
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 return lean_io_result_mk_ok(lean_box(0));
