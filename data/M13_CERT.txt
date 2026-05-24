@@ -1,19 +1,28 @@
 MorningStar-Lab v1.0 — M13 Certificate
 =======================================
-M13_CERT_SHA256: 624b93f7d4687b81371dcecf6e6adad9de074addf35f5409e1c3b244d8410f7e6
-parent_checkpoint: lean-proof/VERIFY.txt (axiom debt = [])
+M13_CERT_SHA256: d99b0df4b6e3a5817a90e7f8da44b20261d3b670d31309779a776efbf1bcc668
+parent_checkpoint: SHA-256 of lean-proof/VERIFY.txt (the project's
+                   "last checkpoint"; axiom debt = [] for main_theorem)
 date: 2026-05-24
 seed: 437, 1094, axioms=[]
 
 Append-only contract for ../data/hits.txt:
-  - Lines 1-5 are the immutable Genesis (sealed by scripts/check-genesis-seal.py).
-  - Line 6+ are probe outputs; never rewritten, only appended.
-  - kernel.probe refuses to append if the genesis seal hash is altered.
+  - Lines 1-4 are header comments ("# ...").
+  - Lines 5-9 are the five frozen Genesis lines:
+      5: 437
+      6: 1094
+      7: axioms=[] 2026-05-24
+      8: M13_CERT_SHA256=<hash above>
+      9: --- GENESIS SEAL ---
+  - The whole preamble (lines 1-9) is sealed by
+    scripts/check-genesis-seal.py via a baked-in SHA-256.
+  - Line 10+ are probe outputs; never rewritten, only appended.
+  - kernel.probe refuses to append if the Genesis seal hash is altered.
 
 Honest scope:
   - hit_437 / hit_1094 emitted by lean_bridge.py are `True := trivial`.
     Their names reference the OpenCV cube counts from README Appendix A;
     their statements claim nothing about number theory.
-  - probe() returns L_nonvanish as a deterministic stub and tags every
-    ledger line with NEEDS_SAGE so the value cannot be mistaken for a
-    real L-function computation.
+  - probe() returns L_nonvanish as a deterministic stub (True) and tags
+    every ledger line with NEEDS_SAGE so the value cannot be mistaken
+    for a real L-function computation.

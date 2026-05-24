@@ -27,12 +27,9 @@ echo ">> [2/4] python lean_bridge.py"
 python lean_bridge.py
 
 if ! command -v lake >/dev/null 2>&1; then
-  echo
-  echo "WARNING: lake not on PATH; skipping lake build + Verify.lean." >&2
-  echo "         (Genesis seal + lemma static guard already passed.)" >&2
-  echo
-  echo "MorningStar-Lab v1.0 online. 4D stable. W=h Z=N X=Re Y=Im. CERTIFICATE at /data/M13_CERT.txt"
-  exit 0
+  echo "FATAL: lake not on PATH; cannot verify Lean axiom debt." >&2
+  echo "       Install Lean 4 / elan and re-run. v1.0-online line WILL NOT be printed." >&2
+  exit 1
 fi
 
 echo

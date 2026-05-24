@@ -119,9 +119,12 @@ A standalone CLI surface at the repo root that lets a researcher type
 append-only line in a genesis-sealed ledger, and emits Lean lemmas that
 compile inside the existing `lean-proof/` Lake project with axiom debt `[]`.
 
-- `data/hits.txt` — append-only ledger. Lines 1–5 are the immutable Genesis:
-  `437`, `1094`, `axioms=[] 2026-05-24`, `M13_CERT_SHA256=624b93f7…`,
-  `--- GENESIS SEAL ---`. Line 6+ are probe outputs.
+- `data/hits.txt` — append-only ledger. Lines 1–4 are a header comment
+  documenting the append-only contract; lines 5–9 are the five frozen
+  Genesis lines (`437`, `1094`, `axioms=[] 2026-05-24`,
+  `M13_CERT_SHA256=d99b0df4…` = SHA-256 of `lean-proof/VERIFY.txt`,
+  `--- GENESIS SEAL ---`). The whole preamble (lines 1–9) is sealed.
+  Line 10+ are probe outputs; existing lines are never rewritten.
 - `data/M13_CERT.txt` — human-readable M13 certificate header.
 - `kernel.py` — Layer 4. `probe(h, N, re_s, im_s)`. Verifies the Genesis
   seal before every append. Honest-scope stub: `L_nonvanish=True` always,
@@ -132,8 +135,9 @@ compile inside the existing `lean-proof/` Lake project with axiom debt `[]`.
   ensures `TheoremaAureum.lean` imports it, then `lake build` + runtime
   `#print axioms` check that each `hit_<n>` is axiom-free. Refuses to
   write `sorry`/`axiom `/`admit ` in non-comment code.
-- `scripts/check-genesis-seal.py` — verifies SHA-256 of lines 1–5 against
-  the baked-in seal `88e6f4ff…c63e`. Called by `kernel.py` before any append.
+- `scripts/check-genesis-seal.py` — verifies SHA-256 of the immutable
+  preamble (everything up through `--- GENESIS SEAL ---`) against the
+  baked-in seal `eecbcd9a…875f`. Called by `kernel.py` before any append.
 - `scripts/validate-morningstar.sh` — full harness. Runs probe → bridge
   → `lake build` → `Verify.lean` + `hit_437`/`hit_1094` axiom check.
   Prints the v1.0-online line on success. **Not** wired into
