@@ -48,3 +48,9 @@ id = "vtIjlJuGhSbg_eR7Fa3Nz"
 uri = "file://paper/modules/m07-manifest.pdf"
 type = "pdf"
 title = "Module 07 — Master Manifest [Manifest]"
+
+[[outputs]]
+id = "v6QL_UW0yFX6bgzQbE7pU"
+uri = "file://docs/M10_CM_Descent.pdf"
+type = "pdf"
+title = "M10_CM_Descent.pdf — BSD + Hilbert 12 for the 12 CM levels"
