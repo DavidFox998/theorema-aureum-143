@@ -19,14 +19,20 @@ Failure modes (overflow, mpmath exception, timeout-by-exception) also
 fall back to NEEDS_SAGE with a reason field; the ledger never silently
 lies about a backend result.
 
-Append-only invariant: before any write, this module shells out to
-scripts/check-genesis-seal.py and refuses to proceed if the Genesis
-preamble of data/hits.txt has been altered.
+Append-only invariant: before any write, this module re-verifies the
+Genesis preamble of data/hits.txt against the baked-in seal and refuses
+to proceed if a single byte has changed. The verification routine is
+imported in-process from scripts/check-genesis-seal.py so that the seal
+hash has exactly ONE source of truth, while avoiding a ~400ms subprocess
+fork on every append. The standalone script and the CLI tamper-evidence
+guard (scripts/check-genesis-seal.py invoked from tests/post-merge) are
+unchanged.
 """
 
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import re as _re
@@ -91,17 +97,46 @@ def _rh_ok(re_s: float, tag: str, L_abs: str | None) -> bool:
         return False
 
 
-def _verify_seal() -> None:
-    """Run check-genesis-seal.py; raise if it fails."""
-    result = subprocess.run(
-        [sys.executable, str(SEAL_CHECK)],
-        capture_output=True,
-        text=True,
+def _load_seal_module():
+    """Load scripts/check-genesis-seal.py as a module (the hyphen in the
+    filename prevents a plain `import`). Exposes the SAME compute_seal()
+    and EXPECTED_SEAL constant that the standalone CLI uses, so there is
+    exactly one source of truth for the baked-in hash."""
+    spec = importlib.util.spec_from_file_location(
+        "_morningstar_seal_check", str(SEAL_CHECK)
     )
-    if result.returncode != 0:
+    if spec is None or spec.loader is None:
         raise RuntimeError(
-            f"Genesis seal verification failed (exit {result.returncode}):\n"
-            f"{result.stderr.strip() or result.stdout.strip()}"
+            f"Genesis seal check module could not be loaded from {SEAL_CHECK}"
+        )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_SEAL_MOD = _load_seal_module()
+
+
+def _verify_seal() -> None:
+    """Re-verify data/hits.txt's Genesis preamble against the baked-in
+    seal. In-process (no subprocess fork) for speed; the standalone
+    scripts/check-genesis-seal.py CLI still works and is used by the
+    post-merge guard and the morningstar-tamper test suite."""
+    try:
+        got = _SEAL_MOD.compute_seal()
+    except SystemExit as e:
+        # compute_seal raises SystemExit when hits.txt is missing or the
+        # marker is gone — treat as a hard tamper signal, same as the CLI
+        # exiting non-zero.
+        raise RuntimeError(
+            f"Genesis seal verification failed (preamble unreadable): {e}"
+        ) from e
+    expected = _SEAL_MOD.EXPECTED_SEAL
+    if got != expected:
+        raise RuntimeError(
+            "Genesis seal verification failed:\n"
+            f"  expected: {expected}\n"
+            f"  got:      {got}"
         )
 
 
