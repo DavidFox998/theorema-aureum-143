@@ -1,4 +1,7 @@
-# Entangled Technologies — The Morning Star Project
+# Morning Star Project · Theorema Aureum 143 (Volume I)
+
+Publisher: **Morning Star Project (independent research)**
+License: **All rights reserved (license pending review)**
 
 Volume I: **Theorema Aureum 143 — Certificate Ledger**, plus the
 MorningStar-Lab CLI surface for probing L-functions against a
@@ -10,6 +13,42 @@ For the version history and full design notes of v1.0 → v1.9 Stage 2A-Prime
 `docs/REPRODUCE.md`. For the full architecture write-up see
 `docs/MorningStar_Architecture.pdf`.
 
+## Single source of truth — before you edit anything
+
+`scripts/print-direction.sh` and `data/THEOREMA_AUREUM_143.manifest.txt`
+are the canonical "who/what/where" surface. They print the project
+name, publisher, license, sealed-ledger path, Genesis seal, and
+public-alias symlink. If anything in this README ever drifts from
+those, the script and the manifest win — fix this file, not them.
+
+**Rule: additive only — never edit sealed files.** That means
+`data/hits.txt` (preamble lines 1–9 are Genesis-sealed),
+`data/THEOREMA_AUREUM_143.manifest.txt`, `scripts/print-direction.sh`,
+and the Lean spine in `lean-proof/` are not surfaces for casual edits.
+Append new probes through `kernel.probe()` / the Three-Guns CLI; do
+not hand-edit the ledger.
+
+## Scope — five towers under one seal
+
+This repo is NOT RH-only. It certifies five towers under one DAG, one
+Genesis seal, and Lean axiom debt = []:
+
+- **RH** — Riemann Hypothesis tower. Load-bearing token: β = 2.0,
+  `main_theorem` axioms = [].
+- **Yang-Mills** — mass-gap tower. Load-bearing token:
+  C(S₄) = 11.4221486889 > 2√32.
+- **Navier-Stokes** — global regularity tower. Load-bearing token:
+  Arakelov descent from X_0(397).
+- **280-curve cohort** — M9 Weil-transfer discharge. Load-bearing
+  token: M9.OUT SHA + VALOR_min = 1084.
+- **Bost-Connes Core** — BC-CM tower. Load-bearing token:
+  C₀ = 320 and S_14 = {1, 11, 19, 29}.
+
+All five share the same Genesis-sealed ledger (`data/hits.txt`),
+the same Lean spine (`TheoremaAureum.main_theorem`, axioms = []),
+and the same drift guard (`scripts/post-merge.sh` +
+`lean-proof` CI workflow with `STRICT_LEAN_CHECK=1`).
+
 ## Run & operate
 
 - `pnpm --filter @workspace/api-server run dev` — API server
@@ -20,6 +59,7 @@ For the version history and full design notes of v1.0 → v1.9 Stage 2A-Prime
 - `python lab.py` — open the MorningStar-Lab REPL
 - `python lab.py -c "zeta_sniper(1)"` — one-shot probe
 - `bash scripts/validate-morningstar.sh` — full kernel→bridge→lake harness
+- `bash scripts/print-direction.sh` — print the canonical "you are here" banner
 
 ## Environment
 
@@ -53,13 +93,16 @@ the box.
 
 ## Where things live
 
+- `scripts/print-direction.sh` — single source of truth for project name, publisher, license, paths
+- `data/THEOREMA_AUREUM_143.manifest.txt` — public manifest (unsealed, regeneratable) that mirrors the above
+- `data/hits.txt` — **canonical** Genesis-sealed append-only probe ledger (preamble lines 1–9 sealed against SHA `eecbcd9a…875f`)
+- `data/theorema-aureum-143-hits.txt` — public symlink alias for `data/hits.txt` (byte-identical; do not treat as a separate file)
+- `data/CASUALTY_LOG.md`, `data/M13_CERT.txt` — incident log + M13 certificate header
 - `lib/api-spec/openapi.yaml` — API contract (source of truth)
 - `lib/db/src/schema/certificates.ts` — Drizzle schema
 - `artifacts/api-server/src/routes/{certificates,storage,lean}.ts` — routes
 - `artifacts/theorema-certs/src/` — React frontend (dashboard, certificate list/detail, walkthrough, Miegakure 600-cell viewer)
 - `kernel.py`, `lab.py`, `lean_bridge.py` — MorningStar-Lab CLI surface
-- `data/hits.txt` — Genesis-sealed append-only probe ledger
-- `data/CASUALTY_LOG.md`, `data/M13_CERT.txt` — incident log + M13 certificate header
 - `lean-proof/` — Lean 4 project (axiom debt = [], drift-guarded)
 - `scripts/check-genesis-seal.py`, `scripts/check-lean-proof.sh`, `scripts/validate-morningstar.sh`, `scripts/post-merge.sh`
 - `tests/test_kernel.py`, `tests/test_morningstar.py`
@@ -92,6 +135,7 @@ the box.
 - SHA-256 hashes in monospace, truncated with copy-on-click
 - Audit corrections documented in the per-module notes field
 - Public-facing surface stays in the applied-science frame; scripture / personal-meaning notes are not in the repo
+- Publisher line and license line are **locked** to the `scripts/print-direction.sh` wording — "Morning Star Project (independent research)" and "All rights reserved (license pending review)". Do not substitute "Entangled Technologies LLC" or "CC0" (or any other license) anywhere in the repo or UI.
 
 ## Gotchas
 
