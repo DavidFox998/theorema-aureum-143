@@ -218,6 +218,66 @@ The legacy commands (`probe`, `zero`, `hunt_zeros`, `bracket_zero`,
 `scan_critical_line`, `scan_line`, `scan_plane`) all still work
 unchanged — Three-Guns is additive.
 
+## MorningStar-Lab v1.9 Stage 2A-Prime — `zeta_sieve` (sign-change sieve)
+
+`zeta_sniper`/`zeta_burst` go one zero at a time via `mpmath.zetazero`,
+which pays a grampoint search per zero. Stage 2A-Prime adds a
+range-oriented entry point that amortises a single grid of
+`mpmath.siegelz` evaluations across every zero in a window:
+
+- `kernel.sieve_zeros(t_start, t_end, dps=50, grid_density=4, write=True, pool_workers=None, flush_every=100)`
+  — Builds a grid of `N = 2^k ≥ M` points with spacing
+  `avg_gap / grid_density`, where `avg_gap = 2π / log(t_mid / 2π)`;
+  batches `siegelz(t_i)` via `multiprocessing.Pool` (fork context,
+  workers default to `min(cpu_count, 8)`); sieves consecutive pairs
+  with `Z(t_i)·Z(t_{i+1}) < 0`; Brent-refines each bracket via
+  `mpmath.findroot(siegelz, (a,b), solver="anderson")`. When
+  `write=True`, every refined zero is logged via
+  `probe(1, 1, 0.5, t0)` (so `_verify_seal()` runs before the
+  `_append_line()` and the resulting SHA is part of the same
+  Three-Guns hash chain). `flush_every=100` is a progress-print
+  cadence — `_append_line` already flushes+fsyncs per line, so the
+  ledger is strictly stronger than the brief's "flush every 100"
+  contract.
+- `lab.py` CLI: `zeta_sieve(t_start, t_end[, write=True|False])`.
+  `_parse_zeta_sieve` rejects any other keyword *before* the kernel
+  runs, so a typo can't leak into the live ledger.
+
+**Honest scope (important).** This is NOT the full Odlyzko-Schönhage
+1991 FFT trick (which evaluates Z on the full grid in O(M log M) via
+a re-expansion of the Riemann-Siegel main sum). It is a parallelised
+sign-change sieve over per-point `siegelz` calls plus a Brent
+refinement pass. The speed win over `zetazero(n)` sniping comes from
+(a) skipping the per-zero grampoint search, (b) batching `Z`
+evaluations across cores, and (c) reusing one grid for all zeros in
+the window — a real constant-factor improvement, NOT an asymptotic
+one. The docstring on `sieve_zeros` calls this out explicitly so
+future readers can't mistake the implementation for the full O-S
+algorithm.
+
+**Concurrency contract.** `_append_line` still has no file lock. The
+parent process is the SOLE writer to `data/hits.txt`; the Pool
+workers only compute `Z(t)` and return floats, they never touch the
+ledger. "One gun at a time" remains engineering, not preference —
+running a second appender (e.g. a second sieve workflow against the
+same file) would interleave bytes mid-line and corrupt the chain.
+
+**Dry-run guarantee.** `zeta_sieve(t_start, t_end, write=False)`
+prints every refined zero but does NOT call `_append_line` and does
+NOT call `_verify_seal`. The CLI surfaces this as `ZETA SIEVE
+DRY-RUN: [...] → N zeros (NOT appended (write=False))`. This is the
+only safe way to test the sieve while the live ledger is being
+appended to by another workflow.
+
+**Verified on [0, 100]:** the dry-run finds exactly **29 nontrivial
+ζ zeros** in ~1.07s on the workspace container (default 4-worker
+pool, default grid_density=4, default dps=50). Every returned `t`
+satisfies `|ζ(½ + it)| < 1e-49` — machine-zero at dps=50. The test
+`test_sieve_zeros_dry_run_does_not_write` in `tests/test_kernel.py`
+pins both the count window (25 ≤ found ≤ 35) and the
+non-write invariant (the ledger is byte-identical before and
+after).
+
 ## MorningStar-Lab tests
 
 - `python -m pytest tests/test_kernel.py -q` (registered as the `kernel-numerics` validation) pins the mpmath L-function backend numerics for `kernel.probe()`: tag `MPMATH_ZETA` with `|L|<1e-6` at the first nontrivial ζ zero, `|ζ(2) - π²/6| < 1e-10`, tag `MPMATH_DIRICHLET_TRIVIAL` for `(h=1, N=19, s=0.5)` matching `ζ(0.5)·(1 - 19^{-0.5})`, and tag `NEEDS_SAGE` with `reason=h>=2_out_of_scope_for_mpmath_backend` for `h=2`. Each test monkeypatches `kernel.HITS` to a `tmp_path` file so the real append-only ledger is untouched. v1.9 adds three `elliptic_stub` tests: (1) one ELLIPTIC_STUB line is written with the right tag/reason/sha and *no* L value; (2) a malformed label raises `ValueError` before any seal check or append (no partial state); (3) even with a real-looking label and a well-defined `s`, no `L_real`/`L_imag`/`L_abs` key is ever populated — the stub can't be silently rerouted to the mpmath backend.

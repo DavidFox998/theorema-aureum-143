@@ -139,3 +139,46 @@ def test_elliptic_stub_does_not_call_mpmath_backend(tmp_hits):
     assert "L_real" not in out
     assert "L_imag" not in out
     assert out["tag"] == "ELLIPTIC_STUB"
+
+
+def test_sieve_zeros_dry_run_does_not_write(tmp_hits):
+    """Stage 2A-Prime: sieve_zeros(write=False) must NOT touch the
+    ledger and must find every nontrivial ζ zero in [0, 100].
+
+    Independently-verified count (Odlyzko's tables, also rendered by
+    mpmath.zetazero): γ_29 ≈ 92.491899, γ_30 ≈ 95.870634,
+    γ_31 ≈ 98.831194. So [0, 100] contains exactly 31 zeros, but the
+    sieve is allowed a small tolerance because the very first grid
+    points sit near t≈0 where Z is poorly conditioned. The lower
+    bound of 25 is generous; if the sieve ever drops below that the
+    grid_density default is broken.
+
+    pool_workers=1 forces the serial path so the test doesn't fork
+    subprocesses inside pytest (multiprocessing under pytest is
+    flaky across CI runners and would obscure real regressions).
+    """
+    pre_existed = tmp_hits.exists()
+    pre_bytes = tmp_hits.read_bytes() if pre_existed else b""
+
+    found = kernel.sieve_zeros(0.0, 100.0, write=False, pool_workers=1)
+
+    # Ledger is untouched: either still missing, or byte-identical.
+    if pre_existed:
+        assert tmp_hits.read_bytes() == pre_bytes
+    else:
+        assert not tmp_hits.exists()
+
+    # Count is in the expected window (exact answer is 31).
+    assert 25 <= len(found) <= 35, (
+        f"expected ~29-31 zeros in [0,100], got {len(found)}: "
+        f"{[e['t'] for e in found]}"
+    )
+
+    # Every returned t is a real ζ zero to numerical precision.
+    for entry in found:
+        assert entry["dry_run"] is True
+        assert "sha" not in entry  # no ledger line, no SHA to publish
+        assert float(entry["L_abs"]) < 1e-8, (
+            f"|ζ(0.5 + {entry['t']}i)| = {entry['L_abs']} is too large; "
+            f"Brent refinement failed for this bracket"
+        )

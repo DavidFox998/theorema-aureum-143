@@ -7,6 +7,11 @@ the command line, not inferred from `(h, N)`:
     zeta_sniper(n)          alias of kernel.zero(n)
     zeta_burst(n_start,n_end)   alias of kernel.hunt_zeros
     bracket_riemann_zero(n,eps) alias of kernel.bracket_zero
+    zeta_sieve(t_start,t_end[,write=True])  Stage 2A-Prime:
+      sign-change sieve via mpmath.siegelz + multiprocessing.Pool.
+      write=False prints zeros but does NOT touch the ledger
+      (dry-run path used to validate the sieve before firing it
+      against the live append-only file).
 
   Gun 2 — Dirichlet radar (principal χ₀ via mpmath Euler-factor strip)
     dirichlet_probe(N,re,im[,char])
@@ -131,6 +136,65 @@ def _run_zeta_burst(n_start: int, n_end: int) -> list[dict]:
     return kernel.hunt_zeros(int(n_start), int(n_end))
 
 
+def _parse_zeta_sieve(expr: str) -> tuple[float, float, bool]:
+    """Parse `zeta_sieve(t_start, t_end[, write=False])`.
+
+    Accepts: positional t_start and t_end (required), optional
+    `write=True|False` keyword as the third token. Any other token or
+    keyword raises ValueError BEFORE the kernel is called, so a typo
+    can't leak into the live ledger.
+    """
+    parts = _split_args(expr.strip()[len("zeta_sieve") :])
+    if not (2 <= len(parts) <= 3):
+        raise ValueError(
+            f"zeta_sieve needs 2 or 3 args (t_start t_end [write=BOOL]); got {len(parts)}"
+        )
+    t_start = float(parts[0])
+    t_end = float(parts[1])
+    write = True
+    if len(parts) == 3:
+        token = parts[2]
+        if "=" not in token:
+            raise ValueError(
+                f"zeta_sieve third arg must be `write=True` or `write=False`; got {token!r}"
+            )
+        key, val = token.split("=", 1)
+        if key.strip() != "write":
+            raise ValueError(
+                f"zeta_sieve only accepts the `write` keyword; got {key!r}"
+            )
+        v = val.strip().lower()
+        if v in ("true", "1", "yes"):
+            write = True
+        elif v in ("false", "0", "no"):
+            write = False
+        else:
+            raise ValueError(
+                f"zeta_sieve write= must be True/False; got {val!r}"
+            )
+    return t_start, t_end, write
+
+
+def _run_zeta_sieve(t_start: float, t_end: float, write: bool) -> list[dict]:
+    """Stage 2A-Prime: sign-change sieve via kernel.sieve_zeros.
+
+    write=False is the dry-run path: zeros are printed but no ledger
+    line is appended. write=True is the live path: each refined zero
+    goes through probe(1, 1, 0.5, t0), which verifies the Genesis seal
+    THEN appends one line per zero, per the same contract as
+    zeta_burst.
+    """
+    found = kernel.sieve_zeros(
+        float(t_start), float(t_end), write=bool(write)
+    )
+    mode = "LIVE" if write else "DRY-RUN"
+    print(
+        f"ZETA SIEVE {mode}: [{t_start}, {t_end}] → {len(found)} zeros "
+        f"({'appended to ledger' if write else 'NOT appended (write=False)'})"
+    )
+    return found
+
+
 def _run_bracket_riemann_zero(n: int, eps: float) -> dict:
     """Gun 1 (proof of work): sweep |ζ| dipping at the n-th zero."""
     out = kernel.bracket_zero(int(n), float(eps))
@@ -223,6 +287,11 @@ def run_one(expr: str) -> int:
         out = _run_zeta_sniper(int(n))
         print(_format_result(out))
         return 0
+    if s.startswith("zeta_sieve"):
+        t_start, t_end, write = _parse_zeta_sieve(s)
+        hits = _run_zeta_sieve(t_start, t_end, write)
+        print(json.dumps({"count": len(hits), "write": write}, indent=2))
+        return 0
     if s.startswith("zeta_burst"):
         n_start, n_end = _parse_args(s, "zeta_burst", 2)
         hits = _run_zeta_burst(int(n_start), int(n_end))
@@ -289,9 +358,10 @@ def main() -> int:
         "-c",
         "--command",
         help=(
-            "one-shot command (zeta_sniper / zeta_burst / bracket_riemann_zero / "
-            "dirichlet_probe / elliptic_probe / probe / zero / hunt_zeros / "
-            "bracket_zero / scan_critical_line / scan_line / scan_plane)"
+            "one-shot command (zeta_sniper / zeta_burst / zeta_sieve / "
+            "bracket_riemann_zero / dirichlet_probe / elliptic_probe / "
+            "probe / zero / hunt_zeros / bracket_zero / "
+            "scan_critical_line / scan_line / scan_plane)"
         ),
     )
     args = ap.parse_args()

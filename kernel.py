@@ -34,6 +34,8 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import math
+import multiprocessing
 import os
 import re as _re
 import subprocess
@@ -340,6 +342,193 @@ def hunt_zeros(n_start: int = 1, n_end: int = 10) -> list[dict[str, Any]]:
             f"RH_ok={r['RH_ok']} sha={r['sha'][:16]}"
         )
     return hits
+
+
+def _siegelz_chunk(args: tuple[list[float], int]) -> list[float]:
+    """Worker: evaluate Riemann-Siegel Z(t) at each t in chunk at given dps.
+
+    Module-level so it pickles cleanly for multiprocessing.Pool. The
+    parent process owns hits.txt; workers only compute Z(t) and return
+    floats — they never touch the ledger. The seal module was already
+    loaded at import time so a fork carries it forward; no subprocess
+    seal check happens inside a worker.
+    """
+    ts, dps = args
+    out: list[float] = []
+    with mpmath.workdps(int(dps)):
+        for t in ts:
+            out.append(float(mpmath.siegelz(mpmath.mpf(t))))
+    return out
+
+
+def sieve_zeros(
+    t_start: float,
+    t_end: float,
+    dps: int = 50,
+    grid_density: int = 4,
+    write: bool = True,
+    pool_workers: int | None = None,
+    flush_every: int = 100,
+) -> list[dict[str, Any]]:
+    """Stage 2A-Prime — sign-change sieve for ζ zeros on [t_start, t_end].
+
+    Pipeline (Odlyzko-Schönhage-shaped, but honest scope: see below):
+      1. Build a grid of M ≈ (t_end - t_start) / (avg_gap / grid_density)
+         points in [t_start, t_end], padded to the next power of two for
+         cosmetic symmetry with the spec sketch.
+      2. Batch-evaluate Z(t) on the grid via multiprocessing.Pool.
+      3. Sieve for sign changes: any consecutive pair (t_i, t_{i+1}) with
+         Z(t_i) · Z(t_{i+1}) < 0 brackets at least one zero of Z (and
+         hence at least one ζ zero on the critical line).
+      4. Brent-refine each bracket via mpmath.findroot to ~20 digits.
+      5. If write=True, log each refined zero via probe(1, 1, 0.5, t0),
+         which calls _verify_seal() THEN _append_line() (which itself
+         flushes + fsyncs per line — already strictly stronger than the
+         "flush every flush_every lines" contract from the brief; the
+         counter is used to emit a progress line every flush_every zeros
+         so an operator can watch the sieve advance).
+         If write=False, NOTHING is appended; we return a results list
+         with t, |L|, and a dry_run=True marker, but no SHA (no ledger
+         line was made, so there is no SHA to publish).
+
+    Honest scope: this is NOT the full Odlyzko-Schönhage FFT trick
+    (which computes Z on the full grid in O(M log M) via the
+    Riemann-Siegel main sum re-expansion). It is a parallelized
+    sign-change sieve over per-point siegelz evaluations, plus a
+    refinement pass. The speed win over zetazero(n) sniping comes from
+    (a) skipping the per-zero grampoint search, (b) batching the Z
+    evaluations across cores, and (c) reusing one grid for all zeros in
+    a window. The constant factor is real; the asymptotic improvement
+    is not.
+
+    Concurrency contract: the parent is the SOLE writer to hits.txt.
+    _append_line still has no file lock, so a second concurrent
+    appender (a second workflow, a manual probe, etc.) would interleave
+    bytes mid-line and corrupt the ledger. "One gun at a time" is
+    engineering. The multiprocessing.Pool workers only compute Z and
+    return floats; they never call _append_line.
+    """
+    t_a = float(t_start)
+    t_b = float(t_end)
+    if t_b <= t_a:
+        raise ValueError(
+            f"sieve_zeros: require t_end > t_start; got [{t_a}, {t_b}]"
+        )
+    if t_a < 0:
+        raise ValueError("sieve_zeros: t_start must be >= 0")
+    if int(dps) < 15:
+        raise ValueError("sieve_zeros: dps must be >= 15 for honest |L|")
+    if int(grid_density) < 2:
+        raise ValueError("sieve_zeros: grid_density must be >= 2")
+
+    # Average zero spacing at the midpoint of the interval. The classical
+    # density formula is gap ≈ 2π / log(t/(2π)); guard against the
+    # log<=0 region at very small t by lifting t_mid to e·2π.
+    t_mid = max((t_a + t_b) / 2.0, math.e * 2.0 * math.pi)
+    avg_gap = 2.0 * math.pi / math.log(t_mid / (2.0 * math.pi))
+    spacing = avg_gap / float(grid_density)
+    M = int(math.ceil((t_b - t_a) / spacing)) + 1
+    # Pad to next power of two (cosmetic; the FFT-free path doesn't need
+    # this but the spec sketch asked for N = 1 << k).
+    N_pad = 1 << max(M - 1, 1).bit_length()
+    if N_pad < 2:
+        N_pad = 2
+    actual_spacing = (t_b - t_a) / (N_pad - 1)
+    t_grid = [t_a + i * actual_spacing for i in range(N_pad)]
+
+    workers = max(1, int(pool_workers) if pool_workers else min(os.cpu_count() or 1, 8))
+    chunk_size = max(1, len(t_grid) // workers)
+    chunks = [
+        (t_grid[i : i + chunk_size], int(dps))
+        for i in range(0, len(t_grid), chunk_size)
+    ]
+
+    if workers > 1 and len(t_grid) >= 64:
+        ctx = multiprocessing.get_context("fork")
+        with ctx.Pool(processes=workers) as pool:
+            results = pool.map(_siegelz_chunk, chunks)
+        z_vals: list[float] = [v for r in results for v in r]
+    else:
+        z_vals = [v for chunk in chunks for v in _siegelz_chunk(chunk)]
+
+    # Sieve for sign changes. Exact zeros (Z(t_i) == 0.0) are vanishingly
+    # rare on a generic grid, but we handle them as a degenerate bracket
+    # of length zero so the refinement loop doesn't divide-by-zero.
+    brackets: list[tuple[float, float]] = []
+    for i in range(len(z_vals) - 1):
+        a_val, b_val = z_vals[i], z_vals[i + 1]
+        if a_val == 0.0:
+            brackets.append((t_grid[i], t_grid[i]))
+        elif a_val * b_val < 0.0:
+            brackets.append((t_grid[i], t_grid[i + 1]))
+
+    found: list[dict[str, Any]] = []
+    seen_since_flush = 0
+    for a, b in brackets:
+        with mpmath.workdps(int(dps)):
+            if a == b:
+                t0 = mpmath.mpf(a)
+            else:
+                # The brief said "Brent". mpmath has no true Brent
+                # solver — its 1-D catalog is bisect / illinois /
+                # pegasus / anderson / ridder / secant / muller.
+                # We use `anderson` (mpmath defines it as a subclass
+                # of `Pegasus`, the Illinois-family bracket-preserving
+                # solver: superlinear, always keeps the root inside
+                # the bracket by replacing the endpoint whose function
+                # value has the same sign as the new midpoint). It's
+                # the Brent-spirit choice and matches the brief's
+                # bracket-preservation contract.
+                #
+                # We tried `ridder` first (formally closer to Brent),
+                # but on `siegelz` at dps=50 it fails on a real
+                # bracket (γ≈48) with "Could not find root within
+                # given tolerance" — siegelz uses the Riemann-Siegel
+                # asymptotic, whose own noise floor exceeds dps=50
+                # machine epsilon, and ridder demands the latter.
+                # Anderson tolerates that gap. Bisect would also
+                # work but is exponentially slower in the bracket
+                # width.
+                t0 = mpmath.findroot(
+                    mpmath.siegelz,
+                    (mpmath.mpf(a), mpmath.mpf(b)),
+                    solver="anderson",
+                )
+            t0_f = float(t0)
+            t0_str = mpmath.nstr(t0, 20)
+            zeta_val = mpmath.zeta(mpmath.mpc("0.5", t0))
+            L_abs_str = mpmath.nstr(abs(zeta_val), 20)
+
+        entry: dict[str, Any] = {
+            "t": t0_str,
+            "L_abs": L_abs_str,
+            "RH_ok": True,
+        }
+        if write:
+            # probe() runs _verify_seal() and then _append_line(), which
+            # is already per-line flush + fsync. We re-purpose the
+            # flush_every counter as a progress-print cadence so a long
+            # sieve is observable from the workflow tail.
+            r = probe(1, 1, 0.5, t0_f)
+            entry["sha"] = r["sha"]
+            entry["RH_ok"] = r["RH_ok"]
+            entry["dry_run"] = False
+            seen_since_flush += 1
+            if seen_since_flush >= int(flush_every):
+                seen_since_flush = 0
+                print(
+                    f"SIEVE PROGRESS: {len(found) + 1} zeros refined "
+                    f"(latest t={t0_str}, |L|={L_abs_str})",
+                    flush=True,
+                )
+        else:
+            entry["dry_run"] = True
+            print(
+                f"SIEVE DRY {len(found) + 1}: t={t0_str} |L|={L_abs_str}",
+                flush=True,
+            )
+        found.append(entry)
+    return found
 
 
 def elliptic_stub(label: str, re_s: float, im_s: float) -> dict[str, Any]:
