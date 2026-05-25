@@ -28,26 +28,30 @@ and the Lean spine in `lean-proof/` are not surfaces for casual edits.
 Append new probes through `kernel.probe()` / the Three-Guns CLI; do
 not hand-edit the ledger.
 
-## Scope — five towers under one seal
+## Volume I — what this repo actually ships
 
-This repo is NOT RH-only. It certifies five towers under one DAG, one
-Genesis seal, and Lean axiom debt = []:
+**Theorema Aureum 143: A Formal Spine and Computational Ledger for RH.**
 
-- **RH** — Riemann Hypothesis tower. Load-bearing token: β = 2.0,
-  `main_theorem` axioms = [].
-- **Yang-Mills** — mass-gap tower. Load-bearing token:
-  C(S₄) = 11.4221486889 > 2√32.
-- **Navier-Stokes** — global regularity tower. Load-bearing token:
-  Arakelov descent from X_0(397).
-- **280-curve cohort** — M9 Weil-transfer discharge. Load-bearing
-  token: M9.OUT SHA + VALOR_min = 1084.
-- **Bost-Connes Core** — BC-CM tower. Load-bearing token:
-  C₀ = 320 and S_14 = {1, 11, 19, 29}.
+Three real, defensible deliverables:
 
-All five share the same Genesis-sealed ledger (`data/hits.txt`),
-the same Lean spine (`TheoremaAureum.main_theorem`, axioms = []),
-and the same drift guard (`scripts/post-merge.sh` +
-`lean-proof` CI workflow with `STRICT_LEAN_CHECK=1`).
+1. **The Ledger** — `data/hits.txt`, a 20,964-line append-only DAG of
+   L-function probes with a Genesis-sealed preamble (SHA
+   `eecbcd9a…875f`). Tamper-evident, reproducible from a fresh
+   checkout (`docs/REPRODUCE.md`). Publishable computational data.
+2. **The Spine** — Lean 4 deductive chain
+   `H1_ArakelovPositivity → H2_WeilTransfer → main_theorem` in
+   `lean-proof/`, with `#print axioms TheoremaAureum.main_theorem`
+   returning `[]`. That is a real formal theorem: *given* the
+   Prop-level stubs declared in `Certificates.lean`, the spine closes
+   without new axioms. It is **not** a formal proof of RH itself.
+3. **The Infrastructure** — append-only ledger discipline, per-line
+   SHA chain, Genesis-seal verifier, drift guard (`post-merge.sh` +
+   `lean-proof` CI), and a single-source-of-truth banner
+   (`scripts/print-direction.sh`). Real software, real reproducibility.
+
+For the longer-term research direction — RH, Yang-Mills, Navier-Stokes,
+the 280-curve cohort, Bost-Connes — see `docs/ROADMAP.md`. Those are
+**Open**; this repo does not claim to have proved them.
 
 ## Run & operate
 
@@ -106,7 +110,7 @@ the box.
 - `lean-proof/` — Lean 4 project (axiom debt = [], drift-guarded)
 - `scripts/check-genesis-seal.py`, `scripts/check-lean-proof.sh`, `scripts/validate-morningstar.sh`, `scripts/post-merge.sh`
 - `tests/test_kernel.py`, `tests/test_morningstar.py`
-- `docs/MorningStar_Architecture.{tex,pdf}`, `docs/SiteMap.md`, `docs/ProofIndex.md`, `docs/CHANGELOG.md`, `docs/REPRODUCE.md`
+- `docs/MorningStar_Architecture.{tex,pdf}`, `docs/SiteMap.md`, `docs/ProofIndex.md`, `docs/CHANGELOG.md`, `docs/REPRODUCE.md`, `docs/ROADMAP.md`
 
 ## Architecture (one-liners)
 
@@ -136,6 +140,7 @@ the box.
 - Audit corrections documented in the per-module notes field
 - Public-facing surface stays in the applied-science frame; scripture / personal-meaning notes are not in the repo
 - Publisher line and license line are **locked** to the `scripts/print-direction.sh` wording — "Morning Star Project (independent research)" and "All rights reserved (license pending review)". Do not substitute "Entangled Technologies LLC" or "CC0" (or any other license) anywhere in the repo or UI.
+- **Honest-scope wording is locked.** Do not describe any of the five roadmap towers (RH, Yang-Mills, Navier-Stokes, 280-curve cohort, Bost-Connes) as "proved" / "certified" / "discharged" in this repo *unless* the Lean spine actually closes that named theorem with axioms = []. Computational evidence, geometric invariants, and conjectural scaffolding are NOT proofs. Tower status lives in `docs/ROADMAP.md`; do not promote a tower out of `Status: Open` from `replit.md` or any UI surface.
 
 ## Gotchas
 
