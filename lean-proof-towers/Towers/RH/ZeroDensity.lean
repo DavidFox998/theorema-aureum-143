@@ -17,7 +17,11 @@
                                   Conditional on a finiteness hypothesis
                                   (`(zerosBox σ₁ T).Finite`) which is exactly
                                   the Riemann–von Mangoldt-adjacent finiteness
-                                  fact not yet in mathlib. Axiom debt = [].
+                                  fact not yet in mathlib. Axiom footprint =
+                                  subset of mathlib's classical core
+                                  `{propext, Classical.choice, Quot.sound}`,
+                                  no research-grade axioms. (Verified by
+                                  `scripts/check-towers.sh`.)
   - `RiemannVonMangoldt_statement` — **statement only.** No proof.
                                      Closing it is open mathlib-scale work.
 

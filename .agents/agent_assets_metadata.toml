@@ -53,13 +53,13 @@ title = "Module 07 — Master Manifest [Manifest]"
 id = "v6QL_UW0yFX6bgzQbE7pU"
 uri = "file://docs/M10_CM_Descent.pdf"
 type = "pdf"
-title = "M10_CM_Descent.pdf — BSD + Hilbert 12 for the 12 CM modular curves"
+title = "M10 — CM Descent"
 
 [[outputs]]
 id = "Lq6i-2LY7Ba0ZT6w-Qzu6"
 uri = "file://docs/M13_BC_CM.pdf"
 type = "pdf"
-title = "M13_BC_CM.pdf — Bost–Connes for CM Fields, h=1 (v1.8-BC)"
+title = "M13 — Bost–Connes / CM"
 
 [[outputs]]
 id = "jzuCrL0deAvyjsNGVUP7D"
@@ -71,10 +71,52 @@ title = "MorningStar-Lab v1.0 — Riemann Hypothesis Reconnaissance Certificate 
 id = "nOQONQ-4FcIiS3DbkJXyQ"
 uri = "file://docs/MorningStar_Architecture.pdf"
 type = "pdf"
-title = "MorningStar Architecture — v1.9 master manifesto"
+title = "MorningStar Architecture (full write-up: Math Kernel + Engineering Manifest + Appendices)"
 
 [[outputs]]
 id = "-lwBT9H2DXmGerXdKLXip"
 uri = "file://MorningStar_v1.9_master_manifesto.zip"
 type = "unspecified"
 title = "MorningStar v1.9 — full reproducibility bundle (PDF + sources + Lean + ledger)"
+
+[[outputs]]
+id = "bRNQs4sPfxVMCbxCh-csz"
+uri = "file://artifacts/theorema-certs/public/pdfs/m1.pdf"
+type = "pdf"
+title = "M1"
+
+[[outputs]]
+id = "hPuNEgqyvRok6TwgTo5MW"
+uri = "file://artifacts/theorema-certs/public/pdfs/m2.pdf"
+type = "pdf"
+title = "M2"
+
+[[outputs]]
+id = "yTCTkcjecdRdktjs7alMO"
+uri = "file://artifacts/theorema-certs/public/pdfs/m3.pdf"
+type = "pdf"
+title = "M3"
+
+[[outputs]]
+id = "mtKEKmXkgQMzdUQ7scvsz"
+uri = "file://artifacts/theorema-certs/public/pdfs/m4.pdf"
+type = "pdf"
+title = "M4"
+
+[[outputs]]
+id = "yFrU-l3qK96rV3Q-SKpHZ"
+uri = "file://artifacts/theorema-certs/public/pdfs/m5.pdf"
+type = "pdf"
+title = "M5"
+
+[[outputs]]
+id = "hUr3kkSkzB9BwPoy0WWFR"
+uri = "file://artifacts/theorema-certs/public/pdfs/m6.pdf"
+type = "pdf"
+title = "M6"
+
+[[outputs]]
+id = "9V0YbuP9Nh4wtwkkCRujc"
+uri = "file://artifacts/theorema-certs/public/pdfs/m7.pdf"
+type = "pdf"
+title = "M7"
