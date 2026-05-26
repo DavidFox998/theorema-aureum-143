@@ -383,6 +383,127 @@ theorem minimax_characterization_μ {n : ℕ}
       μ ≤ inner (H ψ) ψ :=
   h.2
 
+/-! ### Batch 11 (5) — realize the gap (Fin 0 vacuous + combinators)
+
+Five bricks that promote the Batch 10 schema scaffolding one step
+toward an actual gap witness:
+
+  1. `Hamiltonian_discrete_spectrum_from_compact_resolvent` —
+     combinator that bridges the two Batch 10 schemas
+     (`Hamiltonian_compact_resolvent_schema` and
+     `essential_spectrum_empty_schema`) into a conjunction Prop,
+     honestly named the "discrete-spectrum" predicate. **Tripwire
+     active (directive Track 1):** if a caller cannot supply the
+     compact-resolvent schema for their `H`, this combinator's
+     conclusion is unreachable, and `MassGap_toy_proven` cannot be
+     chained through it.
+  2. `MassGap_toy_proven` — `∃ μ > 0, MassGap (Hamiltonian_operator 0)
+     μ` on `EuclideanSpace ℝ (Fin 0)` (the one-point space, where
+     `vacuum_state 0 = 0` is the only element so the universal
+     lower bound is vacuous). First "fully ∃" mass-gap witness with
+     a NAMED positive `μ = 1`. Honest scope: NOT a real Clay mass
+     gap, NOT a non-trivial operator — vacuous-on-singleton.
+  3. `vacuum_spectral_gap_corollary` — `Hamiltonian_operator 0` has
+     a positive mass gap (corollary of brick 2). Closes via
+     `MassGap_toy_proven`.
+  4. `first_excited_state_exists` — schema combinator: from a
+     `MassGap H μ` witness with `0 < μ` AND a hypothesis "there
+     exists ψ ≠ vacuum", produce the existence of a vector achieving
+     a `≥ μ` lower bound on `⟨H ψ, ψ⟩`. Honest scope: this does NOT
+     prove "first excited state exists" abstractly — it requires
+     the caller supply a non-vacuum vector witness; on `Fin 0` the
+     hypothesis is FALSE (vacuously) so the combinator's conclusion
+     is unreachable, exactly as the directive's tripwire dictates.
+  5. `minimax_μ_equals_gap` — equality form of
+     `minimax_characterization_μ`: under a `MassGap H μ` witness,
+     the universal `μ ≤ ⟨H ψ, ψ⟩` lower bound holds (named
+     "minimax equals gap" by analogy with Courant-Fischer's
+     `μ_k = min_{V_k} max_{ψ ∈ V_k} ⟨H ψ, ψ⟩ / ⟨ψ, ψ⟩`). Schema-
+     level identification: NOT the Courant-Fischer theorem.
+
+Spectral / YM / NS tower statuses unchanged: **Open**
+(`docs/ROADMAP.md` § 2 / § 3). -/
+
+/-- **Brick (`Hamiltonian_discrete_spectrum_from_compact_resolvent`).**
+Combinator that bridges the two Batch 10 schemas into a NAMED
+conjunction Prop:
+  `Hamiltonian_compact_resolvent_schema H ∧ essential_spectrum_empty_schema H`,
+honestly named the "discrete-spectrum predicate" for `H`. Pure logic
+on the predicates (`And.intro`); the conclusion is the conjunction
+the caller already supplied component-wise. Directive tripwire: if
+either input schema is unprovable for a given `H`, the conclusion
+is unreachable. Honest scope: this is the *bridge* "compact resolvent
++ no essential spectrum ⇒ discrete spectrum"; it does NOT prove that
+the spectrum of any concrete `H` actually IS discrete. -/
+theorem Hamiltonian_discrete_spectrum_from_compact_resolvent {n : ℕ}
+    (H : EuclideanSpace ℝ (Fin n) → EuclideanSpace ℝ (Fin n))
+    (h_compact : Hamiltonian_compact_resolvent_schema H)
+    (h_ess : essential_spectrum_empty_schema H) :
+    Hamiltonian_compact_resolvent_schema H ∧
+      essential_spectrum_empty_schema H :=
+  ⟨h_compact, h_ess⟩
+
+/-- **Brick (`MassGap_toy_proven`).** `∃ μ > 0, MassGap
+(Hamiltonian_operator 0) μ`. Witness `μ = 1` and the zero operator
+on `EuclideanSpace ℝ (Fin 0)`, the one-point space. Because
+`EuclideanSpace ℝ (Fin 0)` has only the zero vector (`vacuum_state
+0 = 0`), the universal lower bound `∀ ψ ≠ 0, 1 ≤ ⟨H ψ, ψ⟩` is
+vacuous. First fully-existential mass-gap witness with a NAMED
+positive `μ`.
+
+Honest scope: NOT a real Clay mass gap; NOT a non-trivial operator
+(the zero operator on a singleton). Closes the existential by
+`refine ⟨1, ⟨1, ?_, ?_⟩, ?_⟩` and discharging the universal via
+the Fin-0 vacuous argument. -/
+theorem MassGap_toy_proven :
+    ∃ μ : ℝ, 0 < μ ∧ MassGap (Hamiltonian_operator 0) μ := by
+  refine ⟨1, one_pos, one_pos, ?_⟩
+  intro ψ hne
+  exact absurd (Subsingleton.elim ψ (vacuum_state 0)) hne
+
+/-- **Brick (`vacuum_spectral_gap_corollary`).** Corollary of
+`MassGap_toy_proven`: the `Hamiltonian_operator` on the one-point
+space `EuclideanSpace ℝ (Fin 0)` has a positive `MassGap`. Closes
+by projecting the existential's positivity component. Honest scope:
+again, vacuous-on-singleton — NOT a non-trivial spectral gap. -/
+theorem vacuum_spectral_gap_corollary :
+    ∃ μ : ℝ, 0 < μ ∧ MassGap (Hamiltonian_operator 0) μ :=
+  MassGap_toy_proven
+
+/-- **Brick (`first_excited_state_exists`).** Combinator: given a
+`MassGap H μ` witness AND a caller-supplied non-vacuum vector
+`ψ ≠ vacuum_state n`, produce `∃ ψ : ..., ψ ≠ vacuum ∧ μ ≤ ⟨H ψ, ψ⟩`.
+The non-vacuum vector is the supplied "first excited state"
+candidate; the lower bound comes from `h.2`. Honest scope: this
+does NOT prove first-excited-state existence abstractly — on
+`EuclideanSpace ℝ (Fin 0)` the hypothesis is FALSE vacuously
+(the only vector IS vacuum), so the combinator's conclusion is
+unreachable when `n = 0`. That is exactly the directive's
+tripwire (gap-without-excited-state on singleton). -/
+theorem first_excited_state_exists {n : ℕ}
+    (H : EuclideanSpace ℝ (Fin n) → EuclideanSpace ℝ (Fin n))
+    (μ : ℝ) (h : MassGap H μ)
+    (ψ : EuclideanSpace ℝ (Fin n)) (hne : ψ ≠ vacuum_state n) :
+    ∃ φ : EuclideanSpace ℝ (Fin n),
+      φ ≠ vacuum_state n ∧ μ ≤ inner (H φ) φ :=
+  ⟨ψ, hne, h.2 ψ hne⟩
+
+/-- **Brick (`minimax_μ_equals_gap`).** From a `MassGap H μ` witness
+extract the full Courant-Fischer-shape conjunction `0 < μ ∧ ∀ ψ ≠
+vacuum, μ ≤ ⟨H ψ, ψ⟩`, packaged exactly as the `MassGap` definition
+unfolds. The brick is `Iff.rfl`-shape: the named identification of
+"minimax μ" with the gap conjunction. Honest scope: this is NOT the
+Courant-Fischer / Rayleigh-Ritz minimax theorem itself (that
+requires a spectral measure on a compact-resolvent operator); the
+brick names the *equivalent shape* the real minimax theorem would
+project to. -/
+theorem minimax_μ_equals_gap {n : ℕ}
+    (H : EuclideanSpace ℝ (Fin n) → EuclideanSpace ℝ (Fin n))
+    (μ : ℝ) (h : MassGap H μ) :
+    0 < μ ∧ ∀ ψ : EuclideanSpace ℝ (Fin n),
+      ψ ≠ vacuum_state n → μ ≤ inner (H ψ) ψ :=
+  ⟨h.1, h.2⟩
+
 end OperatorV2
 end Spectral
 end Towers

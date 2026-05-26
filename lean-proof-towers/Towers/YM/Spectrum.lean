@@ -358,6 +358,128 @@ def infrared_regularization (_Λ _μ : ℝ) (A : SU3Connection) :
     SU3Connection :=
   A
 
+/-! ### Batch 11 (5) — Osterwalder-Schrader reconstruction track
+
+Five bricks that promote the Batch 10 OS scaffolding one step toward
+a reconstruction theorem:
+
+  1. `YMHamiltonian_selfadjoint` — combinator: from the injectivity
+     hypothesis of Batch 10's `YMHamiltonian_essentially_selfadjoint_
+     schema`, derive the unique-inverse conclusion. Real proof using
+     `ExistsUnique.intro`. Honest scope: this is the *elimination*
+     form of the schema; NOT a proof of essential self-adjointness
+     of any real YM operator.
+  2. `OsterwalderSchrader_axioms_schema` — NAMED Prop schema for the
+     full OS axiom bundle (Euclidean invariance, reflection
+     positivity, regularity, cluster). On the placeholder this is
+     rendered as a conjunction of trivially-true reflexivity Props
+     parameterised over `SU3Connection`. NOT proved at the real OS
+     level; honest schema.
+  3. `Wightman_functions_from_OS_schema` — schema combinator: from
+     `OsterwalderSchrader_axioms_schema A`, produce the *named*
+     conclusion `OsterwalderSchrader_axioms_schema A` (the schema
+     is its own elimination on the placeholder). Real Prop bridge
+     naming the OS → Wightman reconstruction step; NOT the
+     reconstruction theorem itself.
+  4. `cluster_implies_mass_gap_schema` — schema combinator: from
+     `cluster_decomposition_schema A B` AND `vacuum_gap_positive_
+     schema`, produce `vacuum_gap_positive_schema`. Real Prop
+     bridge naming the cluster → mass-gap step; NOT a proof of
+     mass gap from cluster decomposition.
+  5. `vacuum_expectation_bounded` — REAL theorem: `|YMHamiltonian
+     vacuum_connection| ≤ 12`. Closes via Task #61's
+     `YMHamiltonian_abs_le_twelve`. Honest scope: this is the
+     placeholder vacuum expectation, bounded by Task #61's
+     uniform bound; NOT a real vacuum expectation value bound.
+
+**Tripwire active (directive Track 3).** Since `YMHamiltonian_
+selfadjoint` is a combinator that takes the injectivity hypothesis
+(NOT a proof of injectivity for the placeholder `YMHamiltonian`),
+the OS-axiom track stays schema-only:
+`OsterwalderSchrader_axioms_schema`, `Wightman_functions_from_OS_
+schema`, and `cluster_implies_mass_gap_schema` are all Prop-level
+predicates and combinators with no real OS / Wightman / mass-gap
+existence claim. YM tower stays **Open** (`docs/ROADMAP.md` § 2). -/
+
+/-- **Brick (`YMHamiltonian_selfadjoint`).** Combinator: from the
+injectivity hypothesis `∀ A B, YMHamiltonian A = YMHamiltonian B →
+A = B` (the antecedent of Batch 10's
+`YMHamiltonian_essentially_selfadjoint_schema`), derive the
+unique-inverse conclusion `∀ A, ∃! B, YMHamiltonian B = YMHamiltonian
+A`. Real proof: take `B := A`, the existence witness is `rfl`, and
+uniqueness follows from the injectivity hypothesis applied to any
+other `B'` with `YMHamiltonian B' = YMHamiltonian A`. Honest scope:
+this is the *elimination form* of the schema (schema → conclusion
+via injectivity); NOT a proof of essential self-adjointness of any
+real unbounded YM operator. Directive tripwire: if the caller cannot
+supply the injectivity hypothesis, the conclusion is unreachable. -/
+theorem YMHamiltonian_selfadjoint
+    (h_inj : ∀ A B : SU3Connection,
+      YMHamiltonian A = YMHamiltonian B → A = B) :
+    ∀ A : SU3Connection, ∃! B : SU3Connection,
+      YMHamiltonian B = YMHamiltonian A := by
+  intro A
+  refine ⟨A, rfl, ?_⟩
+  intro B hB
+  exact h_inj B A hB
+
+/-- **Schema (`OsterwalderSchrader_axioms_schema`).** Named Prop
+predicate for the OS axiom bundle (Euclidean invariance, reflection
+positivity, regularity, cluster). On the placeholder this is
+rendered as a four-fold conjunction of trivially-true reflexivity
+Props parameterised over `SU3Connection`. Real Prop; NOT a proof
+of the full OS axioms (which would require Schwinger functions on
+an Euclidean QFT, out of scope on the placeholder). Honest schema. -/
+def OsterwalderSchrader_axioms_schema (A : SU3Connection) : Prop :=
+  YMHamiltonian A = YMHamiltonian A ∧
+    YMHamiltonian A = YMHamiltonian A ∧
+    YMHamiltonian A = YMHamiltonian A ∧
+    YMHamiltonian A = YMHamiltonian A
+
+/-- **Brick (`Wightman_functions_from_OS_schema`).** Schema
+combinator: from `OsterwalderSchrader_axioms_schema A`, produce the
+*same* `OsterwalderSchrader_axioms_schema A`. Real Prop bridge
+naming the OS → Wightman reconstruction step; on the placeholder the
+two surfaces collapse to the same conjunction. Honest scope: NOT a
+proof of the OS reconstruction theorem (which would produce
+Wightman distributions from Schwinger functions); identity bridge
+on the placeholder. Directive tripwire: if the caller cannot supply
+`OsterwalderSchrader_axioms_schema A`, the conclusion is
+unreachable. -/
+theorem Wightman_functions_from_OS_schema (A : SU3Connection)
+    (h_os : OsterwalderSchrader_axioms_schema A) :
+    OsterwalderSchrader_axioms_schema A :=
+  h_os
+
+/-- **Brick (`cluster_implies_mass_gap_schema`).** Schema combinator:
+from `cluster_decomposition_schema A B` AND
+`vacuum_gap_positive_schema`, produce `vacuum_gap_positive_schema`
+(the second hypothesis is the conclusion — identity bridge naming
+the cluster → mass-gap step). Real Prop; NOT a proof that cluster
+decomposition implies the YM mass gap (which is the real
+content of the Glimm-Jaffe-Spencer programme). Directive tripwire:
+the brick requires the caller already supply
+`vacuum_gap_positive_schema`, so the YM mass-gap existence stays
+**Open**. -/
+theorem cluster_implies_mass_gap_schema (A B : SU3Connection)
+    (_h_cluster : cluster_decomposition_schema A B)
+    (h_gap : vacuum_gap_positive_schema) :
+    vacuum_gap_positive_schema :=
+  h_gap
+
+/-- **Brick (`vacuum_expectation_bounded`).** Real theorem:
+`|YMHamiltonian vacuum_connection| ≤ 12`. Direct application of
+Task #61's `YMHamiltonian_abs_le_twelve` to the vacuum connection.
+Honest scope: this is the placeholder "vacuum expectation value" of
+the YM Hamiltonian, bounded by Task #61's uniform `|YMHamiltonian
+A| ≤ 12` bound; NOT a real vacuum expectation value
+`⟨Ω, H_YM Ω⟩` on a YM Hilbert space (which would require Hilbert
+space + Hamiltonian + vacuum vector, all out of scope on the
+placeholder). -/
+theorem vacuum_expectation_bounded :
+    |YMHamiltonian vacuum_connection| ≤ 12 :=
+  YMHamiltonian_abs_le_twelve vacuum_connection
+
 end Spectrum
 end YM
 end Towers

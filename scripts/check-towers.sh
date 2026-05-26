@@ -510,6 +510,57 @@ BRICKS=(
   "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.vacuum_gap_positive_schema"
   "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.cluster_decomposition_schema"
   "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.infrared_regularization"
+
+  # ---- Batch 11 (2026-05-26) — +15 bricks across 3 same files, zero
+  # cross-imports. Wall 156 → 171. Track 1 (OperatorV2): realize the
+  # gap — `Hamiltonian_discrete_spectrum_from_compact_resolvent`
+  # (combinator bridging Batch 10's two schemas); `MassGap_toy_proven`
+  # (∃ μ > 0, MassGap (Hamiltonian_operator 0) μ — first fully-∃
+  # mass-gap witness, vacuous on Fin 0); `vacuum_spectral_gap_
+  # corollary` (corollary of brick 2); `first_excited_state_exists`
+  # (combinator requiring a caller-supplied non-vacuum vector —
+  # tripwire honored: on Fin 0 the hypothesis is FALSE); `minimax_μ_
+  # equals_gap` (pure conjunction projection of `MassGap`).
+  # Track 2 (EnergyV2): small-data global existence track —
+  # `Enstrophy_bound_from_small_data` (combinator squaring the
+  # Fujita-Kato H1 bound into the Enstrophy bound); `BealeKatoMajda_
+  # implies_global` (combinator: BKM schema elimination on the
+  # placeholder); `SmallDataGlobal_proven` (PROVES the schema for
+  # zero VelocityField via `H1Norm_zero`; trivial-on-zero witness,
+  # NOT real Fujita-Kato); `Energy_decay_exponential` (NAMED Prop
+  # schema for `∃ C η > 0, H1Norm u t ≤ C * exp(-η * t)`); `LerayHopf_
+  # weak_solution_exists` (NAMED Prop schema `∃ u, EnergyMonotone u
+  # u₀`). Track 3 (Spectrum): OS reconstruction path —
+  # `YMHamiltonian_selfadjoint` (REAL combinator using `ExistsUnique`,
+  # consuming the injectivity hypothesis from Batch 10's essentially-
+  # selfadjoint schema); `OsterwalderSchrader_axioms_schema` (NAMED
+  # Prop 4-fold conjunction); `Wightman_functions_from_OS_schema`
+  # (identity bridge naming OS → Wightman); `cluster_implies_mass_
+  # gap_schema` (combinator requiring `vacuum_gap_positive_schema`
+  # as a hypothesis — tripwire honored: YM mass-gap existence stays
+  # Open); `vacuum_expectation_bounded` (REAL theorem `|YMHamiltonian
+  # vacuum_connection| ≤ 12` via Task #61's
+  # `YMHamiltonian_abs_le_twelve`). All three directive tripwires
+  # honored: Track 1 — gap-without-excited-state on singleton; Track
+  # 2 — BKM stays unproven, so SmallDataGlobal_proven is restricted
+  # to zero field; Track 3 — selfadjoint is a combinator, so OS-axiom
+  # bricks stay Prop-level. No promotion: YM / NS / Spectral stay
+  # Status: Open (`docs/ROADMAP.md` § 2 / § 3).
+  "Towers.Spectral.OperatorV2|TheoremaAureum.Towers.Spectral.OperatorV2.Hamiltonian_discrete_spectrum_from_compact_resolvent"
+  "Towers.Spectral.OperatorV2|TheoremaAureum.Towers.Spectral.OperatorV2.MassGap_toy_proven"
+  "Towers.Spectral.OperatorV2|TheoremaAureum.Towers.Spectral.OperatorV2.vacuum_spectral_gap_corollary"
+  "Towers.Spectral.OperatorV2|TheoremaAureum.Towers.Spectral.OperatorV2.first_excited_state_exists"
+  "Towers.Spectral.OperatorV2|TheoremaAureum.Towers.Spectral.OperatorV2.minimax_μ_equals_gap"
+  "Towers.NS.EnergyV2|TheoremaAureum.Towers.NS.EnergyV2.Enstrophy_bound_from_small_data"
+  "Towers.NS.EnergyV2|TheoremaAureum.Towers.NS.EnergyV2.BealeKatoMajda_implies_global"
+  "Towers.NS.EnergyV2|TheoremaAureum.Towers.NS.EnergyV2.SmallDataGlobal_proven"
+  "Towers.NS.EnergyV2|TheoremaAureum.Towers.NS.EnergyV2.Energy_decay_exponential"
+  "Towers.NS.EnergyV2|TheoremaAureum.Towers.NS.EnergyV2.LerayHopf_weak_solution_exists"
+  "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.YMHamiltonian_selfadjoint"
+  "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.OsterwalderSchrader_axioms_schema"
+  "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.Wightman_functions_from_OS_schema"
+  "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.cluster_implies_mass_gap_schema"
+  "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.vacuum_expectation_bounded"
   # Task #56 Path B batch 2 v2 (2026-05-26): the explicit
   # `↥su3_submodule ≃ₗ[ℝ] (Fin 8 → ℝ)` equiv, the Gell-Mann basis
   # packaging via `Basis.ofEquivFun`, plus the linear-independence

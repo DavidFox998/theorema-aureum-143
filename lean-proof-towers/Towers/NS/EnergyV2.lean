@@ -352,6 +352,130 @@ def EnergyEnstrophy_interpolation (u : VelocityField) (t : ℝ) : Prop :=
   ∃ C : ℝ, 0 ≤ C ∧
     H1Norm_real u t ≤ C * Enstrophy u t * H1Norm u t
 
+/-! ### Batch 11 (5) — small-data global existence track
+
+Five bricks that promote the Batch 10 BKM / Fujita-Kato scaffolding
+one step toward an existence witness:
+
+  1. `Enstrophy_bound_from_small_data` — combinator: from a
+     `SmallDataGlobal_schema u u₀ δ` hypothesis with `H1Norm u₀ 0 ≤
+     δ`, derive a quadratic Enstrophy bound `Enstrophy u t ≤
+     2 * (H1Norm u₀ 0) * (H1Norm u₀ 0)`. Real algebra on the
+     placeholder; the bound is the squared Fujita-Kato bound on
+     `H1Norm u t` times the `½` in `Enstrophy`'s definition, scaled
+     up — schema-level, NOT the real enstrophy bound from PDE
+     analysis.
+  2. `BealeKatoMajda_implies_global` — combinator: from a
+     `BealeKatoMajda_criterion_schema u T M` hypothesis AND the
+     uniform Enstrophy bound, conclude `∀ t ≤ T, Enstrophy u t ≤ M`.
+     Schema → result bridge; this is BKM elimination on the
+     placeholder, NOT a proof of BKM itself.
+  3. `SmallDataGlobal_proven` — actually PROVE
+     `SmallDataGlobal_schema 0 0 δ` for any `δ`, the zero velocity
+     field. With `H1Norm 0 t = 0` for all `t` (via Task #51's
+     `H1Norm_zero`), the implication chain collapses: `0 ≤ δ →
+     ∀ t, 0 ≤ 2 * 0` is `True`. Honest scope: trivial-on-zero
+     witness; NOT the real Fujita-Kato theorem.
+  4. `Energy_decay_exponential` — NAMED Prop schema for
+     `∃ C η, 0 < η ∧ H1Norm u t ≤ C * Real.exp (-η * t)`. NOT
+     proved — exponential decay needs a real dissipation
+     mechanism which the placeholder does not have.
+  5. `LerayHopf_weak_solution_exists` — NAMED Prop schema for
+     existence of a Leray-Hopf weak solution: `∃ u, EnergyMonotone
+     u u₀`. NOT proved — existence of weak solutions on the
+     placeholder surface is out of scope.
+
+**Tripwire active (directive Track 2).** Since
+`BealeKatoMajda_implies_global` is a combinator that takes
+`BealeKatoMajda_criterion_schema` as a hypothesis (NOT a proof of
+the criterion itself), `SmallDataGlobal_proven` is restricted to
+the vacuous-on-zero case. Both honestly reflect that BKM and
+Fujita-Kato remain unproven on the placeholder. NS tower stays
+**Open** (`docs/ROADMAP.md` § 3). -/
+
+/-- **Brick (`Enstrophy_bound_from_small_data`).** Combinator: from
+`SmallDataGlobal_schema u u₀ δ` AND `H1Norm u₀ 0 ≤ δ`, derive the
+quadratic enstrophy bound `Enstrophy u t ≤ 2 * H1Norm u₀ 0 * H1Norm
+u₀ 0` (the squared `2 * H1Norm u₀ 0` Fujita-Kato bound, times
+`½` from `Enstrophy`'s definition, gives `2 * (H1Norm u₀ 0)²`). Real
+algebra: square the supplied `H1Norm u t ≤ 2 * H1Norm u₀ 0` bound
+via `mul_le_mul` (both sides non-negative) and absorb the `(1/2)`
+factor. Honest scope: this is the *placeholder* bound on the
+placeholder Enstrophy; NOT the real Fujita-Kato enstrophy bound
+from PDE analysis. -/
+theorem Enstrophy_bound_from_small_data
+    (u u₀ : VelocityField) (δ : ℝ)
+    (h_schema : SmallDataGlobal_schema u u₀ δ)
+    (h_small : H1Norm u₀ 0 ≤ δ) :
+    ∀ t : ℝ, Enstrophy u t ≤ 2 * H1Norm u₀ 0 * H1Norm u₀ 0 := by
+  intro t
+  have h_u : H1Norm u t ≤ 2 * H1Norm u₀ 0 := h_schema h_small t
+  have h_nonneg_u : 0 ≤ H1Norm u t := H1Norm_nonneg u t
+  have h_nonneg_u₀ : 0 ≤ H1Norm u₀ 0 := H1Norm_nonneg u₀ 0
+  have h_two_nonneg : (0 : ℝ) ≤ 2 * H1Norm u₀ 0 :=
+    mul_nonneg (by norm_num) h_nonneg_u₀
+  have h_sq : H1Norm u t * H1Norm u t ≤
+      (2 * H1Norm u₀ 0) * (2 * H1Norm u₀ 0) :=
+    mul_le_mul h_u h_u h_nonneg_u h_two_nonneg
+  unfold Enstrophy
+  have h_half : H1Norm u t * H1Norm u t * (1 / 2) ≤
+      (2 * H1Norm u₀ 0) * (2 * H1Norm u₀ 0) * (1 / 2) :=
+    mul_le_mul_of_nonneg_right h_sq (by norm_num)
+  have h_simp : (2 * H1Norm u₀ 0) * (2 * H1Norm u₀ 0) * (1 / 2) =
+      2 * H1Norm u₀ 0 * H1Norm u₀ 0 := by ring
+  linarith [h_half, h_simp.le, h_simp.ge]
+
+/-- **Brick (`BealeKatoMajda_implies_global`).** Combinator: from
+`BealeKatoMajda_criterion_schema u T M` (which IS itself the
+implication "uniform bound on `[0, T)` extends to `[0, T]`") AND a
+uniform Enstrophy bound on `[0, T)`, conclude the uniform bound on
+`[0, T]`. Direct application of the schema. Honest scope: this is
+BKM *elimination* on the placeholder — given the schema's
+implication, apply it — NOT a proof of the BKM criterion itself.
+Directive tripwire: if the caller cannot supply
+`BealeKatoMajda_criterion_schema u T M`, the conclusion is
+unreachable. -/
+theorem BealeKatoMajda_implies_global
+    (u : VelocityField) (T M : ℝ)
+    (h_bkm : BealeKatoMajda_criterion_schema u T M)
+    (h_bound : ∀ t : ℝ, t < T → Enstrophy u t ≤ M) :
+    ∀ t : ℝ, t ≤ T → Enstrophy u t ≤ M :=
+  h_bkm h_bound
+
+/-- **Brick (`SmallDataGlobal_proven`).** Actual proof of
+`SmallDataGlobal_schema 0 0 δ` for ANY `δ : ℝ`, the zero velocity
+field as both initial data and solution. With `H1Norm (0 :
+VelocityField) t = 0` (via Task #51's `H1Norm_zero`), the
+implication is `0 ≤ δ → ∀ t, 0 ≤ 2 * 0`, both sides identically
+`0`. Honest scope: trivial-on-zero witness; NOT the real
+Fujita-Kato global existence theorem. The directive's Track 2
+tripwire ("if BKM fails, SmallDataGlobal must be schema") is
+honored: this brick proves the schema only on the zero field, the
+general statement is still `SmallDataGlobal_schema`. -/
+theorem SmallDataGlobal_proven (δ : ℝ) :
+    SmallDataGlobal_schema (0 : VelocityField) (0 : VelocityField) δ := by
+  intro _h_small t
+  rw [H1Norm_zero t, H1Norm_zero 0]
+  norm_num
+
+/-- **Schema (`Energy_decay_exponential`).** Named Prop predicate for
+exponential energy decay: `∃ C η > 0, ∀ t ≥ 0, H1Norm u t ≤ C *
+Real.exp (-η * t)`. Real Prop over real arithmetic; NOT proved here
+— exponential decay needs a real dissipation mechanism the
+placeholder does not have. NS tower stays Open. -/
+def Energy_decay_exponential (u : VelocityField) : Prop :=
+  ∃ C η : ℝ, 0 < C ∧ 0 < η ∧
+    ∀ t : ℝ, 0 ≤ t → H1Norm u t ≤ C * Real.exp (-η * t)
+
+/-- **Schema (`LerayHopf_weak_solution_exists`).** Named Prop
+predicate for existence of a Leray-Hopf weak solution to NS with
+initial data `u₀`: `∃ u, EnergyMonotone u u₀`. Real Prop; NOT
+proved here — Leray's 1934 existence theorem on the placeholder
+surface (which lacks a real weak-formulation of NS) is out of
+scope. NS tower stays Open. -/
+def LerayHopf_weak_solution_exists (u₀ : VelocityField) : Prop :=
+  ∃ u : VelocityField, EnergyMonotone u u₀
+
 end EnergyV2
 end NS
 end Towers
