@@ -293,6 +293,20 @@ BRICKS=(
   "Towers.NS.EnergyIneq|TheoremaAureum.Towers.NS.H1Norm_eq_norm_apply_zero"
   "Towers.NS.EnergyIneq|TheoremaAureum.Towers.NS.HasFiniteEnergy_of_bounded_zero"
   "Towers.NS.EnergyIneq|TheoremaAureum.Towers.NS.HasFiniteEnergy_const"
+  # Task #69 (2026-05-26): combinator bricks on the NS energy schema
+  # — first non-trivial combinators on `HasFiniteEnergy` that
+  # exercise smoothly-varying (non-constant, non-zero) inputs.
+  # `HasFiniteEnergy_add` shows the placeholder finite-energy
+  # predicate is closed under pointwise sum (witness M₁ + M₂ via the
+  # triangle inequality). `HasFiniteEnergy_of_smul_bounded` shows that
+  # any scalar profile `f : ℝ³ → ℝ` with `|f x| ≤ 1` times a fixed
+  # vector `c` has finite placeholder energy (witness ‖c‖) — first
+  # brick on a genuinely non-constant family. NS tower status
+  # unchanged: Open (`docs/ROADMAP.md` § 3). These are NOT statements
+  # about the H¹ Sobolev norm, the L² energy bound, or any Leray-Hopf
+  # solution.
+  "Towers.NS.EnergyIneq|TheoremaAureum.Towers.NS.HasFiniteEnergy_add"
+  "Towers.NS.EnergyIneq|TheoremaAureum.Towers.NS.HasFiniteEnergy_of_smul_bounded"
   # Task #55 (Branch A witness, 2026-05-26): infinite-dimensionality
   # witness for `HilbertSpace = lp (fun _ : ℕ => ℂ) 2`. The canonical
   # `lp.single`-at-`1` family indexed by ℕ is orthonormal (norm-one

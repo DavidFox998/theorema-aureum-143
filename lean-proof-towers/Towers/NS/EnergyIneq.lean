@@ -261,6 +261,74 @@ theorem HasFiniteEnergy_const (c : EuclideanSpace ℝ (Fin 3)) :
     HasFiniteEnergy (fun (_ : ℝ) (_ : EuclideanSpace ℝ (Fin 3)) => c) :=
   ⟨‖c‖, fun _ => le_refl _⟩
 
+/-
+  ## Task #69 (2026-05-26) — combinator bricks on the NS energy schema.
+
+  Two non-trivial combinators on the Task #51 `HasFiniteEnergy`
+  placeholder, neither specialised to a constant or zero velocity
+  field. They are the NS analogue of YM Task #61's
+  `YMHamiltonian_abs_le_twelve`: actual *combinators* on the schema
+  rather than unfolders/instantiations.
+
+    * `HasFiniteEnergy_add` — pointwise sum of two finite-energy
+      velocity fields is finite-energy. Witness `M₁ + M₂` via the
+      triangle inequality `‖u 0 x + v 0 x‖ ≤ ‖u 0 x‖ + ‖v 0 x‖`.
+    * `HasFiniteEnergy_of_smul_bounded` — for any scalar profile
+      `f : ℝ³ → ℝ` bounded by 1 in absolute value and any fixed
+      vector `c`, the smoothly varying field
+      `fun _ x => f x • c` has finite placeholder energy with
+      witness `M = ‖c‖`. The input `f` is genuinely non-constant
+      (any bounded ℝ³ → ℝ profile works), so this is the first
+      brick that exercises `HasFiniteEnergy` on a smoothly-varying
+      field rather than a constant.
+
+  **Honest scoping reminder.** None of these advance the NS tower
+  past `Status: Open` (see `docs/ROADMAP.md` § 3). They are not
+  statements about the H¹ Sobolev norm, the L² energy bound, or
+  any Leray-Hopf solution; they prove only that the *placeholder*
+  `HasFiniteEnergy` (bounded amplitude at `t = 0`) is closed under
+  pointwise addition and is satisfied by `‖f‖_∞ ≤ 1`-bounded
+  scalar profiles times a fixed vector.
+
+  Axiom-footprint contract (per `scripts/check-towers.sh`): each
+  theorem must be either axiom-free or use only the classical trio
+  `{propext, Classical.choice, Quot.sound}`.
+-/
+
+/-- **Sum of two finite-energy velocity fields is finite-energy.**
+    Pointwise-sum witness `M = M₁ + M₂` via the triangle inequality
+    on `EuclideanSpace ℝ (Fin 3)`. References the Task #51 schema
+    def `HasFiniteEnergy` and is a real combinator on it (not an
+    unfolder / not specialised to zero or a constant). -/
+theorem HasFiniteEnergy_add (u v : VelocityField)
+    (hu : HasFiniteEnergy u) (hv : HasFiniteEnergy v) :
+    HasFiniteEnergy (fun (t : ℝ) (x : EuclideanSpace ℝ (Fin 3)) =>
+      u t x + v t x) := by
+  obtain ⟨Mu, hMu⟩ := hu
+  obtain ⟨Mv, hMv⟩ := hv
+  refine ⟨Mu + Mv, fun x => ?_⟩
+  exact (norm_add_le _ _).trans (add_le_add (hMu x) (hMv x))
+
+/-- **`‖f‖_∞ ≤ 1`-bounded scalar profile times a fixed vector has
+    finite placeholder energy.** For any `f : ℝ³ → ℝ` with
+    `|f x| ≤ 1` everywhere and any fixed `c : ℝ³`, the field
+    `fun _ x => f x • c` has finite placeholder energy with witness
+    `M = ‖c‖`. The scalar profile `f` is genuinely arbitrary
+    (smoothly varying or otherwise), so this is the first brick
+    that exercises `HasFiniteEnergy` on a non-constant family.
+    References the Task #51 schema def `HasFiniteEnergy`. -/
+theorem HasFiniteEnergy_of_smul_bounded
+    (f : EuclideanSpace ℝ (Fin 3) → ℝ) (c : EuclideanSpace ℝ (Fin 3))
+    (hf : ∀ x : EuclideanSpace ℝ (Fin 3), |f x| ≤ 1) :
+    HasFiniteEnergy (fun (_ : ℝ) (x : EuclideanSpace ℝ (Fin 3)) =>
+      f x • c) := by
+  refine ⟨‖c‖, fun x => ?_⟩
+  rw [norm_smul, Real.norm_eq_abs]
+  calc |f x| * ‖c‖
+      ≤ 1 * ‖c‖ := by
+        exact mul_le_mul_of_nonneg_right (hf x) (norm_nonneg _)
+    _ = ‖c‖ := one_mul _
+
 end NS
 end Towers
 end TheoremaAureum
