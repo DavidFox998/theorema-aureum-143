@@ -90,12 +90,25 @@ def hits_backup():
     path) request this fixture and write their tampered bytes in the
     test body. Restore is guaranteed via finally even if the test
     crashes between tampering and assertion.
+
+    Task #59: the entire snapshot → (test body mutate) → restore
+    window is wrapped in `kernel.hits_exclusive_lock()`, the same
+    sidecar flock that `kernel._append_line` takes. This serialises
+    the fixture against any concurrently-running probe workflow
+    (`zeta-burst-101-10000` / `zeta-sieve-14159-100000`) so that a
+    sibling append cannot land between snapshot and restore and get
+    silently overwritten. Without this lock the tamper fixture was
+    documented in `replit.md` as "bypasses _append_line and can
+    clobber concurrent writes"; with it, the lock is now the shared
+    contract.
     """
-    original = HITS.read_bytes()
-    try:
-        yield original
-    finally:
-        HITS.write_bytes(original)
+    import kernel
+    with kernel.hits_exclusive_lock():
+        original = HITS.read_bytes()
+        try:
+            yield original
+        finally:
+            HITS.write_bytes(original)
 
 
 def _atomic_write_bytes(path: Path, data: bytes) -> None:
@@ -293,6 +306,138 @@ def test_verify_seal_survives_concurrent_atomic_rewriter(hits_backup):
         stop.set()
         t.join(timeout=2.0)
     assert not errors, f"rewriter thread crashed: {errors}"
+
+
+# ---------- regression: snapshot/restore must not lose concurrent appends ----------
+
+
+def test_snapshot_restore_does_not_lose_concurrent_appends(fresh_checkpoint):
+    """Task #59: a `morningstar-tamper`-style snapshot → mutate →
+    restore cycle on `data/hits.txt` must not silently drop lines
+    appended by a sibling probe workflow during the mutate window.
+
+    Pre-task-#59 hole: `_append_line` took an `fcntl.flock` on its
+    own append handle (task #54), but the tamper fixture bypassed
+    `_append_line` entirely and used a plain `read_bytes` +
+    `write_bytes` snapshot/restore with no lock at all. A sibling
+    appender could land a line between snapshot and restore, and
+    the restore would clobber it — `replit.md` called this out as
+    a known gotcha.
+
+    Post-task-#59 contract: both parties acquire the shared sidecar
+    `kernel.hits_exclusive_lock()` (sidecar because tamper helpers
+    may `os.replace` the ledger; a flock on HITS itself would be
+    orphaned by the inode swap). This test exercises the contract
+    end-to-end: a background thread hammers `_append_line` while
+    the main thread runs the snapshot → atomic-replace mutate →
+    restore cycle. After everything settles, every appended line
+    must be present in the final `hits.txt`.
+
+    Without the fix the appender would (a) deadlock on a stale flock
+    or (b) succeed during the mutate window and have its line wiped
+    by restore. With the fix it queues on the sidecar lock and all
+    lines survive.
+    """
+    import kernel
+
+    # Don't use `hits_backup` — it would also acquire the sidecar
+    # lock and we'd never release it for the background appender to
+    # make progress between main-thread tamper cycles. Do our own
+    # snapshot + finally restore so the live ledger comes back intact
+    # (along with any appender lines we deliberately wrote, which we
+    # strip at the end so we don't pollute hits.txt across runs).
+    original_bytes = HITS.read_bytes()
+    original_cp = CHECKPOINT.read_bytes()
+
+    marker_tag = f"TASK59_REGRESSION_PROBE_{os.getpid()}"
+    appender_count = 30
+    appended: list[str] = []
+    appender_errors: list[BaseException] = []
+    stop = threading.Event()
+    started = threading.Event()
+
+    def appender() -> None:
+        try:
+            started.set()
+            for i in range(appender_count):
+                if stop.is_set():
+                    break
+                line = f"{marker_tag}_{i:04d}"
+                kernel._append_line(line)
+                appended.append(line)
+        except BaseException as e:  # noqa: BLE001
+            appender_errors.append(e)
+
+    t = threading.Thread(target=appender, daemon=True)
+
+    try:
+        t.start()
+        started.wait(timeout=2.0)
+        # Let the appender land a few lines so we know the path is
+        # warm before we start contesting the lock.
+        time.sleep(0.05)
+
+        # Run several snapshot → mutate → restore cycles, each one
+        # under the sidecar lock. Each cycle uses `_atomic_write_bytes`
+        # for the mutate (the most adversarial case: changes the inode
+        # — pre-fix this is exactly how lines went missing).
+        cycles = 5
+        for _ in range(cycles):
+            with kernel.hits_exclusive_lock():
+                snapshot = HITS.read_bytes()
+                # Mutate to something visibly different (extra trailer
+                # line). A sibling _append_line that slipped through
+                # would land on the post-mutate inode and be lost when
+                # we restore — but it can't slip through because it's
+                # blocked on the same sidecar lock.
+                tampered = snapshot + b"INJECTED_TAMPER_LINE\n"
+                _atomic_write_bytes(HITS, tampered)
+                # Hold the lock briefly so the appender thread actually
+                # contests it (otherwise the race window is too small
+                # to be a real test of the serialization).
+                time.sleep(0.02)
+                # Restore. After this the file content matches the
+                # checkpoint that was current at snapshot time, so the
+                # appender's next `_verify_checkpoint` call inside
+                # `_append_line` will pass.
+                _atomic_write_bytes(HITS, snapshot)
+            # Yield outside the lock so the appender can make progress
+            # between cycles.
+            time.sleep(0.02)
+
+        # Wait for the appender to finish all its writes.
+        t.join(timeout=10.0)
+        assert not t.is_alive(), "appender thread did not finish in time"
+        assert not appender_errors, (
+            f"appender thread raised: {appender_errors!r}"
+        )
+        assert len(appended) == appender_count, (
+            f"appender wrote {len(appended)} lines, expected "
+            f"{appender_count}"
+        )
+
+        # The whole point of task #59: every line the appender thinks
+        # it wrote must actually be in hits.txt. Pre-fix, some would
+        # have been silently overwritten by `_atomic_write_bytes(HITS,
+        # snapshot)` during a tamper cycle.
+        final_text = HITS.read_text(encoding="utf-8")
+        missing = [line for line in appended if line not in final_text]
+        assert not missing, (
+            f"{len(missing)} appended line(s) were lost across the "
+            f"snapshot/restore cycles; first missing: {missing[:3]!r}"
+        )
+        # And the tamper trailer must NOT be present — restore worked.
+        assert "INJECTED_TAMPER_LINE" not in final_text
+
+    finally:
+        stop.set()
+        t.join(timeout=5.0)
+        # Strip the appender lines back out so we leave the canonical
+        # ledger pristine for downstream tests / commits. Use the lock
+        # one more time so any straggling appender writes are visible.
+        with kernel.hits_exclusive_lock():
+            HITS.write_bytes(original_bytes)
+            CHECKPOINT.write_bytes(original_cp)
 
 
 # ---------- at-rest ledger integrity guard (task #53) ----------

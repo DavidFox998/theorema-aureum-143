@@ -35,19 +35,52 @@ def _snapshot_ledger_for_session():
     this fixture is the outer safety net for cross-suite side effects
     like the kernel.CHECKPOINT rewrites.
     """
-    hits_snapshot = _HITS.read_bytes() if _HITS.exists() else None
-    cp_snapshot = _CHECKPOINT.read_bytes() if _CHECKPOINT.exists() else None
+    # Task #59 — restore policy:
+    #
+    # * `data/hits.txt.checkpoint` is ALWAYS restored at session end.
+    #   The checkpoint file is a tiny `(size, sha)` summary that
+    #   `kernel.probe()` rewrites every call, even when tests
+    #   monkeypatch `kernel.HITS` to a tmp_path — `kernel.CHECKPOINT`
+    #   is not monkeypatched, so the real checkpoint gets stamped
+    #   with the fake ledger's hash. That's the original reason this
+    #   fixture exists (task #58). Restoring it is cheap and there
+    #   is no concurrent writer racing against the checkpoint —
+    #   `_update_checkpoint` always runs under
+    #   `kernel.hits_exclusive_lock()` via `_append_line`, and we
+    #   acquire the same lock here.
+    #
+    # * `data/hits.txt` is NOT restored from a session-start
+    #   snapshot. Pre-task #59 this fixture restored it defensively,
+    #   but that snapshot is fundamentally stale once the session
+    #   begins: a concurrent cross-process probe workflow that
+    #   legitimately appends during the session would have its line
+    #   overwritten at teardown. Holding the sidecar flock across
+    #   the entire session would prevent that, but it also dead-
+    #   locks any test that spawns its own appender thread (e.g.
+    #   `test_snapshot_restore_does_not_lose_concurrent_appends`)
+    #   because the per-process RLock semantics block cross-thread
+    #   acquisitions. The correct guarantee is the one task #59
+    #   actually delivers: every test that intentionally mutates
+    #   `data/hits.txt` goes through the `hits_backup` fixture,
+    #   which holds `kernel.hits_exclusive_lock()` for its full
+    #   snapshot → test-body → restore window. The lint test
+    #   `test_no_non_append_writes_to_hits_txt` enforces that no
+    #   other test path writes directly. So if `hits_backup`
+    #   cleaned up correctly, no session-level restore is needed;
+    #   if it didn't, restoring from a session-start snapshot
+    #   wouldn't be safe anyway (overwrites concurrent appends).
+    import kernel
+
+    with kernel.hits_exclusive_lock():
+        cp_snapshot = _CHECKPOINT.read_bytes() if _CHECKPOINT.exists() else None
     try:
         yield
     finally:
-        if hits_snapshot is not None:
-            _atomic_restore(_HITS, hits_snapshot)
-        elif _HITS.exists():
-            _HITS.unlink()
-        if cp_snapshot is not None:
-            _atomic_restore(_CHECKPOINT, cp_snapshot)
-        elif _CHECKPOINT.exists():
-            _CHECKPOINT.unlink()
+        with kernel.hits_exclusive_lock():
+            if cp_snapshot is not None:
+                _atomic_restore(_CHECKPOINT, cp_snapshot)
+            elif _CHECKPOINT.exists():
+                _CHECKPOINT.unlink()
 
 
 def _atomic_restore(path: Path, data: bytes) -> None:

@@ -40,6 +40,7 @@ import os
 import re as _re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,17 @@ ELLIPTIC_LABEL_RE = _re.compile(r"^[A-Za-z0-9._-]{1,32}$")
 REPO_ROOT = Path(__file__).resolve().parent
 HITS = REPO_ROOT / "data" / "hits.txt"
 CHECKPOINT = REPO_ROOT / "data" / "hits.txt.checkpoint"
+# Sidecar lockfile coordinating cross-process / cross-tool access to
+# `hits.txt`. Used by `_append_line` AND by external backup/restore
+# helpers (e.g. the `morningstar-tamper` snapshot/restore fixture in
+# `tests/test_morningstar.py`) so that snapshot → mutate → restore
+# windows queue against live appenders instead of silently clobbering
+# lines that landed mid-window (task #59). A sidecar file is used
+# rather than `flock(HITS)` itself because tamper helpers may
+# `os.replace` the ledger, which swaps the inode and orphans any
+# lock taken directly on the old file. The sidecar lives on a stable
+# inode that no helper replaces.
+HITS_LOCK_FILE = REPO_ROOT / "data" / ".hits.lock"
 SEAL_CHECK = REPO_ROOT / "scripts" / "check-genesis-seal.py"
 
 BACKEND = "mpmath"
@@ -278,50 +290,144 @@ def _update_checkpoint() -> None:
     os.replace(tmp, CHECKPOINT)
 
 
+class _HitsLock:
+    """Context manager: take an exclusive `fcntl.flock` on the sidecar
+    `HITS_LOCK_FILE` for the duration of the `with` block.
+
+    This is the canonical cross-tool serialization primitive for any
+    code that touches `data/hits.txt` — `_append_line` (live probe
+    workflows) AND external backup/restore helpers (the
+    `morningstar-tamper` snapshot/restore fixture in
+    `tests/test_morningstar.py`) all queue on the same lock.
+
+    Why a sidecar and not `flock(HITS)` directly: tamper helpers
+    snapshot the ledger, mutate it (often via `os.replace` for
+    atomicity against concurrent readers), then restore from the
+    snapshot. `os.replace` swaps the inode at the path; any flock
+    taken on the *file* HITS would now be orphaned on the old inode,
+    and a fresh `open(HITS)` from a sibling probe would see the new
+    inode with no contention and slip a line in during the mutate →
+    restore window — the restore would then silently overwrite that
+    line (task #59). The sidecar lockfile lives on a stable inode
+    that no helper replaces, so the lock is durable across atomic
+    rewrites of the ledger itself.
+
+    Thread-reentrant within the same process: built on a
+    `threading.RLock`, so a tamper fixture that holds the lock and
+    then (in the same thread) calls `kernel.probe()` —  which
+    internally calls `_append_line()`, which also takes the lock —
+    just bumps the recursion counter instead of self-deadlocking.
+    A *different* thread in the same process still has to wait for
+    the RLock to be released, exactly like a different process
+    waits for the flock. So both layers preserve mutual exclusion
+    between independent writers; the only "reentrancy" allowed is
+    "the same thread re-entering its own critical section".
+
+    The underlying flock is acquired once at outermost entry (depth
+    transitions 0 → 1) and released at outermost exit (N → 0), so
+    the cross-process serialization contract is unchanged: another
+    process's `_append_line` blocks until *our* outermost
+    `with kernel.hits_exclusive_lock()` exits.
+
+    On non-POSIX hosts where `fcntl` is unavailable the flock layer
+    is a no-op (falls back to the pre-task-#54 behaviour); the
+    thread-level RLock still serializes intra-process writers. The
+    repo targets Linux, so the fcntl-less path is just defensive.
+    """
+
+    # Class-level state: thread-reentrant exclusion via RLock,
+    # process-level exclusion via flock on a sidecar file.
+    _rlock = threading.RLock()
+    _depth: int = 0
+    _fp = None
+
+    def __enter__(self) -> "_HitsLock":
+        # RLock.acquire() blocks if another thread holds it; same
+        # thread reentries just bump RLock's internal recursion
+        # counter without blocking.
+        _HitsLock._rlock.acquire()
+        # _depth and _fp are now protected by RLock ownership.
+        if _HitsLock._depth == 0:
+            HITS_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+            # Open in append mode so the file is created on first
+            # use without truncating an existing one.
+            _HitsLock._fp = HITS_LOCK_FILE.open("a+")
+            if fcntl is not None:
+                fcntl.flock(_HitsLock._fp.fileno(), fcntl.LOCK_EX)
+        _HitsLock._depth += 1
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        try:
+            _HitsLock._depth -= 1
+            if _HitsLock._depth == 0 and _HitsLock._fp is not None:
+                try:
+                    if fcntl is not None:
+                        fcntl.flock(_HitsLock._fp.fileno(), fcntl.LOCK_UN)
+                finally:
+                    _HitsLock._fp.close()
+                    _HitsLock._fp = None
+        finally:
+            _HitsLock._rlock.release()
+
+
+def hits_exclusive_lock() -> _HitsLock:
+    """Public alias of `_HitsLock` for tools outside kernel.py (e.g.
+    the `morningstar-tamper` test fixture). Use as
+    `with kernel.hits_exclusive_lock(): ...` to serialize a
+    snapshot → mutate → restore window against live `_append_line`
+    writers. See `_HitsLock` for the why."""
+    return _HitsLock()
+
+
 def _append_line(line: str) -> None:
     """Append exactly one line + newline to hits.txt, fsync, then
     refresh the at-rest checkpoint.
 
     Cross-process safety: takes an exclusive `fcntl.flock` on the
-    open append handle before writing. Two concurrent appenders
-    (e.g. `zeta-burst-101-10000` running alongside
-    `zeta-sieve-14159-100000`) therefore queue on the lock instead
-    of racing on the checkpoint refresh — `_update_checkpoint` reads
-    the whole file, hashes it, and atomically replaces
-    `data/hits.txt.checkpoint`, so without serialization writer A
-    can land its line, writer B can append its own line, then writer
-    A's `_update_checkpoint` would rehash the file (now containing
-    B's line) and stamp it as A's checkpoint. With the lock the
-    sequence `write + flush + fsync + checkpoint` is atomic per
-    line; a second writer waits at `flock(LOCK_EX)` until the first
-    fully completes. POSIX `O_APPEND` already prevents byte-level
-    tearing for short writes (<= `PIPE_BUF`), but the lock is what
-    keeps the SHA chain in `hits.txt` and the recorded prefix-hash
-    in `hits.txt.checkpoint` consistent.
+    sidecar `HITS_LOCK_FILE` (the canonical lock, shared with
+    backup/restore helpers — see `_HitsLock`) AND a second flock on
+    the open append handle. Two concurrent appenders (e.g.
+    `zeta-burst-101-10000` running alongside
+    `zeta-sieve-14159-100000`) therefore queue on the sidecar lock
+    instead of racing on the checkpoint refresh —
+    `_update_checkpoint` reads the whole file, hashes it, and
+    atomically replaces `data/hits.txt.checkpoint`, so without
+    serialization writer A can land its line, writer B can append
+    its own line, then writer A's `_update_checkpoint` would rehash
+    the file (now containing B's line) and stamp it as A's
+    checkpoint. With the lock the sequence
+    `write + flush + fsync + checkpoint` is atomic per line; a
+    second writer waits at `flock(LOCK_EX)` until the first fully
+    completes. POSIX `O_APPEND` already prevents byte-level tearing
+    for short writes (<= `PIPE_BUF`), but the lock is what keeps the
+    SHA chain in `hits.txt` and the recorded prefix-hash in
+    `hits.txt.checkpoint` consistent.
 
     On non-POSIX hosts where `fcntl` is unavailable the function
     falls back to plain append (the original behaviour). This repo
     targets Linux, so that path is just defensive.
     """
     HITS.parent.mkdir(parents=True, exist_ok=True)
-    with HITS.open("a", encoding="utf-8") as f:
-        if fcntl is not None:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        try:
-            # Task #57: verify at-rest checkpoint while holding the
-            # exclusive lock, so a body-truncation or in-place rewrite
-            # that occurred between probes is caught BEFORE we commit
-            # another line to a corrupted ledger. The Genesis seal
-            # (checked by `_verify_seal` in `probe`) only covers the
-            # 9-line preamble; this catches the rest of the file.
-            _verify_checkpoint()
-            f.write(line + "\n")
-            f.flush()
-            os.fsync(f.fileno())
-            _update_checkpoint()
-        finally:
+    with _HitsLock():
+        with HITS.open("a", encoding="utf-8") as f:
             if fcntl is not None:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                # Task #57: verify at-rest checkpoint while holding the
+                # exclusive lock, so a body-truncation or in-place rewrite
+                # that occurred between probes is caught BEFORE we commit
+                # another line to a corrupted ledger. The Genesis seal
+                # (checked by `_verify_seal` in `probe`) only covers the
+                # 9-line preamble; this catches the rest of the file.
+                _verify_checkpoint()
+                f.write(line + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+                _update_checkpoint()
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 def _prime_divisors(n: int) -> list[int]:
