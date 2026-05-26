@@ -11,6 +11,13 @@ import {
   renameSync,
 } from "node:fs";
 import path from "node:path";
+import type {
+  LedgerAlertContext,
+  LedgerAlertInvocation,
+  LedgerAlertSink,
+} from "../lib/ledgerAlerts.js";
+import { createKernelAlertSink } from "../lib/ledgerAlerts.js";
+import { logger as defaultLogger } from "../lib/logger.js";
 
 type FailureMode =
   | "hits_missing"
@@ -86,6 +93,8 @@ export interface LedgerRouterOptions {
   staleThresholdSeconds?: number;
 }
 
+export type { LedgerIntegrityStatus, FailureMode };
+
 function readPersistedLastOk(p: string): string | null {
   try {
     if (!existsSync(p)) return null;
@@ -116,7 +125,14 @@ function writePersistedLastOk(p: string, lastOkAt: string): void {
   }
 }
 
-export function createLedgerRouter(opts: LedgerRouterOptions): IRouter {
+export interface LedgerChecker {
+  router: IRouter;
+  buildStatus: () => LedgerIntegrityStatus;
+  hitsPath: string;
+  checkpointPath: string;
+}
+
+export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
   const HITS = opts.hitsPath;
   const CHECKPOINT = opts.checkpointPath;
   const LAST_OK_PATH = opts.lastOkPath ?? `${opts.hitsPath}.lastok`;
@@ -320,13 +336,207 @@ export function createLedgerRouter(opts: LedgerRouterOptions): IRouter {
   router.get("/ledger/integrity", (_req, res) => {
     res.status(200).json(buildStatus());
   });
-  return router;
+  return { router, buildStatus, hitsPath: HITS, checkpointPath: CHECKPOINT };
+}
+
+export function createLedgerRouter(opts: LedgerRouterOptions): IRouter {
+  return createLedgerChecker(opts).router;
+}
+
+export interface LedgerMonitorOptions {
+  buildStatus: () => LedgerIntegrityStatus;
+  sink: LedgerAlertSink;
+  intervalMs: number;
+  hitsPath?: string;
+  checkpointPath?: string;
+  logger?: {
+    info: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+  };
+}
+
+export interface LedgerMonitorHandle {
+  stop: () => void;
+  tick: () => Promise<void>;
+}
+
+/**
+ * Task #85: server-side recurring integrity check. Calls the same
+ * buildStatus() the GET /api/ledger/integrity route uses, and forwards
+ * any non-ok result through `sink` (by default a thin shell into
+ * `kernel._fire_ledger_alert` so webhook / SMTP transports, payload
+ * shape and the ALERTS_LOG ring buffer all stay in lock-step with the
+ * Python-side append guard).
+ *
+ * Dedup contract:
+ *   - On status !== 'ok', fire one alert. While the status stays
+ *     non-ok with the SAME failureMode, do NOT re-spam.
+ *   - If failureMode CHANGES while still non-ok (e.g. truncated →
+ *     rewritten_in_place), fire a fresh alert — that's a new incident.
+ *   - On the first ok check after any alerted state, fire exactly one
+ *     "recovered" alert; subsequent ok checks are silent.
+ */
+export function startLedgerMonitor(
+  opts: LedgerMonitorOptions,
+): LedgerMonitorHandle {
+  const log = opts.logger ?? defaultLogger;
+  let lastAlerted: "none" | "alerted" = "none";
+  let lastFailureMode: string | null = null;
+  let inFlight = false;
+
+  async function tick(): Promise<void> {
+    if (inFlight) return;
+    inFlight = true;
+    try {
+      let s: LedgerIntegrityStatus;
+      try {
+        s = opts.buildStatus();
+      } catch (err) {
+        log.error(
+          { err },
+          "ledger monitor: buildStatus threw, skipping this tick",
+        );
+        return;
+      }
+      const commonCtx = {
+        hits_path: opts.hitsPath,
+        checkpoint_path: opts.checkpointPath,
+        source: "api-server-monitor",
+      };
+      if (s.status !== "ok") {
+        if (
+          lastAlerted !== "alerted" ||
+          lastFailureMode !== s.failureMode
+        ) {
+          const context: LedgerAlertContext = {
+            failure_mode: s.failureMode,
+            expected_size: s.checkpointSize,
+            expected_sha: s.checkpointSha,
+            actual_size: s.liveSize,
+            actual_sha: s.livePrefixSha,
+            checked_at: s.checkedAt,
+            ...commonCtx,
+          };
+          const message =
+            `Ledger integrity check failed (api-server monitor): ` +
+            (s.reason ?? s.failureMode ?? "unknown failure");
+          const invocation: LedgerAlertInvocation = {
+            kind: "alert",
+            message,
+            context,
+          };
+          log.warn(
+            { failureMode: s.failureMode, status: s.status },
+            "ledger monitor: firing alert",
+          );
+          try {
+            await opts.sink(invocation);
+          } catch (err) {
+            log.warn(
+              { err },
+              "ledger monitor: alert sink threw (best-effort, swallowed)",
+            );
+          }
+          lastAlerted = "alerted";
+          lastFailureMode = s.failureMode;
+        }
+      } else if (lastAlerted === "alerted") {
+        const prev = lastFailureMode;
+        const context: LedgerAlertContext = {
+          failure_mode: "recovered",
+          previous_failure_mode: prev,
+          actual_size: s.liveSize,
+          actual_sha: s.livePrefixSha,
+          checked_at: s.checkedAt,
+          ...commonCtx,
+        };
+        const message =
+          `Ledger integrity RECOVERED (api-server monitor): ` +
+          `previous failure mode = ${prev ?? "unknown"}`;
+        const invocation: LedgerAlertInvocation = {
+          kind: "recovered",
+          message,
+          context,
+        };
+        log.info(
+          { previousFailureMode: prev },
+          "ledger monitor: firing recovery alert",
+        );
+        try {
+          await opts.sink(invocation);
+        } catch (err) {
+          log.warn(
+            { err },
+            "ledger monitor: recovery sink threw (best-effort, swallowed)",
+          );
+        }
+        lastAlerted = "none";
+        lastFailureMode = null;
+      }
+    } finally {
+      inFlight = false;
+    }
+  }
+
+  const handle = setInterval(() => {
+    void tick();
+  }, opts.intervalMs);
+  handle.unref?.();
+
+  return {
+    stop() {
+      clearInterval(handle);
+    },
+    tick,
+  };
+}
+
+const DEFAULT_MONITOR_INTERVAL_SECONDS = 300;
+
+function resolveMonitorIntervalSeconds(
+  raw: string | undefined,
+): number | null {
+  if (raw == null) return DEFAULT_MONITOR_INTERVAL_SECONDS;
+  const trimmed = raw.trim();
+  if (trimmed === "") return DEFAULT_MONITOR_INTERVAL_SECONDS;
+  if (/^(off|disabled?|none|0)$/i.test(trimmed)) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n <= 0) {
+    return DEFAULT_MONITOR_INTERVAL_SECONDS;
+  }
+  return Math.floor(n);
 }
 
 const REPO_ROOT = resolveRepoRoot();
-const defaultRouter = createLedgerRouter({
+const defaultChecker = createLedgerChecker({
   hitsPath: path.join(REPO_ROOT, "data", "hits.txt"),
   checkpointPath: path.join(REPO_ROOT, "data", "hits.txt.checkpoint"),
 });
 
-export default defaultRouter;
+const monitorIntervalSeconds = resolveMonitorIntervalSeconds(
+  process.env["LEDGER_INTEGRITY_CHECK_INTERVAL_SECONDS"],
+);
+if (monitorIntervalSeconds != null) {
+  startLedgerMonitor({
+    buildStatus: defaultChecker.buildStatus,
+    sink: createKernelAlertSink({
+      repoRoot: REPO_ROOT,
+      logger: defaultLogger,
+    }),
+    intervalMs: monitorIntervalSeconds * 1000,
+    hitsPath: defaultChecker.hitsPath,
+    checkpointPath: defaultChecker.checkpointPath,
+    logger: defaultLogger,
+  });
+  defaultLogger.info(
+    { intervalSeconds: monitorIntervalSeconds },
+    "ledger monitor: started (auto integrity check on a timer)",
+  );
+} else {
+  defaultLogger.info(
+    "ledger monitor: disabled (LEDGER_INTEGRITY_CHECK_INTERVAL_SECONDS=off)",
+  );
+}
+
+export default defaultChecker.router;

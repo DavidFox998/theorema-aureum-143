@@ -1,0 +1,267 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, writeFileSync, rmSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { createHash } from "node:crypto";
+import {
+  createLedgerChecker,
+  startLedgerMonitor,
+  type LedgerMonitorHandle,
+} from "./ledger.js";
+import type {
+  LedgerAlertInvocation,
+  LedgerAlertSink,
+} from "../lib/ledgerAlerts.js";
+
+let tmpDir: string;
+let hitsPath: string;
+let checkpointPath: string;
+let lastOkPath: string;
+let monitor: LedgerMonitorHandle | null = null;
+
+function sha256(buf: Buffer | string): string {
+  return createHash("sha256").update(buf).digest("hex");
+}
+
+function writeHits(content: string): { size: number; sha: string } {
+  const buf = Buffer.from(content, "utf-8");
+  writeFileSync(hitsPath, buf);
+  return { size: buf.length, sha: sha256(buf) };
+}
+
+function writeCheckpoint(size: number, sha: string) {
+  writeFileSync(checkpointPath, `${size} ${sha}\n`);
+}
+
+function silentLogger() {
+  return { info: () => {}, warn: () => {}, error: () => {} };
+}
+
+function makeRecordingSink(): {
+  sink: LedgerAlertSink;
+  calls: LedgerAlertInvocation[];
+} {
+  const calls: LedgerAlertInvocation[] = [];
+  const sink: LedgerAlertSink = (inv) => {
+    calls.push(inv);
+    return Promise.resolve();
+  };
+  return { sink, calls };
+}
+
+beforeEach(() => {
+  tmpDir = mkdtempSync(path.join(tmpdir(), "ledger-monitor-test-"));
+  hitsPath = path.join(tmpDir, "hits.txt");
+  checkpointPath = path.join(tmpDir, "hits.txt.checkpoint");
+  lastOkPath = path.join(tmpDir, "hits.txt.lastok");
+});
+
+afterEach(() => {
+  monitor?.stop();
+  monitor = null;
+  for (const p of [hitsPath, checkpointPath, lastOkPath]) {
+    try {
+      unlinkSync(p);
+    } catch {
+      /* ignore */
+    }
+  }
+  rmSync(tmpDir, { recursive: true, force: true });
+});
+
+describe("startLedgerMonitor", () => {
+  it("fires no alert when the ledger stays healthy across ticks", async () => {
+    const sealed = "line1\nline2\nline3\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const { router: _r, buildStatus, hitsPath: hp, checkpointPath: cp } =
+      createLedgerChecker({ hitsPath, checkpointPath, lastOkPath });
+    const { sink, calls } = makeRecordingSink();
+    monitor = startLedgerMonitor({
+      buildStatus,
+      sink,
+      intervalMs: 60_000,
+      hitsPath: hp,
+      checkpointPath: cp,
+      logger: silentLogger(),
+    });
+
+    await monitor.tick();
+    await monitor.tick();
+    await monitor.tick();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("fires exactly one alert when the ledger goes red, dedupes while still red", async () => {
+    const sealed = "line1\nline2\nline3\nline4\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const { buildStatus, hitsPath: hp, checkpointPath: cp } =
+      createLedgerChecker({ hitsPath, checkpointPath, lastOkPath });
+    const { sink, calls } = makeRecordingSink();
+    monitor = startLedgerMonitor({
+      buildStatus,
+      sink,
+      intervalMs: 60_000,
+      hitsPath: hp,
+      checkpointPath: cp,
+      logger: silentLogger(),
+    });
+
+    // First tick: still ok, no alert.
+    await monitor.tick();
+    expect(calls).toHaveLength(0);
+
+    // Tamper: truncate the live ledger below the checkpoint.
+    writeFileSync(hitsPath, "line1\n");
+
+    await monitor.tick();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].kind).toBe("alert");
+    expect(calls[0].context.failure_mode).toBe("hits_truncated");
+    expect(calls[0].context.expected_size).toBe(size);
+    expect(calls[0].context.expected_sha).toBe(sha);
+    expect(calls[0].context.source).toBe("api-server-monitor");
+    expect(calls[0].context.hits_path).toBe(hp);
+    expect(calls[0].context.checkpoint_path).toBe(cp);
+    expect(calls[0].message).toMatch(/Ledger integrity check failed/);
+
+    // Two more ticks while still red with the same failure_mode: silent.
+    await monitor.tick();
+    await monitor.tick();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("re-fires when the failure_mode changes while still red", async () => {
+    const sealed = "line1\nline2\nline3\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const { buildStatus } = createLedgerChecker({
+      hitsPath,
+      checkpointPath,
+      lastOkPath,
+    });
+    const { sink, calls } = makeRecordingSink();
+    monitor = startLedgerMonitor({
+      buildStatus,
+      sink,
+      intervalMs: 60_000,
+      logger: silentLogger(),
+    });
+
+    // Tamper 1: truncate.
+    writeFileSync(hitsPath, "x");
+    await monitor.tick();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].context.failure_mode).toBe("hits_truncated");
+
+    // Tamper 2: same length as checkpoint but rewritten in place.
+    const tampered = "LINE1\nLINE2\nLINE3\n";
+    expect(Buffer.byteLength(tampered)).toBe(size);
+    writeFileSync(hitsPath, tampered);
+    await monitor.tick();
+    expect(calls).toHaveLength(2);
+    expect(calls[1].context.failure_mode).toBe("hits_rewritten_in_place");
+
+    // Stay rewritten: silent.
+    await monitor.tick();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("fires a single 'recovered' alert when the ledger comes back to green", async () => {
+    const sealed = "line1\nline2\nline3\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const { buildStatus } = createLedgerChecker({
+      hitsPath,
+      checkpointPath,
+      lastOkPath,
+    });
+    const { sink, calls } = makeRecordingSink();
+    monitor = startLedgerMonitor({
+      buildStatus,
+      sink,
+      intervalMs: 60_000,
+      logger: silentLogger(),
+    });
+
+    // Go red.
+    writeFileSync(hitsPath, "x");
+    await monitor.tick();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].kind).toBe("alert");
+
+    // Restore.
+    writeFileSync(hitsPath, sealed);
+    await monitor.tick();
+    expect(calls).toHaveLength(2);
+    expect(calls[1].kind).toBe("recovered");
+    expect(calls[1].context.failure_mode).toBe("recovered");
+    expect(calls[1].context.previous_failure_mode).toBe("hits_truncated");
+    expect(calls[1].message).toMatch(/RECOVERED/);
+
+    // Stay green: silent.
+    await monitor.tick();
+    await monitor.tick();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("survives a sink that throws — no exception bubbles, state still advances", async () => {
+    const sealed = "line1\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const { buildStatus } = createLedgerChecker({
+      hitsPath,
+      checkpointPath,
+      lastOkPath,
+    });
+    let calls = 0;
+    const sink: LedgerAlertSink = () => {
+      calls++;
+      throw new Error("sink down");
+    };
+    monitor = startLedgerMonitor({
+      buildStatus,
+      sink,
+      intervalMs: 60_000,
+      logger: silentLogger(),
+    });
+
+    writeFileSync(hitsPath, "");
+    await expect(monitor.tick()).resolves.toBeUndefined();
+    expect(calls).toBe(1);
+    // Dedup still works — sink throwing doesn't cause re-spam.
+    await monitor.tick();
+    expect(calls).toBe(1);
+  });
+
+  it("stop() halts the interval", async () => {
+    const sealed = "line1\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const { buildStatus } = createLedgerChecker({
+      hitsPath,
+      checkpointPath,
+      lastOkPath,
+    });
+    const { sink, calls } = makeRecordingSink();
+    const m = startLedgerMonitor({
+      buildStatus,
+      sink,
+      intervalMs: 10,
+      logger: silentLogger(),
+    });
+    writeFileSync(hitsPath, "");
+    await new Promise((r) => setTimeout(r, 50));
+    m.stop();
+    const after = calls.length;
+    await new Promise((r) => setTimeout(r, 60));
+    expect(calls.length).toBe(after);
+  });
+});
