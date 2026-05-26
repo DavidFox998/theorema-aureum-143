@@ -84,6 +84,7 @@ BRICKS=(
   "Towers.YM.Gauge|TheoremaAureum.Towers.YM.gauge_action_smul_inv"
   "Towers.YM.Gauge|TheoremaAureum.Towers.YM.gauge_action_inv_inv"
   "Towers.YM.Gauge|TheoremaAureum.Towers.YM.gauge_action_pow_zero"
+  "Towers.YM.MassGap|TheoremaAureum.Towers.YM.SU3Connection_one_mul"
 )
 
 VERIFIER_DIR="$(mktemp -d)"
