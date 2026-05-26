@@ -18,6 +18,8 @@ tags:
     description: Lean 4 verification log
   - name: morningstar
     description: MorningStar-Lab probe ledger
+  - name: ledger
+    description: At-rest ledger integrity
 paths:
   /healthz:
     get:
@@ -289,6 +291,33 @@ paths:
                 $ref: "#/components/schemas/MorningstarHits"
         "500":
           description: Ledger file unavailable or malformed
+
+  /ledger/integrity:
+    get:
+      operationId: getLedgerIntegrity
+      tags: [ledger]
+      summary: At-rest integrity status of `data/hits.txt`
+      description: |
+        Read-only health probe of the append-only probe ledger. Mirrors
+        the logic of `scripts/check-ledger-integrity.py` and
+        `kernel._verify_checkpoint`: compares `data/hits.txt` against
+        the committed `data/hits.txt.checkpoint` sidecar, which records
+        the (size, sha256) of the last known-good prefix.
+
+        Returns `ok` when the live file is at least as long as the
+        checkpoint and the sha256 of its first `checkpointSize` bytes
+        matches `checkpointSha`. Returns a `mismatch` status (with a
+        human-readable `reason` and a structured `failureMode`) when
+        the live file has shrunk, been rewritten in place, the
+        checkpoint sidecar is malformed/missing, or the ledger file
+        itself is missing. This endpoint NEVER writes to the ledger.
+      responses:
+        "200":
+          description: Integrity snapshot (healthy or not)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerIntegrityStatus"
 
   /storage/uploads/request-url:
     post:
@@ -714,6 +743,70 @@ components:
           type: string
           format: date-time
           description: ISO-8601 mtime of the ledger file
+
+    LedgerIntegrityStatus:
+      type: object
+      required:
+        - status
+        - checkedAt
+        - ledgerPath
+        - checkpointPath
+      properties:
+        status:
+          type: string
+          enum: [ok, mismatch, missing]
+          description: |
+            `ok` when the live ledger's first `checkpointSize` bytes hash
+            to `checkpointSha`. `missing` when either `data/hits.txt` or
+            its checkpoint sidecar is absent — a distinct first-class
+            state so callers can distinguish "the file is gone" from
+            "the file has been tampered". `mismatch` when the live
+            file is shorter than the checkpoint, has been rewritten in
+            place, the checkpoint is malformed, or it cannot be read.
+        failureMode:
+          type: ["string", "null"]
+          description: |
+            Structured failure code. One of `hits_missing` /
+            `checkpoint_missing` (when `status` is `missing`), or
+            `checkpoint_malformed` / `hits_truncated` /
+            `hits_rewritten_in_place` / `checkpoint_unreadable`
+            (when `status` is `mismatch`). Null when healthy.
+        reason:
+          type: ["string", "null"]
+          description: Human-readable mismatch reason. Null when healthy.
+        checkpointSize:
+          type: ["integer", "null"]
+          description: Bytes recorded in `data/hits.txt.checkpoint`
+        checkpointSha:
+          type: ["string", "null"]
+          description: SHA-256 (hex) recorded in `data/hits.txt.checkpoint`
+        liveSize:
+          type: ["integer", "null"]
+          description: Current byte size of `data/hits.txt`
+        livePrefixSha:
+          type: ["string", "null"]
+          description: |
+            SHA-256 (hex) of the first `checkpointSize` bytes of the
+            live ledger. Equals `checkpointSha` when `status` is `ok`.
+        growthBytes:
+          type: ["integer", "null"]
+          description: |
+            `liveSize - checkpointSize` when both are known and positive
+            (legitimate appends since the last checkpoint update).
+        checkedAt:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp the check was performed (server time)
+        ledgerLastModified:
+          type: ["string", "null"]
+          format: date-time
+          description: ISO-8601 mtime of `data/hits.txt` (null if missing)
+        ledgerPath:
+          type: string
+          description: Filesystem path of the ledger that was checked
+        checkpointPath:
+          type: string
+          description: Filesystem path of the checkpoint sidecar
 
     UploadUrlRequest:
       type: object

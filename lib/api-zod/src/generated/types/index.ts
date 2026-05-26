@@ -22,6 +22,8 @@ export * from './leanRebuildHistory';
 export * from './leanRebuildHistoryEntry';
 export * from './leanRebuildResult';
 export * from './leanVerification';
+export * from './ledgerIntegrityStatus';
+export * from './ledgerIntegrityStatusStatus';
 export * from './morningstarHits';
 export * from './morningstarProbe';
 export * from './uploadUrlRequest';

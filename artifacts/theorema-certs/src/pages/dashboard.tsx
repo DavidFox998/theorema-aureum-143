@@ -6,10 +6,12 @@ import {
   useGetLeanLockouts,
   useClearLeanLockout,
   useGetMorningstarHits,
+  useGetLedgerIntegrity,
   getGetMorningstarHitsQueryKey,
   getGetLeanVerificationQueryKey,
   getGetLeanRebuildHistoryQueryKey,
   getGetLeanLockoutsQueryKey,
+  getGetLedgerIntegrityQueryKey,
 } from "@workspace/api-client-react";
 import { ShaChip } from "@/components/sha-chip";
 import { StatusBadge } from "@/components/status-badge";
@@ -224,6 +226,17 @@ export default function DashboardPage() {
       retry: false,
     },
     request: lockoutsAuthHeader ? { headers: lockoutsAuthHeader } : undefined,
+  });
+  const {
+    data: ledgerIntegrity,
+    error: ledgerIntegrityError,
+  } = useGetLedgerIntegrity({
+    query: {
+      queryKey: getGetLedgerIntegrityQueryKey(),
+      refetchInterval: 30000,
+      refetchIntervalInBackground: false,
+      retry: false,
+    },
   });
   const clearLockoutMutation = useClearLeanLockout({
     request: lockoutsAuthHeader ? { headers: lockoutsAuthHeader } : undefined,
@@ -1312,6 +1325,176 @@ export default function DashboardPage() {
           ) : (
             <p className="text-xs font-mono text-muted-foreground">
               Verification log unavailable.
+            </p>
+          )}
+        </div>
+      </Card>
+
+      <Card
+        className="p-6 border-border bg-card"
+        data-testid="card-ledger-integrity"
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <h3 className="text-sm font-mono font-bold uppercase text-muted-foreground flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" /> Ledger integrity (at rest)
+            </h3>
+            {ledgerIntegrity ? (
+              <span
+                className={`inline-flex items-center gap-2 px-3 py-1 border font-mono text-xs font-bold ${
+                  ledgerIntegrity.status === "ok"
+                    ? "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400"
+                    : ledgerIntegrity.status === "missing"
+                      ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                      : "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400"
+                }`}
+                data-testid="badge-ledger-integrity"
+              >
+                {ledgerIntegrity.status === "ok" ? (
+                  <CheckCircle2 className="w-3 h-3" />
+                ) : ledgerIntegrity.status === "missing" ? (
+                  <AlertTriangle className="w-3 h-3" />
+                ) : (
+                  <ShieldAlert className="w-3 h-3" />
+                )}
+                {ledgerIntegrity.status === "ok"
+                  ? "Checkpoint verified"
+                  : ledgerIntegrity.status === "missing"
+                    ? "Ledger file MISSING"
+                    : "Checkpoint MISMATCH"}
+              </span>
+            ) : ledgerIntegrityError ? (
+              <span
+                className="inline-flex items-center gap-2 px-3 py-1 border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-xs font-bold"
+                data-testid="badge-ledger-integrity-unreachable"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                Unreachable
+              </span>
+            ) : null}
+          </div>
+
+          <p className="text-xs font-mono text-muted-foreground">
+            Compares <span className="text-foreground">data/hits.txt</span> against the
+            committed{" "}
+            <span className="text-foreground">data/hits.txt.checkpoint</span> sidecar
+            (size + sha256 of the last known-good prefix). Mirrors{" "}
+            <span className="text-foreground">scripts/check-ledger-integrity.py</span>.
+            Read-only — never mutates the ledger. Polls every 30s.
+          </p>
+
+          {ledgerIntegrity && ledgerIntegrity.status !== "ok" ? (
+            <div
+              className="border border-red-500/50 bg-red-500/10 p-3 font-mono text-xs space-y-1 text-red-700 dark:text-red-400"
+              data-testid="panel-ledger-integrity-mismatch"
+            >
+              <div className="font-bold uppercase tracking-wider">
+                {ledgerIntegrity.failureMode ?? "mismatch"}
+              </div>
+              <div
+                className="whitespace-pre-wrap text-foreground/90"
+                data-testid="text-ledger-integrity-reason"
+              >
+                {ledgerIntegrity.reason ?? "Ledger integrity check failed."}
+              </div>
+              <div className="text-foreground/70">
+                Recovery: see{" "}
+                <span className="text-foreground">docs/REPRODUCE.md</span> —
+                "Recovering data/hits.txt from a tamper or accidental truncation".
+              </div>
+            </div>
+          ) : null}
+
+          {ledgerIntegrity ? (
+            <dl
+              className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 font-mono text-xs"
+              data-testid="panel-ledger-integrity-metrics"
+            >
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-muted-foreground uppercase tracking-wider text-[10px]">
+                  Checkpoint size
+                </dt>
+                <dd
+                  className="text-foreground"
+                  data-testid="text-ledger-checkpoint-size"
+                >
+                  {ledgerIntegrity.checkpointSize != null
+                    ? `${ledgerIntegrity.checkpointSize.toLocaleString()} B`
+                    : "—"}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-muted-foreground uppercase tracking-wider text-[10px]">
+                  Live size
+                </dt>
+                <dd
+                  className="text-foreground"
+                  data-testid="text-ledger-live-size"
+                >
+                  {ledgerIntegrity.liveSize != null
+                    ? `${ledgerIntegrity.liveSize.toLocaleString()} B`
+                    : "—"}
+                  {ledgerIntegrity.growthBytes != null &&
+                  ledgerIntegrity.growthBytes > 0 ? (
+                    <span className="ml-2 text-muted-foreground">
+                      (+{ledgerIntegrity.growthBytes.toLocaleString()} since
+                      checkpoint)
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-0.5 md:col-span-2">
+                <dt className="text-muted-foreground uppercase tracking-wider text-[10px]">
+                  Checkpoint sha256
+                </dt>
+                <dd data-testid="text-ledger-checkpoint-sha">
+                  {ledgerIntegrity.checkpointSha ? (
+                    <ShaChip sha={ledgerIntegrity.checkpointSha} />
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-muted-foreground uppercase tracking-wider text-[10px]">
+                  Last checked
+                </dt>
+                <dd
+                  className="text-foreground"
+                  data-testid="text-ledger-checked-at"
+                >
+                  {formatTimestamp(ledgerIntegrity.checkedAt)}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-muted-foreground uppercase tracking-wider text-[10px]">
+                  Ledger mtime
+                </dt>
+                <dd
+                  className="text-foreground"
+                  data-testid="text-ledger-mtime"
+                >
+                  {ledgerIntegrity.ledgerLastModified
+                    ? formatTimestamp(ledgerIntegrity.ledgerLastModified)
+                    : "—"}
+                </dd>
+              </div>
+            </dl>
+          ) : ledgerIntegrityError ? (
+            <p
+              className="text-xs font-mono text-amber-700 dark:text-amber-400"
+              data-testid="text-ledger-integrity-error"
+            >
+              {ledgerIntegrityError instanceof Error
+                ? ledgerIntegrityError.message
+                : "Ledger integrity endpoint unreachable."}
+            </p>
+          ) : (
+            <p
+              className="text-xs font-mono text-muted-foreground"
+              data-testid="text-ledger-integrity-loading"
+            >
+              Checking ledger integrity…
             </p>
           )}
         </div>

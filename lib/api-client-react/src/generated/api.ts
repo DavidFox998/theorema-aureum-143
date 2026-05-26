@@ -32,6 +32,7 @@ import type {
   LeanRebuildHistory,
   LeanRebuildResult,
   LeanVerification,
+  LedgerIntegrityStatus,
   MorningstarHits,
   UploadUrlRequest,
   UploadUrlResponse
@@ -1059,6 +1060,97 @@ export function useGetMorningstarHits<TData = Awaited<ReturnType<typeof getMorni
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMorningstarHitsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetLedgerIntegrityUrl = () => {
+
+
+
+
+  return `/api/ledger/integrity`
+}
+
+/**
+ * Read-only health probe of the append-only probe ledger. Mirrors
+the logic of `scripts/check-ledger-integrity.py` and
+`kernel._verify_checkpoint`: compares `data/hits.txt` against
+the committed `data/hits.txt.checkpoint` sidecar, which records
+the (size, sha256) of the last known-good prefix.
+
+Returns `ok` when the live file is at least as long as the
+checkpoint and the sha256 of its first `checkpointSize` bytes
+matches `checkpointSha`. Returns a `mismatch` status (with a
+human-readable `reason` and a structured `failureMode`) when
+the live file has shrunk, been rewritten in place, the
+checkpoint sidecar is malformed/missing, or the ledger file
+itself is missing. This endpoint NEVER writes to the ledger.
+
+ * @summary At-rest integrity status of `data/hits.txt`
+ */
+export const getLedgerIntegrity = async ( options?: RequestInit): Promise<LedgerIntegrityStatus> => {
+
+  return customFetch<LedgerIntegrityStatus>(getGetLedgerIntegrityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLedgerIntegrityQueryKey = () => {
+    return [
+    `/api/ledger/integrity`
+    ] as const;
+    }
+
+
+export const getGetLedgerIntegrityQueryOptions = <TData = Awaited<ReturnType<typeof getLedgerIntegrity>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLedgerIntegrity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLedgerIntegrityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLedgerIntegrity>>> = ({ signal }) => getLedgerIntegrity({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLedgerIntegrity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLedgerIntegrityQueryResult = NonNullable<Awaited<ReturnType<typeof getLedgerIntegrity>>>
+export type GetLedgerIntegrityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary At-rest integrity status of `data/hits.txt`
+ */
+
+export function useGetLedgerIntegrity<TData = Awaited<ReturnType<typeof getLedgerIntegrity>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLedgerIntegrity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLedgerIntegrityQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

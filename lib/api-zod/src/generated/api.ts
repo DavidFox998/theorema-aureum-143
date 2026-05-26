@@ -285,6 +285,39 @@ export const GetMorningstarHitsResponse = zod.object({
 
 
 /**
+ * Read-only health probe of the append-only probe ledger. Mirrors
+the logic of `scripts/check-ledger-integrity.py` and
+`kernel._verify_checkpoint`: compares `data/hits.txt` against
+the committed `data/hits.txt.checkpoint` sidecar, which records
+the (size, sha256) of the last known-good prefix.
+
+Returns `ok` when the live file is at least as long as the
+checkpoint and the sha256 of its first `checkpointSize` bytes
+matches `checkpointSha`. Returns a `mismatch` status (with a
+human-readable `reason` and a structured `failureMode`) when
+the live file has shrunk, been rewritten in place, the
+checkpoint sidecar is malformed/missing, or the ledger file
+itself is missing. This endpoint NEVER writes to the ledger.
+
+ * @summary At-rest integrity status of `data/hits.txt`
+ */
+export const GetLedgerIntegrityResponse = zod.object({
+  "status": zod.enum(['ok', 'mismatch', 'missing']).describe('`ok` when the live ledger\'s first `checkpointSize` bytes hash\nto `checkpointSha`. `missing` when either `data\/hits.txt` or\nits checkpoint sidecar is absent — a distinct first-class\nstate so callers can distinguish \"the file is gone\" from\n\"the file has been tampered\". `mismatch` when the live\nfile is shorter than the checkpoint, has been rewritten in\nplace, the checkpoint is malformed, or it cannot be read.\n'),
+  "failureMode": zod.string().nullish().describe('Structured failure code. One of `hits_missing` \/\n`checkpoint_missing` (when `status` is `missing`), or\n`checkpoint_malformed` \/ `hits_truncated` \/\n`hits_rewritten_in_place` \/ `checkpoint_unreadable`\n(when `status` is `mismatch`). Null when healthy.\n'),
+  "reason": zod.string().nullish().describe('Human-readable mismatch reason. Null when healthy.'),
+  "checkpointSize": zod.number().nullish().describe('Bytes recorded in `data\/hits.txt.checkpoint`'),
+  "checkpointSha": zod.string().nullish().describe('SHA-256 (hex) recorded in `data\/hits.txt.checkpoint`'),
+  "liveSize": zod.number().nullish().describe('Current byte size of `data\/hits.txt`'),
+  "livePrefixSha": zod.string().nullish().describe('SHA-256 (hex) of the first `checkpointSize` bytes of the\nlive ledger. Equals `checkpointSha` when `status` is `ok`.\n'),
+  "growthBytes": zod.number().nullish().describe('`liveSize - checkpointSize` when both are known and positive\n(legitimate appends since the last checkpoint update).\n'),
+  "checkedAt": zod.coerce.date().describe('ISO-8601 timestamp the check was performed (server time)'),
+  "ledgerLastModified": zod.coerce.date().nullish().describe('ISO-8601 mtime of `data\/hits.txt` (null if missing)'),
+  "ledgerPath": zod.string().describe('Filesystem path of the ledger that was checked'),
+  "checkpointPath": zod.string().describe('Filesystem path of the checkpoint sidecar')
+})
+
+
+/**
  * @summary Request a presigned upload URL for a PDF
  */
 export const RequestUploadUrlBody = zod.object({

@@ -274,6 +274,92 @@ export interface MorningstarHits {
   lastModified: string;
 }
 
+/**
+ * `ok` when the live ledger's first `checkpointSize` bytes hash
+to `checkpointSha`. `missing` when either `data/hits.txt` or
+its checkpoint sidecar is absent — a distinct first-class
+state so callers can distinguish "the file is gone" from
+"the file has been tampered". `mismatch` when the live
+file is shorter than the checkpoint, has been rewritten in
+place, the checkpoint is malformed, or it cannot be read.
+
+ */
+export type LedgerIntegrityStatusStatus = typeof LedgerIntegrityStatusStatus[keyof typeof LedgerIntegrityStatusStatus];
+
+
+export const LedgerIntegrityStatusStatus = {
+  ok: 'ok',
+  mismatch: 'mismatch',
+  missing: 'missing',
+} as const;
+
+export interface LedgerIntegrityStatus {
+  /** `ok` when the live ledger's first `checkpointSize` bytes hash
+  to `checkpointSha`. `missing` when either `data/hits.txt` or
+  its checkpoint sidecar is absent — a distinct first-class
+  state so callers can distinguish "the file is gone" from
+  "the file has been tampered". `mismatch` when the live
+  file is shorter than the checkpoint, has been rewritten in
+  place, the checkpoint is malformed, or it cannot be read.
+   */
+  status: LedgerIntegrityStatusStatus;
+  /**
+     * Structured failure code. One of `hits_missing` /
+  `checkpoint_missing` (when `status` is `missing`), or
+  `checkpoint_malformed` / `hits_truncated` /
+  `hits_rewritten_in_place` / `checkpoint_unreadable`
+  (when `status` is `mismatch`). Null when healthy.
+
+     * @nullable
+     */
+  failureMode?: string | null;
+  /**
+     * Human-readable mismatch reason. Null when healthy.
+     * @nullable
+     */
+  reason?: string | null;
+  /**
+     * Bytes recorded in `data/hits.txt.checkpoint`
+     * @nullable
+     */
+  checkpointSize?: number | null;
+  /**
+     * SHA-256 (hex) recorded in `data/hits.txt.checkpoint`
+     * @nullable
+     */
+  checkpointSha?: string | null;
+  /**
+     * Current byte size of `data/hits.txt`
+     * @nullable
+     */
+  liveSize?: number | null;
+  /**
+     * SHA-256 (hex) of the first `checkpointSize` bytes of the
+  live ledger. Equals `checkpointSha` when `status` is `ok`.
+
+     * @nullable
+     */
+  livePrefixSha?: string | null;
+  /**
+     * `liveSize - checkpointSize` when both are known and positive
+  (legitimate appends since the last checkpoint update).
+
+     * @nullable
+     */
+  growthBytes?: number | null;
+  /** ISO-8601 timestamp the check was performed (server time) */
+  checkedAt: string;
+  /**
+     * ISO-8601 mtime of `data/hits.txt` (null if missing)
+     * @nullable
+     */
+  ledgerLastModified?: string | null;
+  /** Filesystem path of the ledger that was checked */
+  ledgerPath: string;
+  /** Filesystem path of the checkpoint sidecar */
+  checkpointPath: string;
+}
+
 export interface UploadUrlRequest {
   name: string;
   size: number;

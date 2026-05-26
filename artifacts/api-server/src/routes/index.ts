@@ -4,6 +4,7 @@ import storageRouter from "./storage";
 import certificatesRouter from "./certificates";
 import leanRouter from "./lean";
 import morningstarRouter from "./morningstar";
+import ledgerRouter from "./ledger";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(storageRouter);
 router.use(certificatesRouter);
 router.use(leanRouter);
 router.use(morningstarRouter);
+router.use(ledgerRouter);
 
 export default router;
