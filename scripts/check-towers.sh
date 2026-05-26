@@ -953,6 +953,22 @@ BRICKS=(
   "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.correlation_decay_exponential"
   "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.clustering_property_YM3"
   "Towers.YM.Spectrum|TheoremaAureum.Towers.YM.Spectrum.MassGap_YM4_Clay"
+  # ---- Task #88 sub-batch 88.1: real SU(3) Wilson plaquette action ----
+  "Towers.YM.Wilson|TheoremaAureum.Towers.YM.Wilson.plaquetteMat_trivial"
+  "Towers.YM.Wilson|TheoremaAureum.Towers.YM.Wilson.wDensity_trivial_eq_zero"
+  "Towers.YM.Wilson|TheoremaAureum.Towers.YM.Wilson.WilsonAction_trivial_eq_zero"
+  "Towers.YM.Wilson|TheoremaAureum.Towers.YM.Wilson.wDensity_nonneg"
+  "Towers.YM.Wilson|TheoremaAureum.Towers.YM.Wilson.WilsonAction_nonneg"
+  "Towers.YM.Wilson|TheoremaAureum.Towers.YM.Wilson.YMHamiltonian_real_trivial_eq_zero"
+  "Towers.YM.Wilson|TheoremaAureum.Towers.YM.Wilson.YMHamiltonian_real_nonneg"
+  # ---- Task #88 sub-batch 88.2: real clover-improved F_μν ----
+  "Towers.YM.CloverF|TheoremaAureum.Towers.YM.CloverF.cloverF_antisymmetric"
+  "Towers.YM.CloverF|TheoremaAureum.Towers.YM.CloverF.cloverF_diagonal_zero"
+  "Towers.YM.CloverF|TheoremaAureum.Towers.YM.CloverF.cloverF_trivial_eq_zero"
+  # ---- Task #88 sub-batch 88.6: real H¹ norm with [A,A] commutator ----
+  "Towers.NS.RealH1Norm|TheoremaAureum.Towers.NS.RealH1Norm.frobNormSq_nonneg"
+  "Towers.NS.RealH1Norm|TheoremaAureum.Towers.NS.RealH1Norm.H1NormReal_nonneg"
+  "Towers.NS.RealH1Norm|TheoremaAureum.Towers.NS.RealH1Norm.H1NormReal_zero_eq_zero"
 )
 
 VERIFIER_DIR="$(mktemp -d)"
