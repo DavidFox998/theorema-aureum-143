@@ -567,3 +567,99 @@ def test_alert_timeout_seconds_env_var_is_honored(monkeypatch):
 
     monkeypatch.setenv("MORNINGSTAR_ALERT_TIMEOUT_SECONDS", "0")
     assert kernel._alert_timeout_seconds() == 5.0
+
+
+def _closed_tcp_port() -> int:
+    """Bind a socket to an ephemeral port, then close it. The OS is
+    very unlikely to immediately re-allocate the same port to anyone
+    else within the test window, so a connection attempt to it
+    reliably yields ECONNREFUSED. This models the realistic
+    "sink decommissioned, nobody updated the env var" failure mode."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    _, port = s.getsockname()
+    s.close()
+    return port
+
+
+def test_webhook_connection_refused_records_failure_and_still_raises(
+    tmp_hits, monkeypatch, smtp_server
+):
+    """Task #92: when the webhook URL points at a closed port (DNS
+    resolves, TCP connect refused — the most common silent on-call
+    failure), (a) `LedgerIntegrityError` still propagates, (b) the
+    ring buffer captures `delivery.webhook.status == "failed"`, and
+    (c) the SMTP transport is unaffected."""
+    dead_port = _closed_tcp_port()
+    monkeypatch.setenv(
+        "MORNINGSTAR_ALERT_WEBHOOK_URL",
+        f"http://127.0.0.1:{dead_port}/alert",
+    )
+    monkeypatch.setenv("MORNINGSTAR_ALERT_EMAIL_TO", "ops@example.com")
+    monkeypatch.setenv("MORNINGSTAR_ALERT_EMAIL_FROM", "ledger@example.com")
+    monkeypatch.setenv("MORNINGSTAR_ALERT_SMTP_HOST", smtp_server.host)
+    monkeypatch.setenv("MORNINGSTAR_ALERT_SMTP_PORT", str(smtp_server.port))
+    monkeypatch.setenv("MORNINGSTAR_WORKFLOW_NAME", "dead-webhook")
+    monkeypatch.delenv("MORNINGSTAR_ALERT_SMTP_USER", raising=False)
+    monkeypatch.delenv("MORNINGSTAR_ALERT_SMTP_PASSWORD", raising=False)
+    monkeypatch.setenv("MORNINGSTAR_ALERT_TIMEOUT_SECONDS", "5")
+
+    _seed_and_truncate(tmp_hits)
+
+    with pytest.raises(kernel.LedgerIntegrityError):
+        kernel._append_line("second line")
+
+    assert kernel._await_alert_dispatch(timeout=10.0)
+    smtp_server._thread.join(timeout=5)
+
+    history = _read_alert_history(tmp_hits)
+    assert len(history) == 1
+    entry = history[0]
+    assert entry["workflow"] == "dead-webhook"
+    webhook_delivery = entry["delivery"]["webhook"]
+    assert webhook_delivery["status"] == "failed"
+    assert webhook_delivery.get("error"), webhook_delivery
+    # The other transport must not share fate — the SMTP sink got the
+    # message and the ring buffer says so.
+    assert entry["delivery"]["email"]["status"] == "ok"
+    assert len(smtp_server.messages) == 1
+
+
+def test_smtp_connection_refused_records_failure_and_webhook_still_fires(
+    tmp_hits, monkeypatch, webhook_server
+):
+    """Task #92: when the SMTP host/port points at a closed port (TCP
+    connect refused), (a) `LedgerIntegrityError` still propagates,
+    (b) the ring buffer captures `delivery.email.status == "failed"`,
+    and (c) the webhook transport still fires independently."""
+    url, server = webhook_server
+    captured = server.captured
+    dead_port = _closed_tcp_port()
+    monkeypatch.setenv("MORNINGSTAR_ALERT_WEBHOOK_URL", url)
+    monkeypatch.setenv("MORNINGSTAR_ALERT_EMAIL_TO", "ops@example.com")
+    monkeypatch.setenv("MORNINGSTAR_ALERT_EMAIL_FROM", "ledger@example.com")
+    monkeypatch.setenv("MORNINGSTAR_ALERT_SMTP_HOST", "127.0.0.1")
+    monkeypatch.setenv("MORNINGSTAR_ALERT_SMTP_PORT", str(dead_port))
+    monkeypatch.setenv("MORNINGSTAR_WORKFLOW_NAME", "dead-smtp")
+    monkeypatch.delenv("MORNINGSTAR_ALERT_SMTP_USER", raising=False)
+    monkeypatch.delenv("MORNINGSTAR_ALERT_SMTP_PASSWORD", raising=False)
+    monkeypatch.setenv("MORNINGSTAR_ALERT_TIMEOUT_SECONDS", "5")
+
+    _seed_and_truncate(tmp_hits)
+
+    with pytest.raises(kernel.LedgerIntegrityError):
+        kernel._append_line("second line")
+
+    assert kernel._await_alert_dispatch(timeout=10.0)
+
+    # Webhook fired independently.
+    assert len(captured) == 1, captured
+
+    history = _read_alert_history(tmp_hits)
+    assert len(history) == 1
+    entry = history[0]
+    assert entry["workflow"] == "dead-smtp"
+    email_delivery = entry["delivery"]["email"]
+    assert email_delivery["status"] == "failed"
+    assert email_delivery.get("error"), email_delivery
+    assert entry["delivery"]["webhook"]["status"] == "ok"
