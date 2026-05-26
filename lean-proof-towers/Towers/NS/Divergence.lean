@@ -36,39 +36,27 @@
                                         Quot.sound}`, no research-grade
                                         axioms. (Verified by
                                         `scripts/check-towers.sh`.)
-  - `NavierStokes_globalRegularity_statement`
-                                     — **statement only.** A schema
-                                        for the Clay-formulated 3D
-                                        incompressible Navier-Stokes
-                                        global-regularity conjecture,
-                                        expressed in terms of opaque
-                                        placeholder predicates. Closing
-                                        it is the open Clay Millennium
-                                        Problem.
+  - `divergence_smul`                — trivial scalar-homogeneity
+                                        lemma, **proved**, conditional
+                                        on `Differentiable ℝ v` (so that
+                                        `fderiv_const_smul` applies).
+                                        Same axiom-footprint guarantee.
+
+  **The Clay 3D incompressible Navier-Stokes global-regularity
+  statement schema has been moved to the sibling file
+  `Towers/NS/EnergyIneq.lean`** as a `sorry`-backed `def`. That
+  file is deliberately NOT a brick (it ships with `sorryAx` by
+  design) and is excluded from `BRICKS` in
+  `scripts/check-towers.sh`. This file (`Towers.NS.Divergence`)
+  is now **div-linearity-only**: no placeholder axioms, no
+  schema, no `sorry`.
 
   **Honest scoping reminder.** This file does **not** advance the NS
   tower past `Status: Open` (see `docs/ROADMAP.md` § 3). It moves NS
-  from `Status: Open` to `Status: Open — first brick formalized
-  (divergence-linearity in Lean, axiom footprint ⊆ classical trio)`.
-  No promotion past `Open`. No claim of any PDE result.
-
-  **Honesty note on the placeholder predicates.** Mathlib v4.12.0
-  does not yet ship Sobolev spaces, the Leray projector, the
-  Beale-Kato-Majda blow-up criterion, or the 3D incompressible
-  Navier-Stokes PDE proper. We therefore cannot state the Clay
-  conjecture in its precise classical form. The four placeholders
-  `IsSmooth`, `IsDivergenceFree`, `HasFiniteEnergy`, and
-  `IsGlobalSmoothSolutionOfNS` are declared as fresh *axioms*
-  (opaque constants) at file scope, following the same pattern as
-  the BSD brick (`Towers.BSD.MordellWeil`): this keeps
-  `NavierStokes_globalRegularity_statement` from being trivially
-  provable or trivially refutable by adversarial instantiation, and
-  keeps the axioms confined to the schema (they do **not** appear
-  in the axiom footprint of `divergence_add`, which is the brick
-  verified by `scripts/check-towers.sh`). Closing the schema in its
-  current form would itself require new axioms about the
-  placeholders, which the surrounding check would catch on any
-  derived theorem.
+  from `Status: Open` to `Status: Open — first/second brick
+  formalized (divergence-linearity in Lean, axiom footprint ⊆
+  classical trio)`. No promotion past `Open`. No claim of any PDE
+  result.
 -/
 
 import Mathlib.Analysis.Calculus.FDeriv.Add
@@ -127,11 +115,7 @@ noncomputable def divergence (v : V → V) (x : V) : ℝ :=
 
     Axiom footprint: subset of mathlib's classical core
     `{propext, Classical.choice, Quot.sound}` (verified by
-    `scripts/check-towers.sh`). No research-grade axioms; in
-    particular this lemma does **not** depend on any of the
-    placeholder axioms `IsSmooth`, `IsDivergenceFree`,
-    `HasFiniteEnergy`, or `IsGlobalSmoothSolutionOfNS` declared
-    below for the schema. -/
+    `scripts/check-towers.sh`). No research-grade axioms. -/
 theorem divergence_add (v w : V → V)
     (hv : Differentiable ℝ v) (hw : Differentiable ℝ w) (x : V) :
     divergence (v + w) x = divergence v x + divergence w x := by
@@ -158,11 +142,7 @@ theorem divergence_add (v w : V → V)
 
     Axiom footprint: subset of mathlib's classical core
     `{propext, Classical.choice, Quot.sound}` (verified by
-    `scripts/check-towers.sh`). No research-grade axioms; in
-    particular this lemma does **not** depend on any of the
-    placeholder axioms `IsSmooth`, `IsDivergenceFree`,
-    `HasFiniteEnergy`, or `IsGlobalSmoothSolutionOfNS` declared
-    below for the schema. -/
+    `scripts/check-towers.sh`). No research-grade axioms. -/
 theorem divergence_smul (c : ℝ) (v : V → V)
     (hv : Differentiable ℝ v) (x : V) :
     divergence (c • v) x = c * divergence v x := by
@@ -171,91 +151,6 @@ theorem divergence_smul (c : ℝ) (v : V → V)
   rw [hsmul, fderiv_const_smul (hv x) c]
   simp only [ContinuousLinearMap.smul_apply, PiLp.smul_apply, smul_eq_mul]
   rw [← Finset.mul_sum]
-
-/-- Placeholder for "the vector field `u` is smooth", in the sense
-    required by the Clay statement (typically `C^∞` and Schwartz, or
-    at least `H^k` for all `k`).
-
-    **TODO** (open mathlib-scale work, separate from NS itself):
-    replace this axiom with the real notion once mathlib defines
-    Sobolev spaces and `C^∞` for vector fields on `ℝ³`.
-
-    Declared as a fresh axiom (not as `def ... := True` or
-    `def ... := False`) so that `NavierStokes_globalRegularity_statement`
-    below is not closeable by instantiating this predicate
-    trivially. -/
-axiom IsSmooth : (V → V) → Prop
-
-/-- Placeholder for "the vector field `u` is divergence-free", the
-    incompressibility constraint of the Navier-Stokes system.
-
-    **TODO**: replace with the real `divergence u = 0` once we
-    upgrade `divergence` above to take a function-valued argument
-    (rather than a pointwise scalar) and integrate with mathlib's
-    eventual PDE machinery.
-
-    Declared as a fresh axiom for the same reason as `IsSmooth`. -/
-axiom IsDivergenceFree : (V → V) → Prop
-
-/-- Placeholder for "the initial data `u₀` has finite kinetic
-    energy", i.e. `u₀ ∈ L²(ℝ³)`.
-
-    **TODO**: replace with the real `‖u₀‖_{L²} < ∞` once mathlib
-    has Bochner integration for vector fields on `ℝ³` set up in a
-    convenient form.
-
-    Declared as a fresh axiom for the same reason as `IsSmooth`. -/
-axiom HasFiniteEnergy : (V → V) → Prop
-
-/-- Placeholder for "`u : ℝ → V → V` is a global smooth solution of
-    the 3D incompressible Navier-Stokes equations with initial data
-    `u₀ : V → V`". This is the heart of the Clay statement.
-
-    **TODO**: replace with the real definition once mathlib defines
-    (a) the Navier-Stokes operator (`∂_t u + (u · ∇) u - Δ u + ∇p =
-    0`, `div u = 0`), (b) the notion of a global-in-time smooth
-    solution on `[0, ∞) × ℝ³`, and (c) the matching-initial-data
-    condition `u(0, ·) = u₀`.
-
-    Declared as a fresh axiom for the same reason as `IsSmooth`. -/
-axiom IsGlobalSmoothSolutionOfNS : (ℝ → V → V) → (V → V) → Prop
-
-/-- **Statement** of the Clay-formulated global-regularity
-    conjecture for the 3D incompressible Navier-Stokes equations,
-    expressed in terms of the placeholder axioms `IsSmooth`,
-    `IsDivergenceFree`, `HasFiniteEnergy`, and
-    `IsGlobalSmoothSolutionOfNS`.
-
-    Classical form (see e.g. Fefferman, *Existence and smoothness
-    of the Navier-Stokes equation*, Clay Mathematics Institute
-    Millennium Problem description, 2000): for every smooth,
-    divergence-free, finite-energy initial datum `u₀ : ℝ³ → ℝ³`,
-    there exists a global smooth solution
-    `u : [0, ∞) × ℝ³ → ℝ³` of the incompressible Navier-Stokes
-    equations matching that initial datum.
-
-    Schema form below: for every `u₀ : V → V` satisfying `IsSmooth
-    u₀`, `IsDivergenceFree u₀`, and `HasFiniteEnergy u₀`, there
-    exists a vector-field-valued function `u : ℝ → V → V` such that
-    `IsGlobalSmoothSolutionOfNS u u₀`.
-
-    **Statement only. Do NOT close with `True.intro`, `trivial`,
-    `sorry`, or any tautology.** With the four placeholder axioms
-    above declared as opaque constants, this schema is not
-    closeable by any structural trick — proving or refuting it
-    would require new axioms about the placeholders (and the
-    surrounding `check-towers.sh` axiom-footprint check would catch
-    any such misuse on a derived theorem).
-
-    Proving this — or even stating it precisely — requires both a
-    formal Navier-Stokes operator and Sobolev-space machinery in
-    mathlib (open mathlib-scale work) and the Clay-NS proof itself
-    (a Clay Millennium Problem, open since 2000). The schema below
-    is the *future target*, not a theorem. -/
-def NavierStokes_globalRegularity_statement : Prop :=
-  ∀ u₀ : V → V,
-    IsSmooth u₀ → IsDivergenceFree u₀ → HasFiniteEnergy u₀ →
-      ∃ u : ℝ → V → V, IsGlobalSmoothSolutionOfNS u u₀
 
 end NS
 end Towers

@@ -36,18 +36,26 @@
                                         Quot.sound}`, no research-grade
                                         axioms. (Verified by
                                         `scripts/check-towers.sh`.)
-  - `YangMillsMassGap_statement`     — **statement only.** A schema
-                                        for the Clay Yang-Mills mass-gap
-                                        conjecture, expressed in terms
-                                        of opaque placeholder
-                                        predicates. Closing it is the
-                                        open Clay Millennium Problem.
+  - `gauge_action_mul_smul`          — trivial composition-of-gauge
+                                        -transformations lemma,
+                                        **proved** by delegating to
+                                        mathlib's `mul_smul`. Same
+                                        axiom-footprint guarantee.
+
+  **The Clay Yang-Mills mass-gap statement schema has been moved to
+  the sibling file `Towers/YM/MassGap.lean`** as a `sorry`-backed
+  `def`. That file is deliberately NOT a brick (it ships with
+  `sorryAx` by design) and is excluded from `BRICKS` in
+  `scripts/check-towers.sh`. This file (`Towers.YM.Gauge`) is
+  now **MulAction-only**: no placeholder axioms, no schema, no
+  `sorry`.
 
   **Honest scoping reminder.** This file does **not** advance the YM
   tower past `Status: Open` (see `docs/ROADMAP.md` § 2). It moves YM
-  from `Status: Open` to `Status: Open — first brick formalized
-  (gauge-action identity in Lean, axiom footprint ⊆ classical trio)`.
-  No promotion past `Open`. No claim of any QFT result.
+  from `Status: Open` to `Status: Open — first/second brick
+  formalized (gauge-action identities in Lean, axiom footprint ⊆
+  classical trio)`. No promotion past `Open`. No claim of any QFT
+  result.
 -/
 
 import Mathlib.Algebra.Group.Action.Defs
@@ -109,11 +117,7 @@ end TrivialConfiguration
 
     Axiom footprint: subset of mathlib's classical core
     `{propext, Classical.choice, Quot.sound}` (verified by
-    `scripts/check-towers.sh`). No research-grade axioms; in
-    particular this lemma does **not** depend on any of the
-    placeholder axioms `PhysicalStateOfYangMillsHamiltonian`,
-    `IsAboveVacuum`, `expectedEnergy`, or `normSq` declared below
-    for the mass-gap schema. -/
+    `scripts/check-towers.sh`). No research-grade axioms. -/
 theorem gauge_action_one_smul {G : Type _} [Group G]
     (A : TrivialConfiguration G) : (1 : G) • A = A :=
   one_smul G A
@@ -136,102 +140,11 @@ theorem gauge_action_one_smul {G : Type _} [Group G]
 
     Axiom footprint: subset of mathlib's classical core
     `{propext, Classical.choice, Quot.sound}` (verified by
-    `scripts/check-towers.sh`). No research-grade axioms; in
-    particular this lemma does **not** depend on any of the
-    placeholder axioms `PhysicalStateOfYangMillsHamiltonian`,
-    `IsAboveVacuum`, `expectedEnergy`, or `normSq` declared below
-    for the mass-gap schema. -/
+    `scripts/check-towers.sh`). No research-grade axioms. -/
 theorem gauge_action_mul_smul {G : Type _} [Group G]
     (g h : G) (A : TrivialConfiguration G) :
     (g * h) • A = g • (h • A) :=
   mul_smul g h A
-
-/-- Placeholder for "the type of physical (normalisable) states of
-    the constructive 4D Yang-Mills Hamiltonian on `ℝ⁴` (or on a
-    spatial slice `ℝ³`)".
-
-    **TODO** (open mathlib-scale work, separate from the mass gap
-    itself): replace this axiom with the real Hilbert space of
-    physical states once mathlib v4.12.0+ provides the
-    Wightman/Osterwalder-Schrader axiomatic QFT framework and a
-    constructive 4D Yang-Mills Hamiltonian.
-
-    Declared as a fresh axiom (not as `def ... := Unit` or
-    `def ... := Empty`) so that `YangMillsMassGap_statement` below
-    is not closeable or refutable by instantiating this type
-    trivially. -/
-axiom PhysicalStateOfYangMillsHamiltonian : Type
-
-/-- Placeholder for "the state `ψ` is strictly above the vacuum
-    state of the Yang-Mills Hamiltonian". In the real theory, this
-    is the orthogonality-to-vacuum condition required for the mass
-    gap to be a meaningful lower bound.
-
-    **TODO**: replace with the real orthogonality / above-vacuum
-    condition once we have a real Hamiltonian.
-
-    Declared as a fresh axiom for the same reason as
-    `PhysicalStateOfYangMillsHamiltonian`. -/
-axiom IsAboveVacuum : PhysicalStateOfYangMillsHamiltonian → Prop
-
-/-- Placeholder for `‖ψ‖²`, the squared norm of a physical state in
-    the Yang-Mills Hilbert space.
-
-    **TODO**: replace with the real `‖ψ‖²_H` once the Hilbert space
-    of physical states is defined.
-
-    Declared as a fresh axiom for the same reason as
-    `PhysicalStateOfYangMillsHamiltonian`. -/
-axiom normSq : PhysicalStateOfYangMillsHamiltonian → ℝ
-
-/-- Placeholder for `⟨ψ | H | ψ⟩`, the expected energy of a physical
-    state under the Yang-Mills Hamiltonian.
-
-    **TODO**: replace with the real `⟨ψ, H ψ⟩` once the Hamiltonian
-    is defined.
-
-    Declared as a fresh axiom for the same reason as
-    `PhysicalStateOfYangMillsHamiltonian`. -/
-axiom expectedEnergy : PhysicalStateOfYangMillsHamiltonian → ℝ
-
-/-- **Statement** of the Clay Yang-Mills mass-gap conjecture,
-    expressed in terms of the placeholder axioms
-    `PhysicalStateOfYangMillsHamiltonian`, `IsAboveVacuum`,
-    `normSq`, and `expectedEnergy`.
-
-    Classical form (see Jaffe-Witten, *Quantum Yang-Mills theory*,
-    Clay Mathematics Institute Millennium Problem description,
-    2000): for any compact simple gauge group, the constructive 4D
-    Yang-Mills quantum field theory on `ℝ⁴` exists and exhibits a
-    mass gap `Δ > 0` — i.e. the spectrum of the Hamiltonian above
-    the vacuum is bounded below by `Δ`.
-
-    Schema form below: there exists a real `Δ > 0` such that for
-    every physical state `ψ` above the vacuum,
-    `Δ · ‖ψ‖² ≤ ⟨ψ | H | ψ⟩`.
-
-    **Statement schema only. Mathlib v4.12.0 does not have
-    constructive 4D Yang-Mills quantum field theory or the
-    Wightman/OS framework; the placeholder predicates are honest
-    stand-ins that future plans must replace with the real QFT
-    machinery. Do not close with `True.intro`, `trivial`, `sorry`,
-    or any tautology.** With the four placeholder axioms above
-    declared as opaque constants, this schema is not closeable by
-    any structural trick — proving or refuting it would require new
-    axioms about the placeholders (and the surrounding
-    `check-towers.sh` axiom-footprint check would catch any such
-    misuse on a derived theorem).
-
-    Proving this — or even stating it precisely — requires both the
-    Wightman/OS axiomatic QFT framework and a constructive 4D
-    Yang-Mills Hamiltonian in mathlib (open mathlib-scale work) and
-    the Clay-YM mass-gap proof itself (a Clay Millennium Problem,
-    open since 2000). The schema below is the *future target*, not
-    a theorem. -/
-def YangMillsMassGap_statement : Prop :=
-  ∃ Δ : ℝ, 0 < Δ ∧
-    ∀ ψ : PhysicalStateOfYangMillsHamiltonian,
-      IsAboveVacuum ψ → Δ * normSq ψ ≤ expectedEnergy ψ
 
 end YM
 end Towers
