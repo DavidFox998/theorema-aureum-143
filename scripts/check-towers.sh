@@ -259,6 +259,20 @@ BRICKS=(
   # solution.
   "Towers.NS.EnergyIneq|TheoremaAureum.Towers.NS.HasFiniteEnergy_add"
   "Towers.NS.EnergyIneq|TheoremaAureum.Towers.NS.HasFiniteEnergy_of_smul_bounded"
+  # Task #78 (2026-05-26): spatial-translation invariance of the
+  # placeholder finite-energy predicate. Continues the Task #69
+  # combinator wave on `HasFiniteEnergy`: if `u₀` has finite
+  # placeholder energy with witness `M`, then for any fixed
+  # translation `a : ℝ³` the shifted field
+  # `fun t x => u₀ t (x + a)` also has finite placeholder energy
+  # with the *same* witness `M`. First NS combinator that looks like
+  # a real PDE symmetry (rigid spatial translation) rather than a
+  # pure norm-algebra fact (triangle inequality / homogeneity of
+  # `‖·‖`). NS tower status unchanged: Open (`docs/ROADMAP.md` § 3).
+  # NOT a statement about the L² energy bound or any Leray-Hopf
+  # solution; this is closure of the *placeholder* predicate under
+  # spatial shift.
+  "Towers.NS.EnergyIneq|TheoremaAureum.Towers.NS.HasFiniteEnergy_translate"
   # Task #70 (2026-05-26): name the "energy never grows" predicate
   # inside the NS schema. `EnergyMonotone u u₀ : Prop` is the
   # explicit `∀ t, H1Norm u t ≤ H1Norm u₀ 0` shape named by the

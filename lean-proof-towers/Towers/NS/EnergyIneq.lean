@@ -405,6 +405,54 @@ theorem EnergyMonotone_zero (u₀ : VelocityField) :
   rw [H1Norm_zero]
   exact H1Norm_nonneg u₀ 0
 
+/-
+  ## Task #78 (2026-05-26) — spatial-translation invariance of the
+  placeholder finite-energy predicate.
+
+  Continues the Task #69 combinator wave on `HasFiniteEnergy`. Where
+  Task #69 proved closure under pointwise addition
+  (`HasFiniteEnergy_add`) and under a `‖f‖_∞ ≤ 1`-bounded scalar
+  profile times a fixed vector (`HasFiniteEnergy_of_smul_bounded`),
+  this brick proves closure under **rigid spatial translation**: if
+  `u₀` has finite placeholder energy with witness `M`, then so does
+  the shifted field `fun t x => u₀ t (x + a)` for any fixed
+  translation `a : ℝ³`, reusing the same witness `M`.
+
+  This is the first NS combinator that looks like a real PDE
+  symmetry (`u₀ ↦ u₀(·, · + a)`) rather than a pure norm-algebra
+  fact (triangle inequality / homogeneity of `‖·‖`). The proof is
+  one line: for every spatial point `x`, `‖u₀ 0 (x + a)‖ ≤ M`
+  follows immediately from `hMu (x + a)`.
+
+  **Honest scoping reminder.** This does NOT advance the NS tower
+  past `Status: Open` (see `docs/ROADMAP.md` § 3). `HasFiniteEnergy`
+  is still the Task #51 placeholder (bounded amplitude at `t = 0`),
+  not the L² energy bound. Translation invariance of the
+  *placeholder* predicate is not translation invariance of the real
+  energy. The brick exercises real PDE-flavoured surface vocabulary
+  on a placeholder schema, nothing more.
+
+  Axiom-footprint contract (per `scripts/check-towers.sh`): the
+  theorem must be either axiom-free or use only the classical trio
+  `{propext, Classical.choice, Quot.sound}`.
+-/
+
+/-- **Spatial-translation invariance of placeholder finite-energy.**
+    If `u₀` has finite placeholder energy with witness `M`, then for
+    any fixed translation `a : ℝ³` the shifted field
+    `fun t x => u₀ t (x + a)` also has finite placeholder energy
+    with the *same* witness `M`. References the Task #51 schema def
+    `HasFiniteEnergy` and is a genuine PDE-flavoured combinator
+    (rigid spatial translation, not norm-algebra). NOT a statement
+    about the L² energy bound or any Leray-Hopf solution; this is
+    closure of the *placeholder* predicate under spatial shift. -/
+theorem HasFiniteEnergy_translate (u₀ : VelocityField)
+    (a : EuclideanSpace ℝ (Fin 3)) (hu : HasFiniteEnergy u₀) :
+    HasFiniteEnergy (fun (t : ℝ) (x : EuclideanSpace ℝ (Fin 3)) =>
+      u₀ t (x + a)) := by
+  obtain ⟨M, hM⟩ := hu
+  exact ⟨M, fun x => hM (x + a)⟩
+
 end NS
 end Towers
 end TheoremaAureum
