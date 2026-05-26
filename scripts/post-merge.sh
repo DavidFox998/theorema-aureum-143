@@ -3,6 +3,13 @@ set -e
 pnpm install --frozen-lockfile
 pnpm --filter db push
 
+# Rehydrate `.lake/packages/<pkg>/.git/` for every vendored Lake
+# dependency from its committed tar under `lean-proof-towers/lake-deps/`.
+# The outer repo cannot carry nested `.git/` directories, so they vanish
+# on every merge and have to be restored here before any Lake operation
+# can run safely. Task #76 (follow-up to Task #66).
+./scripts/restore-lake-git.sh
+
 # Guard against silent Lean proof drift. Fails the merge if `lean-proof/**`
 # changed in a way that breaks the axiom-debt check or leaves VERIFY.txt stale.
 # When `lake` is unavailable the check prints a visible warning and exits 0

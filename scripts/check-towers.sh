@@ -45,75 +45,47 @@ if ! command -v lake >/dev/null 2>&1; then
   exit 127
 fi
 
-# `lake update` is INTENTIONALLY skipped when the manifest + package
-# working trees are already in place. In this environment the mathlib
-# (and batteries / aesop / Qq / proofwidgets / ...) packages under
-# `.lake/packages/` are committed as plain working trees WITHOUT their
-# own `.git/` directories (Lake's git-dep clones were checked into the
-# repo as files, not as nested git repos). Running `lake update` against
-# such a tree makes Lake try to `git fetch` / `git checkout` inside a
-# directory that has no `.git`, which in practice wipes
-# `lakefile.lean` and leaves `HEAD` dangling — every subsequent
-# `lake build` then fails with "could not resolve 'HEAD'".
-#
-# `lake-manifest.json` is committed and pins every transitive dep to
-# an exact revision, so as long as the package directories exist we
-# do NOT need `lake update` to resolve anything; `lake build` reads
-# the manifest directly. Only fall back to `lake update` if mathlib
-# is genuinely missing (fresh checkout that, for whatever reason,
-# does not have the vendored package trees).
-if [ -f ".lake/packages/mathlib/lakefile.lean" ]; then
-  echo ">> lake update: SKIPPED (vendored mathlib working tree already present;" >&2
-  echo "   manifest is pinned at lake-manifest.json. Running \`lake update\` here" >&2
-  echo "   would wipe the .git-less mathlib working tree — see comment in" >&2
-  echo "   scripts/check-towers.sh for the full story.)" >&2
-else
-  echo ">> lake update (resolve mathlib v4.12.0 manifest — vendored tree missing)" >&2
-  lake update
-fi
+# Restore each `.lake/packages/<pkg>/.git/` from its committed tar
+# under `lean-proof-towers/lake-deps/`. The outer repo cannot carry
+# nested `.git/` directories (git treats them as submodule
+# boundaries) and the whole `.lake/` tree is gitignored on top of
+# that, so this idempotent restore is the *prerequisite* for every
+# Lake operation below. Task #76 (follow-up to Task #66). The script
+# exits non-zero if any package ends up without a real `.git` at its
+# manifest-pinned rev, so we never reach `lake update` in a broken
+# state where Lake would re-clone and wipe the working tree.
+echo ">> restore-lake-git.sh (rehydrate vendored .git/ from tars)" >&2
+"$REPO_ROOT/scripts/restore-lake-git.sh"
 
-# `lake exe cache get` does a `git fetch` inside every dep package
-# (batteries, aesop, importGraph, …) AND, when Lake sees that a
-# package's checkout URL differs from the manifest (which it always
-# does for our vendored, .git-less trees — Lake reads "no .git" as
-# "URL changed"), re-clones the package from scratch. That single
-# behaviour is the entire reason the towers-build workflow used to
-# burn 5–15 minutes on every cold start re-downloading ~2 GB of
-# prebuilt mathlib oleans (Task #66).
-#
-# Skip policy, in order of preference:
-#
-#   (1) FAST PATH — mathlib's prebuilt oleans look populated under
-#       .lake/packages/mathlib/.lake/build/lib/. Skip `cache get`;
-#       `lake build Towers` will read the on-disk oleans directly via
-#       the manifest. Typical warm-cache run: 10-30 s.
-#
-#   (2) SAFE PATH — the vendored mathlib working tree exists but is
-#       missing its `.git/` directory (and so are the sibling deps).
-#       Running `cache get` here is *actively destructive*: Lake will
-#       interpret the missing `.git` as a URL change and re-clone the
-#       package, wiping the working tree AND the .lake/build oleans
-#       in the process. Skip with a clear warning. If the oleans are
-#       missing, `lake build Towers` will compile mathlib from source
-#       (slow — 30+ min — but correct), which is strictly better than
-#       silently destroying the vendored trees.
-#
-#   (3) GENUINE FETCH — neither the build dir nor the vendored trees
-#       exist (truly fresh checkout). Run `cache get` normally.
-#
-# NB: avoid `find … | head -N | wc -l` here — under `set -o pipefail`
-# the SIGPIPE from `head` closing early makes `find` exit non-zero and
-# kills the whole script (we hit this exact failure in an earlier
-# iteration; the workflow appeared to "succeed" with zero bricks
-# checked because the script silently exited before the BRICKS loop).
-# We just need a "are there many oleans?" probe, not an exact count;
-# check for a small set of well-known olean paths and the build dir
-# itself instead. Use multiple probes because the exact set of
-# top-level oleans depends on which mathlib modules the Towers
-# library has imported so far — `Mathlib.olean` (the all-encompassing
-# umbrella) is only emitted after `import Mathlib`, whereas a leaner
-# import set may only populate `Mathlib/Init.olean`, `Mathlib/Tactic.olean`,
-# etc.
+# Hard preflight assertion: every package under `.lake/packages/`
+# must have a real `.git/` directory whose HEAD resolves. If any is
+# missing, fail loudly here instead of letting `lake update` decide
+# to re-clone from scratch.
+for pkg_dir in "$TOWERS_DIR"/.lake/packages/*/; do
+  pkg_name="$(basename "$pkg_dir")"
+  if [ ! -d "$pkg_dir/.git" ]; then
+    echo "error: $pkg_name has no \`.git/\` after restore-lake-git.sh." >&2
+    echo "       Refusing to run \`lake update\` — it would re-clone and wipe the working tree." >&2
+    exit 1
+  fi
+  if ! git -C "$pkg_dir" rev-parse HEAD >/dev/null 2>&1; then
+    echo "error: $pkg_name has \`.git/\` but HEAD does not resolve." >&2
+    exit 1
+  fi
+done
+
+# With every package presenting a real `.git` at its manifest-pinned
+# rev, Lake sees its checkout URL and rev as matching the manifest
+# and takes no destructive action. `lake update` is now a no-op
+# resolve; the older Task #60 / Task #66 skip guards are gone.
+echo ">> lake update (resolve manifest)" >&2
+lake update
+
+# `lake exe cache get` fetches prebuilt mathlib oleans from the Lean
+# community CDN. With real `.git/` directories in place this is now
+# safe — Lake no longer sees the packages as URL-changed and will not
+# re-clone them. A fast-path skip kept for the common warm-cache case
+# (mathlib oleans already populated on disk).
 MATHLIB_OLEAN_PRESENT=0
 if [ -d ".lake/packages/mathlib/.lake/build/lib/Mathlib" ] && {
      [ -f ".lake/packages/mathlib/.lake/build/lib/Mathlib.olean" ] \
@@ -123,31 +95,11 @@ if [ -d ".lake/packages/mathlib/.lake/build/lib/Mathlib" ] && {
   MATHLIB_OLEAN_PRESENT=1
 fi
 
-# Vendored-but-.git-less detection. We probe mathlib as the canary;
-# if its working tree exists without a `.git/` directory we assume
-# the same is true of its siblings (which is how Task #60 committed
-# them). The combination "lakefile present" + "no .git" is the
-# signature of the vendored trees that `cache get` would corrupt.
-VENDORED_NO_GIT=0
-if [ -f ".lake/packages/mathlib/lakefile.lean" ] \
-   && [ ! -d ".lake/packages/mathlib/.git" ]; then
-  VENDORED_NO_GIT=1
-fi
-
 if [ "$MATHLIB_OLEAN_PRESENT" = "1" ]; then
   echo ">> lake exe cache get: SKIPPED (mathlib oleans already on disk;" >&2
   echo "   .lake/packages/mathlib/.lake/build/lib/ is populated)." >&2
-elif [ "$VENDORED_NO_GIT" = "1" ]; then
-  echo ">> lake exe cache get: SKIPPED (vendored mathlib working tree" >&2
-  echo "   has no .git/ — running \`cache get\` here would re-clone every" >&2
-  echo "   dependency from scratch, wiping the working tree. Falling" >&2
-  echo "   through to \`lake build Towers\`, which will compile mathlib" >&2
-  echo "   from source if the oleans really are missing. See the" >&2
-  echo "   skip-policy comment in scripts/check-towers.sh for the full" >&2
-  echo "   story; this is the Task #66 guard.)" >&2
 else
-  echo ">> lake exe cache get (fetch ~2 GB prebuilt mathlib oleans;" >&2
-  echo "   no vendored mathlib tree and no on-disk oleans found)" >&2
+  echo ">> lake exe cache get (fetch ~2 GB prebuilt mathlib oleans)" >&2
   lake exe cache get
 fi
 
