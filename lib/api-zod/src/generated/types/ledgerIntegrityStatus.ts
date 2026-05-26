@@ -87,4 +87,26 @@ export interface LedgerIntegrityStatus {
      * @nullable
      */
   lastOkAt?: Date | null;
+  /**
+     * Server-computed age of `lastOkAt` at `checkedAt`, in whole
+  seconds. Null when `lastOkAt` is null (no successful check
+  recorded). The dashboard can show this directly without
+  needing trusted client-side wall-clock arithmetic.
+
+     * @nullable
+     */
+  lastOkAgeSeconds?: number | null;
+  /** Configured staleness threshold in seconds, from
+  `LEDGER_STALE_THRESHOLD_SECONDS` (default 3600). A
+  successful check older than this is treated as `stale`.
+   */
+  staleThresholdSeconds?: number;
+  /** True when `lastOkAt` is null OR `lastOkAgeSeconds` exceeds
+  `staleThresholdSeconds`. Lets the dashboard flag amber
+  "haven't been verified in too long" without trusting the
+  client clock — distinct from `status: mismatch` / `missing`,
+  so the operator can tell "the verifier itself stopped
+  running" from "the verifier ran and the ledger is broken".
+   */
+  stale?: boolean;
 }

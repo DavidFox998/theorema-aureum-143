@@ -1531,20 +1531,56 @@ export default function DashboardPage() {
             Read-only — never mutates the ledger. Polls every 30s.
           </p>
 
-          <p
-            className="text-xs font-mono text-muted-foreground"
-            data-testid="text-ledger-last-ok"
-            title={
-              ledgerIntegrity?.lastOkAt
-                ? `last verified ok at ${ledgerIntegrity.lastOkAt}`
-                : "no successful verification recorded since the server started"
-            }
-          >
-            last verified ok:{" "}
-            <span className="text-foreground">
-              {formatRelativeAge(ledgerIntegrity?.lastOkAt ?? null, nowMs)}
-            </span>
-          </p>
+          {(() => {
+            const isStale =
+              ledgerIntegrity?.status === "ok" && ledgerIntegrity?.stale === true;
+            const thresholdSec = ledgerIntegrity?.staleThresholdSeconds ?? null;
+            const thresholdLabel =
+              thresholdSec != null
+                ? thresholdSec >= 3600
+                  ? `${Math.round(thresholdSec / 3600)}h`
+                  : thresholdSec >= 60
+                    ? `${Math.round(thresholdSec / 60)}m`
+                    : `${thresholdSec}s`
+                : null;
+            return (
+              <p
+                className={`text-xs font-mono ${
+                  isStale
+                    ? "border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 px-3 py-2"
+                    : "text-muted-foreground"
+                }`}
+                data-testid="text-ledger-last-ok"
+                data-stale={isStale ? "true" : "false"}
+                title={
+                  ledgerIntegrity?.lastOkAt
+                    ? `last verified ok at ${ledgerIntegrity.lastOkAt}`
+                    : "no successful verification recorded since the server started"
+                }
+              >
+                last verified ok:{" "}
+                <span className={isStale ? "" : "text-foreground"}>
+                  {formatRelativeAge(ledgerIntegrity?.lastOkAt ?? null, nowMs)}
+                </span>
+                {thresholdLabel ? (
+                  <span
+                    className="ml-2 text-muted-foreground"
+                    data-testid="text-ledger-stale-threshold"
+                  >
+                    (stale &gt; {thresholdLabel})
+                  </span>
+                ) : null}
+                {isStale ? (
+                  <span
+                    className="ml-2 font-bold uppercase tracking-wider"
+                    data-testid="badge-ledger-stale"
+                  >
+                    STALE — verifier may have stopped
+                  </span>
+                ) : null}
+              </p>
+            );
+          })()}
 
           {ledgerIntegrity && ledgerIntegrity.status !== "ok" ? (
             <div

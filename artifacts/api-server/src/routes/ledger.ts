@@ -34,6 +34,20 @@ interface LedgerIntegrityStatus {
   ledgerPath: string;
   checkpointPath: string;
   lastOkAt: string | null;
+  lastOkAgeSeconds: number | null;
+  staleThresholdSeconds: number;
+  stale: boolean;
+}
+
+const DEFAULT_STALE_THRESHOLD_SECONDS = 3600;
+
+function resolveStaleThresholdSeconds(raw: string | undefined): number {
+  if (raw == null) return DEFAULT_STALE_THRESHOLD_SECONDS;
+  const trimmed = raw.trim();
+  if (trimmed === "") return DEFAULT_STALE_THRESHOLD_SECONDS;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_STALE_THRESHOLD_SECONDS;
+  return Math.floor(n);
 }
 
 function resolveRepoRoot(): string {
@@ -69,6 +83,7 @@ export interface LedgerRouterOptions {
   hitsPath: string;
   checkpointPath: string;
   lastOkPath?: string;
+  staleThresholdSeconds?: number;
 }
 
 function readPersistedLastOk(p: string): string | null {
@@ -105,10 +120,31 @@ export function createLedgerRouter(opts: LedgerRouterOptions): IRouter {
   const HITS = opts.hitsPath;
   const CHECKPOINT = opts.checkpointPath;
   const LAST_OK_PATH = opts.lastOkPath ?? `${opts.hitsPath}.lastok`;
+  const STALE_THRESHOLD_SECONDS =
+    opts.staleThresholdSeconds != null && Number.isFinite(opts.staleThresholdSeconds) && opts.staleThresholdSeconds > 0
+      ? Math.floor(opts.staleThresholdSeconds)
+      : resolveStaleThresholdSeconds(process.env.LEDGER_STALE_THRESHOLD_SECONDS);
   let lastOkAt: string | null = readPersistedLastOk(LAST_OK_PATH);
+
+  function computeStaleness(checkedAtIso: string): {
+    lastOkAgeSeconds: number | null;
+    stale: boolean;
+  } {
+    if (!lastOkAt) {
+      return { lastOkAgeSeconds: null, stale: true };
+    }
+    const okMs = Date.parse(lastOkAt);
+    const nowMs = Date.parse(checkedAtIso);
+    if (!Number.isFinite(okMs) || !Number.isFinite(nowMs)) {
+      return { lastOkAgeSeconds: null, stale: true };
+    }
+    const ageSeconds = Math.max(0, Math.floor((nowMs - okMs) / 1000));
+    return { lastOkAgeSeconds: ageSeconds, stale: ageSeconds > STALE_THRESHOLD_SECONDS };
+  }
 
   function buildStatus(): LedgerIntegrityStatus {
     const checkedAt = new Date().toISOString();
+    const { lastOkAgeSeconds, stale } = computeStaleness(checkedAt);
     const base: LedgerIntegrityStatus = {
       status: "ok",
       failureMode: null,
@@ -123,6 +159,9 @@ export function createLedgerRouter(opts: LedgerRouterOptions): IRouter {
       ledgerPath: HITS,
       checkpointPath: CHECKPOINT,
       lastOkAt,
+      lastOkAgeSeconds,
+      staleThresholdSeconds: STALE_THRESHOLD_SECONDS,
+      stale,
     };
 
     if (!existsSync(HITS)) {
@@ -261,6 +300,7 @@ export function createLedgerRouter(opts: LedgerRouterOptions): IRouter {
 
     lastOkAt = checkedAt;
     writePersistedLastOk(LAST_OK_PATH, checkedAt);
+    const freshStaleness = computeStaleness(checkedAt);
     return {
       ...base,
       status: "ok",
@@ -271,6 +311,8 @@ export function createLedgerRouter(opts: LedgerRouterOptions): IRouter {
       growthBytes: liveSize - expectedSize,
       ledgerLastModified,
       lastOkAt,
+      lastOkAgeSeconds: freshStaleness.lastOkAgeSeconds,
+      stale: freshStaleness.stale,
     };
   }
 

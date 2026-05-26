@@ -196,4 +196,110 @@ describe("GET /api/ledger/integrity", () => {
     expect(r.json.status).toBe("missing");
     expect(r.json.failureMode).toBe("hits_missing");
   });
+
+  it("surfaces a configured staleness threshold and reports stale=false on a fresh ok check", async () => {
+    const sealed = "line1\nline2\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const r = await getStatus();
+    expect(r.json.status).toBe("ok");
+    expect(r.json.staleThresholdSeconds).toBeGreaterThan(0);
+    expect(r.json.stale).toBe(false);
+    expect(r.json.lastOkAgeSeconds).toBeGreaterThanOrEqual(0);
+    expect(r.json.lastOkAgeSeconds).toBeLessThan(r.json.staleThresholdSeconds);
+  });
+
+  it("reports stale=true when lastOkAt is older than the configured threshold", async () => {
+    const sealed = "line1\nline2\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    // Pre-seed a very-old lastOkAt sidecar, then build a router with a
+    // 1-second threshold. The router will read the sidecar on construction
+    // and the very next /integrity call should flag it stale even though
+    // the live ledger is healthy.
+    const lastOkPath = path.join(tmpDir, "hits.txt.stale-test.lastok");
+    writeFileSync(
+      lastOkPath,
+      JSON.stringify({ lastOkAt: "2020-01-01T00:00:00.000Z" }) + "\n",
+    );
+
+    const app = express();
+    app.use(
+      "/api",
+      createLedgerRouter({
+        hitsPath,
+        checkpointPath,
+        lastOkPath,
+        staleThresholdSeconds: 1,
+      }),
+    );
+    const srv = http.createServer(app);
+    await new Promise<void>((resolve) => srv.listen(0, "127.0.0.1", resolve));
+    const port = (srv.address() as AddressInfo).port;
+
+    // Break the ledger so the check returns mismatch — but lastOkAt
+    // remains the seeded ancient timestamp, so we can observe staleness
+    // independent of the current check outcome.
+    const orig = sealed;
+    writeFileSync(hitsPath, "X");
+    const rBroken = await (
+      await fetch(`http://127.0.0.1:${port}/api/ledger/integrity`)
+    ).json() as any;
+    expect(rBroken.status).toBe("mismatch");
+    expect(rBroken.staleThresholdSeconds).toBe(1);
+    expect(rBroken.lastOkAgeSeconds).toBeGreaterThan(1);
+    expect(rBroken.stale).toBe(true);
+
+    // Restore the ledger; the next ok check should reset lastOkAt and
+    // immediately flip stale back to false.
+    writeFileSync(hitsPath, orig);
+    const rOk = await (
+      await fetch(`http://127.0.0.1:${port}/api/ledger/integrity`)
+    ).json() as any;
+    expect(rOk.status).toBe("ok");
+    expect(rOk.stale).toBe(false);
+    expect(rOk.lastOkAgeSeconds).toBeLessThanOrEqual(1);
+
+    await new Promise<void>((resolve, reject) =>
+      srv.close((err) => (err ? reject(err) : resolve())),
+    );
+    try {
+      unlinkSync(lastOkPath);
+    } catch {
+      /* ignore */
+    }
+  });
+
+  it("reports stale=true with lastOkAgeSeconds=null when no successful check has ever been recorded", async () => {
+    // Fresh router pointing at a sidecar that does not exist, with the
+    // ledger broken so no ok check fires.
+    const lastOkPath = path.join(tmpDir, "hits.txt.never.lastok");
+    try {
+      unlinkSync(lastOkPath);
+    } catch {
+      /* ignore */
+    }
+    writeFileSync(hitsPath, "X");
+    writeCheckpoint(999, "0".repeat(64));
+
+    const app = express();
+    app.use(
+      "/api",
+      createLedgerRouter({ hitsPath, checkpointPath, lastOkPath }),
+    );
+    const srv = http.createServer(app);
+    await new Promise<void>((resolve) => srv.listen(0, "127.0.0.1", resolve));
+    const port = (srv.address() as AddressInfo).port;
+    const r = await (
+      await fetch(`http://127.0.0.1:${port}/api/ledger/integrity`)
+    ).json() as any;
+    expect(r.lastOkAt).toBeNull();
+    expect(r.lastOkAgeSeconds).toBeNull();
+    expect(r.stale).toBe(true);
+    await new Promise<void>((resolve, reject) =>
+      srv.close((err) => (err ? reject(err) : resolve())),
+    );
+  });
 });
