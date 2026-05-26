@@ -2,11 +2,14 @@
   # Towers.YM.MassGap
 
   **Mostly-statement file. Currently contains SEVEN trio-clean
-  theorems and three remaining `sorry`-backed schema defs**
-  (`PhysicalHilbert`, `YMHamiltonian`, `IsYMEigenstate` on
-  lines ~107/112/118). This file pins the Clay Yang-Mills
-  mass-gap conjecture as a future formalisation target, using a
-  structured (rather than single-`sorry`) schema.
+  theorems and two remaining `sorry`-backed schema defs**
+  (`YMHamiltonian`, `IsEigenstate`). `HilbertSpace` was upgraded
+  to the canonical separable infinite-dim ℓ²(ℕ,ℂ) via Branch A
+  of Task #55 (2026-05-26) — see the "Task #55 decision" block
+  near line ~117 for the full honest-scoping argument. This file
+  pins the Clay Yang-Mills mass-gap conjecture as a future
+  formalisation target, using a structured (rather than
+  single-`sorry`) schema.
 
   The seven trio-clean SU(3) bricks proved below are:
   `SU3Connection_one_mul`, `SU3Connection_component_unitary`,
@@ -54,17 +57,21 @@
 
   ## Remaining `sorry`-backed defs (NOT bricks)
 
-    * `HilbertSpace`         — physical-state Hilbert space of YM
     * `YMHamiltonian`        — `∫ tr(F_A ∧ ★F_A)`
     * `IsEigenstate`         — eigenstate predicate
 
-  These three are still `sorry`. mathlib v4.12.0 has no
-  `Distribution.SobolevSpace`, no Yang-Mills Hamiltonian, no
-  formalised physical-state Hilbert space. The `sorry` markers are
-  paired with explicit `TODO:` comments naming the mathlib module
-  that would have to land first.
+  `HilbertSpace` is no longer `sorry` — it is now `lp (fun _ : ℕ
+  => ℂ) 2`, the canonical separable infinite-dim complex Hilbert
+  space (ℓ²(ℕ,ℂ)). See the "Task #55 decision" block below for
+  the explicit caveat: this is a placeholder Hilbert space, not
+  the YM physical state space.
 
-  Because three bodies are still `sorry`, `#print axioms
+  The remaining two are still `sorry`. mathlib v4.12.0 has no
+  `Distribution.SobolevSpace` and no Yang-Mills Hamiltonian, so
+  the `sorry` markers are paired with explicit `TODO:` comments
+  naming the mathlib module that would have to land first.
+
+  Because two bodies are still `sorry`, `#print axioms
   YM_mass_gap_statement` will still display `[sorryAx]`. That is
   expected and visible — `YM_mass_gap_statement` is NOT a brick,
   is NOT in `scripts/check-towers.sh BRICKS`, and is NOT imported
@@ -72,11 +79,10 @@
 
   ## What this file IS now (post-refactor)
 
-  * One real trio-clean brick:
-    `TheoremaAureum.Towers.YM.SU3Connection_one_mul`,
-    which uses the concrete `SU3Connection` type and the real
+  * Seven real trio-clean SU(3) bricks (listed above) using the
+    concrete `SU3Connection` type and the real
     `Matrix.specialUnitaryGroup (Fin 3) ℂ` monoid structure.
-    Axiom footprint = subset of mathlib's classical trio.
+    Axiom footprint of each = subset of mathlib's classical trio.
   * Stable citable Lean identifiers for future plans to point at.
   * A flagged TODO surface: every remaining `sorry` is paired with a
     `TODO:` comment naming the mathlib module that would replace it.
@@ -84,15 +90,21 @@
   ## Status
 
   Per `docs/ROADMAP.md` § 2. Yang-Mills mass gap: **Open.** No
-  promotion. The fact that `SU3Connection` is now concrete and
-  `SU3Connection_one_mul` proves a real monoid identity does NOT
-  change the tower's status. The Hamiltonian, the Hilbert space,
-  and the eigenstate predicate are all still `sorry`. The mass gap
-  is not proved, not stated precisely, and not in sight.
+  promotion. The fact that `SU3Connection` is now concrete,
+  `HilbertSpace` is now `ℓ²(ℕ,ℂ)`, and `SU3Connection_one_mul`
+  proves a real monoid identity does NOT change the tower's
+  status. The Hamiltonian and the eigenstate predicate are still
+  `sorry`, and even with the two remaining sorries replaced, the
+  resulting `YM_mass_gap_statement` would still be a statement
+  about ℓ²(ℕ,ℂ) — NOT the real YM Hilbert space, which requires an
+  Osterwalder–Schrader reconstruction not present in mathlib
+  v4.12.0. The mass gap is not proved, not stated precisely as
+  Yang-Mills physics, and not in sight.
 -/
 
 import Mathlib.LinearAlgebra.UnitaryGroup
 import Mathlib.Data.Complex.Basic
+import Mathlib.Analysis.InnerProductSpace.l2Space
 
 namespace TheoremaAureum
 namespace Towers
@@ -115,28 +127,55 @@ abbrev SU3Connection : Type := Fin 4 → Matrix.specialUnitaryGroup (Fin 3) ℂ
 --  `Mathlib.LinearAlgebra.Matrix.SpecialUnitaryGroup` file.)
 
 /-
-  **Task #51 decision audit (2026-05-26).** The three schema defs
-  below (`HilbertSpace`, `YMHamiltonian`, `IsEigenstate`) were
-  evaluated for concrete-mathlib replacement. Every candidate
-  replacement was rejected as either (a) a disguised stub
-  (e.g. `HilbertSpace := ℂ`, `YMHamiltonian _ := 0`,
-  `IsEigenstate _ _ := True` — explicitly forbidden by the
-  user's "no stubs" rule) or (b) a real mathlib type that is
-  *substantively misleading* (e.g. `HilbertSpace :=
-  EuclideanSpace ℂ (Fin 3)` — type-checks `YM_mass_gap_statement`
-  against a finite-dim space, manufacturing the appearance of a
-  formalized Clay conjecture). Per the user's authorized escape
-  clause ("Full proofs or leave sorry and move on"), all three
-  stay as `sorry`. Status: deliberately deferred to
-  mathlib v4.13+ when Sobolev/Wightman/OS machinery lands.
+  **Task #55 decision (2026-05-26) — supersedes Task #51 audit for
+  `HilbertSpace` only.** Branch A (the `lp`/ℓ² route) was chosen
+  and landed below. `YMHamiltonian` and `IsEigenstate` remain
+  `sorry` and remain governed by the Task #51 audit (see TODO
+  blocks below). Branches B (symmetric Fock space) and C
+  (su(3)-valued L²) are real follow-up work — not feasible in
+  the same turn as Branch A because (B) mathlib v4.12.0 has no
+  `SymmetricFockSpace` / no Hilbert-completion of a tensor
+  algebra / no second-quantization machinery; (C) requires first
+  defining `𝔰𝔲(3)` as a subtype with `InnerProductSpace ℝ`
+  instances and lifting to `Lp` — bigger than this turn's
+  budget. Both should be tracked as follow-up tasks.
+
+  **Honest-scoping rule that survives the upgrade.** The chosen
+  `HilbertSpace` below (`ℓ²(ℕ, ℂ)`) is THE canonical separable
+  infinite-dimensional complex Hilbert space, but it is NOT the
+  Yang-Mills physical Hilbert space. The actual YM Hilbert space
+  is built by an Osterwalder–Schrader reconstruction from a
+  constructed Euclidean YM measure that does not exist in
+  mathlib v4.12.0 (and is itself an open research problem for
+  4D pure YM). The `YM_mass_gap_statement` def below now
+  type-checks against ℓ²(ℕ,ℂ), but THAT TYPE-CHECKING IS NOT A
+  FORMALIZATION OF THE CLAY CONJECTURE. The statement, expanded
+  modulo the two remaining `sorry`s, is a Prop about ℓ²(ℕ,ℂ)
+  and two sorried operators — vacuous as Yang-Mills physics.
+  Tower status: **Open** (see `docs/ROADMAP.md` § 2). Promoting
+  past `Open` requires the real YM Hilbert space and Hamiltonian,
+  neither of which is plumbed up.
 -/
 
-/-- **Hilbert space of physical states** of the Yang-Mills
-    Hamiltonian. Still `sorry`: mathlib v4.12.0 has no formalised
-    physical-state Hilbert space for YM. See "Task #51 decision
-    audit" comment immediately above. -/
-def HilbertSpace : Type := sorry
--- TODO (mathlib v4.13+): physical-state Hilbert space of the YM Hamiltonian
+/-- **Hilbert space placeholder for the schema.**
+
+    Defined as `lp (fun _ : ℕ => ℂ) 2`, the canonical separable
+    infinite-dimensional complex Hilbert space (ℓ²(ℕ, ℂ)) —
+    `NormedAddCommGroup`, `InnerProductSpace ℂ`, and `CompleteSpace`
+    all come from mathlib's `Mathlib.Analysis.InnerProductSpace.l2Space`.
+
+    **This is NOT the Yang-Mills physical state space.** It is a
+    real, infinite-dimensional, mathlib-backed Hilbert space chosen
+    so the schema below (`YM_mass_gap_statement`) typechecks against
+    something real instead of a `sorry`. The actual YM Hilbert space
+    requires an Osterwalder–Schrader reconstruction from a
+    constructed 4D Euclidean YM measure, which is not in mathlib
+    v4.12.0 and is itself an open research problem. See the
+    "Task #55 decision" block immediately above for the full
+    honest-scoping argument. -/
+abbrev HilbertSpace : Type := lp (fun _ : ℕ => ℂ) 2
+-- TODO (mathlib v4.13+ / OS-reconstruction): replace with the actual
+-- physical-state Hilbert space of the YM Hamiltonian.
 
 /-- **Yang-Mills Hamiltonian:** `E + B` field energy `∫ |F|²`.
     Still `sorry`: requires Sobolev spaces and `∫ tr(F ∧ ★F)`. -/
@@ -224,8 +263,10 @@ theorem SU3Connection_one_mul (A : SU3Connection) (i : Fin 4) :
     proves only that each constant SU(3)-matrix in the trivial-bundle
     schema is in fact unitary — which it is by typing. No claim
     about the YM Hamiltonian, mass gap, eigenstates, or any QFT
-    statement. The Hamiltonian, Hilbert space, and eigenstate
-    predicate are all still `sorry` in this file. -/
+    statement. The Hamiltonian and eigenstate predicate are still
+    `sorry` in this file; `HilbertSpace` was upgraded to
+    `ℓ²(ℕ,ℂ)` by Task #55 but that is NOT the YM physical
+    Hilbert space (see the "Task #55 decision" block). -/
 theorem SU3Connection_component_unitary (A : SU3Connection) (i : Fin 4) :
     (A i).1 * star (A i).1 = 1 := by
   have h := Matrix.mem_specialUnitaryGroup_iff.mp (A i).2

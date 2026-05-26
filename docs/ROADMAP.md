@@ -77,11 +77,21 @@ Status legend:
   in `{propext, Classical.choice, Quot.sound}`; no `sorryAx`, no
   user-declared axioms in any brick. Alongside, the file pins
   `YM_mass_gap_statement : Prop` as a *statement schema* with
-  three `sorry`-backed defs (`HilbertSpace`, `YMHamiltonian`,
-  `IsEigenstate`) — honest stand-ins because mathlib v4.12.0 lacks
-  the Wightman/Osterwalder-Schrader axiomatic QFT framework, a
-  constructive 4D Yang-Mills Hamiltonian, and the Sobolev-space
-  spectral theory the statement needs. Statement-only, no
+  two `sorry`-backed defs (`YMHamiltonian`, `IsEigenstate`) plus
+  `HilbertSpace`, which Task #55 (2026-05-26, Branch A) upgraded
+  from `sorry` to `lp (fun _ : ℕ => ℂ) 2` — i.e. ℓ²(ℕ,ℂ), the
+  canonical separable infinite-dim complex Hilbert space from
+  `Mathlib.Analysis.InnerProductSpace.l2Space`. **That upgrade is
+  NOT a promotion of the YM tower.** ℓ²(ℕ,ℂ) is a real Hilbert
+  space but it is NOT the Yang-Mills physical Hilbert space — the
+  actual YM Hilbert space requires an Osterwalder–Schrader
+  reconstruction from a constructed 4D Euclidean YM measure that
+  does not exist in mathlib v4.12.0 (and is itself open in 4D
+  pure YM). The remaining two sorries are honest stand-ins
+  because mathlib v4.12.0 lacks the Wightman/Osterwalder-Schrader
+  axiomatic QFT framework, a constructive 4D Yang-Mills
+  Hamiltonian, and the Sobolev-space spectral theory the
+  statement needs. Statement-only, no
   `True.intro`. Built by `scripts/check-towers.sh` / the
   `towers-build` workflow. **The trivial-bundle constant-coefficient
   SU(3) connection is a scaffold for future work, not a physically

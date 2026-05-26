@@ -6,6 +6,66 @@ this file is the version history.
 
 ---
 
+## v1.10 task #55 — `MassGap.HilbertSpace` upgraded to ℓ²(ℕ,ℂ) (Branch A)
+
+`lean-proof-towers/Towers/YM/MassGap.lean` line 138 had
+`def HilbertSpace : Type := sorry` paired with the Task #51
+audit block that explicitly rejected every concrete replacement
+as either a disguised stub or substantively misleading. Task #55
+overrides that audit for `HilbertSpace` *only*, picking the
+honest version of Branch A:
+
+    abbrev HilbertSpace : Type := lp (fun _ : ℕ => ℂ) 2
+
+(Imported from `Mathlib.Analysis.InnerProductSpace.l2Space` —
+ℓ²(ℕ,ℂ), the canonical separable infinite-dim complex Hilbert
+space; carries `NormedAddCommGroup`, `InnerProductSpace ℂ`,
+`CompleteSpace` instances for free.)
+
+Branches B (symmetric Fock space) and C (su(3)-valued L²) were
+both rejected for this turn with honest reasons recorded in the
+new in-source "Task #55 decision" block:
+
+- B: mathlib v4.12.0 has no `SymmetricFockSpace`, no
+  Hilbert-completion of a tensor algebra, and no
+  second-quantization machinery. Building it would be hundreds
+  to thousands of lines of new infrastructure, and even then
+  symmetric Fock space over `L²(ℝ³,ℂ)` is the free-boson
+  Fock space — still not the YM physical Hilbert space.
+- C: needs `𝔰𝔲(3)` defined as a subtype of
+  `Matrix (Fin 3) (Fin 3) ℂ` (anti-Hermitian, traceless) with
+  `NormedAddCommGroup` / `InnerProductSpace ℝ` instances
+  proved by hand, then lifted to `Lp`. Doable but bigger than
+  the Task #55 budget. Tracked as follow-up.
+
+Honest-scoping (in the file docstring and the audit block, and
+re-affirmed here): ℓ²(ℕ,ℂ) is a real infinite-dim Hilbert
+space, but it is NOT the Yang-Mills physical state space — that
+requires an Osterwalder–Schrader reconstruction from a
+constructed 4D Euclidean YM measure not present in mathlib
+v4.12.0 (and an open research problem in 4D pure YM). After
+this change `YM_mass_gap_statement` type-checks against
+ℓ²(ℕ,ℂ) plus two remaining `sorry`-backed defs
+(`YMHamiltonian`, `IsEigenstate`) — that type-checking is NOT a
+formalization of the Clay conjecture. Tower status:
+**Open** (per `docs/ROADMAP.md` § 2, unchanged).
+
+Verification:
+
+- `towers-build` workflow green; all 18 YM/NS bricks still
+  carry axiom footprint `[propext, Classical.choice, Quot.sound]`.
+- `lean-proof` workflow green;
+  `TheoremaAureum.main_theorem axioms = []` unchanged
+  (HilbertSpace lives in `lean-proof-towers`, not in the
+  sealed `lean-proof/` spine).
+- Sealed files untouched. Genesis seal still
+  `eecbcd9a540aa7a2c90edd23827c73e4d1bb5af641d352f70a5de849b21f875f`.
+
+YM mass-gap remaining sorry count: was 3 (`HilbertSpace`,
+`YMHamiltonian`, `IsEigenstate`); now 2.
+
+---
+
 ## v1.10 task #52 — fix the broken `zeta-burst` probe (concurrent-tamper race)
 
 `zeta-burst-101-10000` had been chronically red even though
