@@ -142,6 +142,19 @@ BRICKS=(
   "Towers.YM.SU3|TheoremaAureum.Towers.YM.su3_neg_mem"
   "Towers.YM.SU3|TheoremaAureum.Towers.YM.su3_sub_mem"
   "Towers.YM.SU3|TheoremaAureum.Towers.YM.su3_smul_mem"
+  # 2026-05-26 Branch C Step 2.5: bundle the Step 2 closure lemmas
+  # into a real `Submodule ℝ` (`su3_submodule`), add the carrier
+  # unpacker, and ratify the two mathlib-derived typeclass
+  # instances (`AddCommGroup ↥su3_submodule`, `Module ℝ ↥su3_submodule`)
+  # under named handles so the axiom-footprint check pins them.
+  # Wall: 36 → 40. None advance YM past Status: Open — these are
+  # algebra-bundling moves, not YM dynamics. The next batch (a
+  # separate brick wave) adds an `InnerProductSpace ℝ ↥su3_submodule`
+  # so we can build `L²(Fin n, ↥su3_submodule)` on a finite lattice.
+  "Towers.YM.SU3|TheoremaAureum.Towers.YM.su3_submodule"
+  "Towers.YM.SU3|TheoremaAureum.Towers.YM.su3_submodule_mem_iff"
+  "Towers.YM.SU3|TheoremaAureum.Towers.YM.instance_addcommgroup_su3"
+  "Towers.YM.SU3|TheoremaAureum.Towers.YM.instance_module_real_su3"
   # Task #55 (2026-05-26): four load-bearing bricks on the now-real
   # YM schema concretized by Task #51 (`HilbertSpace`,
   # `YMHamiltonian`, `IsEigenstate`). Three of them reference at

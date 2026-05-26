@@ -247,6 +247,98 @@ theorem su3_smul_mem (r : ℝ) {A : Matrix (Fin 3) (Fin 3) ℂ}
   · rw [star_smul, star_trivial, hA.1, smul_neg]
   · rw [Matrix.trace_smul, hA.2, smul_zero]
 
+/-! ### Branch C Step 2.5 — `su(3)` as a real `Submodule`
+
+The four bricks below bundle the Step 2 closure lemmas into a
+genuine `Submodule ℝ (Matrix (Fin 3) (Fin 3) ℂ)` and ratify the
+two typeclass instances that mathlib auto-derives from any
+`Submodule R M` (where `M` is an `AddCommGroup`):
+`AddCommGroup ↥su3_submodule` and `Module ℝ ↥su3_submodule`.
+
+This unlocks all of mathlib's `Submodule` API on the subtype
+`↥su3_submodule`: `Submodule.span`, `Submodule.add_mem`,
+`Submodule.smul_mem`, free vector-space combinators, etc. It is
+the algebraic foundation needed before adding a real inner
+product (next batch) and eventually `WithLp 2 (Fin n → ↥su3_submodule)`.
+
+Bricks:
+
+* `su3_submodule` — the `def`, built directly from `su3_zero_mem`,
+  `su3_add_mem`, and `su3_smul_mem`. (Subtraction and negation
+  come for free from the `Submodule` API.)
+* `su3_submodule_mem_iff` — the carrier unpacker; `Iff.rfl`.
+* `instance_addcommgroup_su3` — ratifies `AddCommGroup ↥su3_submodule`
+  via `inferInstance` (mathlib derives this from `Submodule.addCommGroup`).
+* `instance_module_real_su3` — ratifies `Module ℝ ↥su3_submodule`
+  via `inferInstance` (mathlib derives this from `Submodule.module`).
+
+**Honest scoping reminder.** This batch is pure algebra: it turns
+the `Set`-level carrier into a `Submodule ℝ`. It makes no claim
+about Yang-Mills dynamics, the YM Hamiltonian, the mass-gap
+conjecture, gauge symmetry, or any QFT statement. Tower status
+remains **Open** in `docs/ROADMAP.md` § 2.
+-/
+
+/-- **`su(3)` as a real `Submodule` of `Matrix (Fin 3) (Fin 3) ℂ`
+    (Branch C Step 2.5 brick 1).**
+
+    Direct bundle of the Step 2 closure lemmas into mathlib's
+    `Submodule ℝ` structure. The remaining `Submodule` field
+    `neg_mem'` (and binary `sub_mem'`) is auto-derived by mathlib
+    from `smul_mem'` via the action of `-1 : ℝ`.
+
+    Axiom footprint: subset of mathlib's classical core
+    `{propext, Classical.choice, Quot.sound}`. No new axioms. -/
+def su3_submodule : Submodule ℝ (Matrix (Fin 3) (Fin 3) ℂ) where
+  carrier   := su3
+  zero_mem' := su3_zero_mem
+  add_mem'  := su3_add_mem
+  smul_mem' := fun r _ hA => su3_smul_mem r hA
+
+/-- **`su3_submodule` membership unpacker (Branch C Step 2.5 brick 2).**
+
+    Membership in `su3_submodule` is definitionally membership in
+    the underlying `Set` `su3`, which in turn is anti-Hermitian +
+    traceless. The proof is `Iff.rfl`.
+
+    Axiom footprint: subset of mathlib's classical core
+    `{propext, Classical.choice, Quot.sound}`. No new axioms. -/
+theorem su3_submodule_mem_iff (A : Matrix (Fin 3) (Fin 3) ℂ) :
+    A ∈ su3_submodule ↔ star A = -A ∧ Matrix.trace A = 0 :=
+  Iff.rfl
+
+/-- **Ratified `AddCommGroup` instance on `↥su3_submodule`
+    (Branch C Step 2.5 brick 3).**
+
+    Mathlib's `Submodule` API auto-derives an `AddCommGroup` on
+    the subtype of any `Submodule R M` whose ambient `M` is an
+    `AddCommGroup` (here `M = Matrix (Fin 3) (Fin 3) ℂ`). This
+    `instance` simply ratifies that derivation under a named
+    handle so the towers-build axiom-footprint check has a
+    stable hook.
+
+    Honestly: this brick contains no new mathematical content;
+    its purpose is to *name* the instance that mathlib already
+    finds via typeclass inference, so we can pin the axiom
+    footprint to `{propext, Classical.choice, Quot.sound}` and
+    catch any future mathlib bump that would expand it. -/
+instance instance_addcommgroup_su3 : AddCommGroup ↥su3_submodule :=
+  inferInstance
+
+/-- **Ratified `Module ℝ` instance on `↥su3_submodule`
+    (Branch C Step 2.5 brick 4).**
+
+    Mathlib's `Submodule` API auto-derives a `Module ℝ` on the
+    subtype of any `Submodule ℝ M`. Same ratification pattern as
+    `instance_addcommgroup_su3`: name the instance, pin the
+    axiom footprint.
+
+    Together with brick 3 this completes the real-vector-space
+    structure on `↥su3_submodule` and unlocks `Submodule.span`,
+    `WithLp 2`, and the inner-product layer that comes next. -/
+instance instance_module_real_su3 : Module ℝ ↥su3_submodule :=
+  inferInstance
+
 end YM
 end Towers
 end TheoremaAureum
