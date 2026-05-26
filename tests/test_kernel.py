@@ -85,6 +85,7 @@ def tmp_hits(tmp_path, monkeypatch):
     fake = tmp_path / "hits.txt"
     monkeypatch.setattr(kernel, "HITS", fake)
     monkeypatch.setattr(kernel, "CHECKPOINT", tmp_path / "hits.txt.checkpoint")
+    monkeypatch.setattr(kernel, "ALERTS_LOG", tmp_path / "ledger-alerts.jsonl")
     monkeypatch.setattr(kernel, "_verify_seal", lambda: None)
     return fake
 
@@ -356,6 +357,155 @@ def test_alert_is_noop_when_env_unset(tmp_hits, monkeypatch):
         kernel._append_line("x")
 
     assert called == []
+
+
+def test_alert_history_records_every_invocation(tmp_hits, monkeypatch, tmp_path):
+    """Task #71: every `_fire_ledger_alert` invocation must append one
+    structured JSON line to the on-disk ring buffer, regardless of
+    whether the webhook/email transports succeeded, failed, or were
+    even configured. A midnight tamper must still leave a trace the
+    next morning's operator can read after a restart."""
+    alerts_log = tmp_path / "ledger-alerts.jsonl"
+    monkeypatch.setattr(kernel, "ALERTS_LOG", alerts_log)
+
+    _seed_healthy_ledger(tmp_hits)
+
+    monkeypatch.setenv("MORNINGSTAR_ALERT_WEBHOOK_URL", "http://example/alert")
+    monkeypatch.setenv("MORNINGSTAR_WORKFLOW_NAME", "zeta-burst-101-10000")
+    monkeypatch.setattr(kernel, "_post_webhook", lambda url, payload: None)
+
+    tmp_hits.write_bytes(tmp_hits.read_bytes()[:1])
+    with pytest.raises(kernel.LedgerIntegrityError):
+        kernel._append_line("second line")
+
+    recent = kernel.read_recent_alerts(limit=5)
+    assert len(recent) == 1
+    entry = recent[0]
+    assert entry["workflow"] == "zeta-burst-101-10000"
+    assert entry["failure_mode"] in {"hits_truncated", "hits_rewritten_in_place"}
+    assert entry["delivery"] == {
+        "webhook": {"status": "ok"},
+        "email": {"status": "not_configured"},
+    }
+    assert "timestamp" in entry
+    assert "expected_size" in entry and "actual_size" in entry
+
+
+def test_alert_history_records_transport_failure(tmp_hits, monkeypatch, tmp_path):
+    """When the webhook delivery raises, the ring buffer must still
+    capture the attempt with a failed status — that is the whole
+    point of "what fired vs what was delivered" triage."""
+    alerts_log = tmp_path / "ledger-alerts.jsonl"
+    monkeypatch.setattr(kernel, "ALERTS_LOG", alerts_log)
+
+    _seed_healthy_ledger(tmp_hits)
+
+    monkeypatch.setenv("MORNINGSTAR_ALERT_WEBHOOK_URL", "http://example/alert")
+
+    def boom(url, payload):
+        raise RuntimeError("simulated webhook outage")
+
+    monkeypatch.setattr(kernel, "_post_webhook", boom)
+
+    tmp_hits.write_bytes(tmp_hits.read_bytes()[:1])
+    with pytest.raises(kernel.LedgerIntegrityError):
+        kernel._append_line("second line")
+
+    recent = kernel.read_recent_alerts(limit=5)
+    assert len(recent) == 1
+    delivery = recent[0]["delivery"]
+    assert delivery["webhook"]["status"] == "failed"
+    assert "simulated webhook outage" in delivery["webhook"]["error"]
+
+
+def test_alert_history_persists_even_when_no_transports_configured(
+    tmp_hits, monkeypatch, tmp_path
+):
+    """Task #71: even when neither webhook nor SMTP is configured, the
+    integrity failure MUST still be recorded to the on-disk ring
+    buffer with explicit `not_configured` delivery markers. That is
+    the whole point of "durable memory independent of delivery
+    success" — otherwise a midnight tamper on a stock deployment
+    leaves no trace at all."""
+    alerts_log = tmp_path / "ledger-alerts.jsonl"
+    monkeypatch.setattr(kernel, "ALERTS_LOG", alerts_log)
+
+    _seed_healthy_ledger(tmp_hits)
+    monkeypatch.delenv("MORNINGSTAR_ALERT_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("MORNINGSTAR_ALERT_EMAIL_TO", raising=False)
+
+    tmp_hits.write_bytes(tmp_hits.read_bytes()[:1])
+    with pytest.raises(kernel.LedgerIntegrityError):
+        kernel._append_line("x")
+
+    recent = kernel.read_recent_alerts(limit=5)
+    assert len(recent) == 1
+    assert recent[0]["delivery"] == {
+        "webhook": {"status": "not_configured"},
+        "email": {"status": "not_configured"},
+    }
+    assert recent[0]["failure_mode"] in {
+        "hits_truncated",
+        "hits_rewritten_in_place",
+    }
+
+
+def test_alert_history_rotation_caps_at_max_entries(monkeypatch, tmp_path):
+    """The ring buffer must be bounded — a long-running deployment
+    that sees thousands of alerts over months should not grow the
+    log unboundedly. Cap is enforced as a trim-to-last-N on write."""
+    alerts_log = tmp_path / "ledger-alerts.jsonl"
+    monkeypatch.setattr(kernel, "ALERTS_LOG", alerts_log)
+    monkeypatch.setattr(kernel, "_ALERTS_MAX_ENTRIES", 5)
+
+    for i in range(12):
+        kernel._record_alert_history(
+            {"timestamp": f"t{i}", "workflow": "wf", "failure_mode": "x"},
+            {"webhook": {"status": "ok"}},
+        )
+
+    lines = alerts_log.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 5
+    recent = kernel.read_recent_alerts(limit=10)
+    assert [e["timestamp"] for e in recent] == ["t11", "t10", "t9", "t8", "t7"]
+
+
+def test_alert_history_disk_failure_does_not_mask_integrity_error(
+    tmp_hits, monkeypatch
+):
+    """Best-effort contract: if the ring-buffer write itself blows up
+    (disk full, permission denied), the `LedgerIntegrityError` must
+    still propagate. Alerts are an observability layer, not a
+    correctness gate."""
+    _seed_healthy_ledger(tmp_hits)
+
+    monkeypatch.setenv("MORNINGSTAR_ALERT_WEBHOOK_URL", "http://example/alert")
+    monkeypatch.setattr(kernel, "_post_webhook", lambda url, payload: None)
+
+    def boom(payload, delivery):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(kernel, "_record_alert_history", boom)
+
+    tmp_hits.write_bytes(tmp_hits.read_bytes()[:1])
+    with pytest.raises(kernel.LedgerIntegrityError):
+        kernel._append_line("second line")
+
+
+def test_read_recent_alerts_skips_malformed_lines(monkeypatch, tmp_path):
+    """A torn write from a crashed process leaves a partial JSON line.
+    `read_recent_alerts` is informational, not a correctness surface
+    — it must skip garbage rather than raise."""
+    alerts_log = tmp_path / "ledger-alerts.jsonl"
+    monkeypatch.setattr(kernel, "ALERTS_LOG", alerts_log)
+    alerts_log.write_text(
+        '{"timestamp": "t1", "workflow": "a"}\n'
+        "not-json-at-all\n"
+        '{"timestamp": "t2", "workflow": "b"}\n',
+        encoding="utf-8",
+    )
+    recent = kernel.read_recent_alerts(limit=10)
+    assert [e["timestamp"] for e in recent] == ["t2", "t1"]
 
 
 def test_sieve_zeros_dry_run_does_not_write(tmp_hits):

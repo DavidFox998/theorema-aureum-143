@@ -59,6 +59,15 @@ ELLIPTIC_LABEL_RE = _re.compile(r"^[A-Za-z0-9._-]{1,32}$")
 REPO_ROOT = Path(__file__).resolve().parent
 HITS = REPO_ROOT / "data" / "hits.txt"
 CHECKPOINT = REPO_ROOT / "data" / "hits.txt.checkpoint"
+# Ring-buffer log of recent ledger integrity alerts (task #71). Every
+# `_fire_ledger_alert` invocation appends one JSON line here regardless
+# of transport success/failure, so a midnight tamper is still visible
+# the next morning even if the webhook was down and the operator was
+# asleep. Capped to the last `_ALERTS_MAX_ENTRIES` lines on write;
+# disk-full / permission errors are swallowed (best-effort, must never
+# mask `LedgerIntegrityError`).
+ALERTS_LOG = REPO_ROOT / "data" / "ledger-alerts.jsonl"
+_ALERTS_MAX_ENTRIES = 200
 # Sidecar lockfile coordinating cross-process / cross-tool access to
 # `hits.txt`. Used by `_append_line` AND by external backup/restore
 # helpers (e.g. the `morningstar-tamper` snapshot/restore fixture in
@@ -321,8 +330,6 @@ def _fire_ledger_alert(message: str, context: "dict[str, Any]") -> None:
     """
     webhook = os.environ.get("MORNINGSTAR_ALERT_WEBHOOK_URL", "").strip()
     email_to = os.environ.get("MORNINGSTAR_ALERT_EMAIL_TO", "").strip()
-    if not webhook and not email_to:
-        return
     payload: dict[str, Any] = {
         "workflow": _alert_workflow_name(),
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -332,20 +339,107 @@ def _fire_ledger_alert(message: str, context: "dict[str, Any]") -> None:
         "checkpoint_path": str(CHECKPOINT),
         **context,
     }
+    delivery: dict[str, Any] = {}
     if webhook:
         try:
             _post_webhook(webhook, payload)
+            delivery["webhook"] = {"status": "ok"}
         except Exception as e:  # noqa: BLE001 - best-effort, never mask
             sys.stderr.write(
                 f"WARN: ledger alert webhook delivery failed: {e}\n"
             )
+            delivery["webhook"] = {"status": "failed", "error": str(e)}
+    else:
+        delivery["webhook"] = {"status": "not_configured"}
     if email_to:
         try:
             _send_email(payload, message)
+            delivery["email"] = {"status": "ok"}
         except Exception as e:  # noqa: BLE001 - best-effort, never mask
             sys.stderr.write(
                 f"WARN: ledger alert email delivery failed: {e}\n"
             )
+            delivery["email"] = {"status": "failed", "error": str(e)}
+    else:
+        delivery["email"] = {"status": "not_configured"}
+    try:
+        _record_alert_history(payload, delivery)
+    except Exception as e:  # noqa: BLE001 - best-effort, never mask
+        sys.stderr.write(
+            f"WARN: ledger alert history dispatch failed: {e}\n"
+        )
+
+
+def _record_alert_history(
+    payload: "dict[str, Any]", delivery: "dict[str, Any]"
+) -> None:
+    """Append one structured JSON line to `ALERTS_LOG` capturing the
+    alert payload plus per-transport delivery status, then trim the
+    file to the last `_ALERTS_MAX_ENTRIES` lines. Task #71: a durable,
+    restart-surviving trace so a midnight tamper isn't forgotten by
+    morning even when both transports failed (or weren't configured).
+
+    Best-effort: any OSError / JSON error is swallowed to stderr so the
+    underlying `LedgerIntegrityError` is never masked by a disk-full
+    or permission failure on the alerts log itself.
+    """
+    try:
+        entry = {**payload, "delivery": delivery}
+        line = json.dumps(entry, sort_keys=True, default=str) + "\n"
+        ALERTS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(ALERTS_LOG, "a", encoding="utf-8") as fh:
+            fh.write(line)
+        # Trim to the last N entries. Read-trim-rewrite is cheap at
+        # N=200 and bounded; we don't need a lock because alerts fire
+        # on rare integrity failures, not in hot probe paths.
+        try:
+            with open(ALERTS_LOG, "r", encoding="utf-8") as fh:
+                lines = fh.readlines()
+            if len(lines) > _ALERTS_MAX_ENTRIES:
+                trimmed = lines[-_ALERTS_MAX_ENTRIES:]
+                tmp = ALERTS_LOG.with_suffix(ALERTS_LOG.suffix + ".tmp")
+                with open(tmp, "w", encoding="utf-8") as fh:
+                    fh.writelines(trimmed)
+                os.replace(tmp, ALERTS_LOG)
+        except OSError as e:
+            sys.stderr.write(
+                f"WARN: ledger alert log rotation failed: {e}\n"
+            )
+    except OSError as e:
+        sys.stderr.write(
+            f"WARN: ledger alert history write failed: {e}\n"
+        )
+
+
+def read_recent_alerts(limit: int = 20) -> "list[dict[str, Any]]":
+    """Return up to `limit` most-recent alert entries from `ALERTS_LOG`,
+    newest first. Returns an empty list if the log is missing, empty,
+    or unreadable — callers (CLI / dashboard endpoint) get a stable
+    surface regardless of whether any alert has ever fired. Task #71.
+
+    Malformed JSON lines (e.g. a partial write from a crashed process)
+    are skipped, not raised; the ring buffer is informational, not a
+    correctness surface.
+    """
+    if limit <= 0:
+        return []
+    try:
+        with open(ALERTS_LOG, "r", encoding="utf-8") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return []
+    out: list[dict[str, Any]] = []
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            out.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+        if len(out) >= limit:
+            break
+    return out
 
 
 def _verify_checkpoint() -> None:
