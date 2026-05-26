@@ -330,6 +330,34 @@ BRICKS=(
   "Towers.YM.SU3Basis|TheoremaAureum.Towers.YM.inner_su3_add_left"
   "Towers.YM.SU3Basis|TheoremaAureum.Towers.YM.inner_su3_smul_left"
   "Towers.YM.SU3Basis|TheoremaAureum.Towers.YM.instance_inner_product_space_su3_core"
+
+  # Task #56 Path B batch 4 (2026-05-26): a discrete lattice gauge
+  # field stand-in `GaugeField n := PiLp 2 (fun _ : Fin n =>
+  # EuclideanSpace ℝ (Fin 8))`, a trivial-identity `curvature`
+  # stand-in, and a `YMHamiltonian := ∑ i, ‖curvature A i‖²`
+  # stand-in. Six bricks: (1) `GaugeField_zero_apply` — `(0 :
+  # GaugeField n) i = 0` (sanity); (2) `curvature_zero`; (3)
+  # `curvature_add` (additive linearity of the identity stand-in);
+  # (4) `YMHamiltonian_zero`; (5) `YMHamiltonian_nonneg` (sum of
+  # squares); (6) `YMHamiltonian_eq_norm_sq` — for `curvature = id`
+  # the Hamiltonian equals the Pi-L² squared norm
+  # (`PiLp.norm_sq_eq_of_L2`). Site type is `EuclideanSpace ℝ (Fin
+  # 8)` (not `↥su3_submodule` directly): the Batch 2 v2 equiv
+  # `su3_equiv_fin8_def : ↥su3_submodule ≃ₗ[ℝ] (Fin 8 → ℝ)` is the
+  # bridge, and going via `EuclideanSpace` sidesteps shipping a
+  # full `InnerProductSpace ℝ ↥su3_submodule` instance (Batch 3
+  # only ships the `Core`, and promoting it via ofCore would
+  # collide with any future `Matrix.normedAddCommGroup` install).
+  # This is NOT the YM action, NOT the Wilson plaquette action, NOT
+  # a genuine `F_μν` curvature (no commutator bracket, no
+  # derivative, no coupling constant). YM tower status unchanged:
+  # Open (`docs/ROADMAP.md` § 2).
+  "Towers.YM.GaugeField|TheoremaAureum.Towers.YM.GaugeField.GaugeField_zero_apply"
+  "Towers.YM.GaugeField|TheoremaAureum.Towers.YM.GaugeField.curvature_zero"
+  "Towers.YM.GaugeField|TheoremaAureum.Towers.YM.GaugeField.curvature_add"
+  "Towers.YM.GaugeField|TheoremaAureum.Towers.YM.GaugeField.YMHamiltonian_zero"
+  "Towers.YM.GaugeField|TheoremaAureum.Towers.YM.GaugeField.YMHamiltonian_nonneg"
+  "Towers.YM.GaugeField|TheoremaAureum.Towers.YM.GaugeField.YMHamiltonian_eq_norm_sq"
 )
 
 VERIFIER_DIR="$(mktemp -d)"

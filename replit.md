@@ -274,6 +274,30 @@ the box.
   `find … | head | wc -l` (the SIGPIPE under `set -o pipefail`
   silently killed the script after the lake-update SKIPPED message,
   making the workflow appear to "succeed" with zero bricks checked).
+- **Path B batch 4 landed (2026-05-26, Task #56 follow-up).**
+  `Towers/YM/GaugeField.lean` introduces a discrete lattice gauge-field
+  stand-in `GaugeField n := PiLp 2 (fun _ : Fin n => EuclideanSpace ℝ
+  (Fin 8))` together with a trivial-identity `curvature` stand-in and
+  `YMHamiltonian A := ∑ i, ‖curvature A i‖²`. Six bricks ship trio-clean:
+  (1) `GaugeField_zero_apply`, (2) `curvature_zero`, (3) `curvature_add`,
+  (4) `YMHamiltonian_zero`, (5) `YMHamiltonian_nonneg`, (6)
+  `YMHamiltonian_eq_norm_sq` — for `curvature = id` the Hamiltonian
+  equals the Pi-L² squared norm via `PiLp.norm_sq_eq_of_L2`. Why
+  `EuclideanSpace ℝ (Fin 8)` per site and not `↥su3_submodule`
+  directly: Batch 3 only ships an `InnerProductSpace.Core`, not a
+  global `InnerProductSpace` instance, and registering one would
+  collide with future `Matrix.normedAddCommGroup` installs;
+  the Batch 2 v2 equiv `su3_equiv_fin8_def : ↥su3_submodule ≃ₗ[ℝ]
+  (Fin 8 → ℝ)` is the narrative bridge to the SU(3) Lie algebra.
+  All six pass the axiom-footprint check with `{propext,
+  Classical.choice, Quot.sound}`. Total tower brick wall: **71**
+  classical-trio clean (was 65 after batch 3; +6 from batch 4 = 71).
+  These bricks claim ONLY: a Pi-L² function space carries a
+  squared-norm sum that equals the identity-stand-in Hamiltonian.
+  This is NOT the Yang-Mills action, NOT the Wilson plaquette
+  action, NOT a genuine `F_μν` curvature (no commutator bracket, no
+  derivative, no coupling constant), and NOT a mass-gap statement.
+  YM tower status unchanged: **Open** (`docs/ROADMAP.md` § 2).
 - **Trivial-bundle Gauge bricks retired (2026-05-26, Task #50, Option A).** The six `gauge_action_*` lemmas (`one_smul`, `mul_smul`, `inv_smul`, `smul_inv`, `inv_inv`, `pow_zero`) that lived on `TrivialConfiguration G` in `Towers/YM/Gauge.lean` were removed: the action was `· • A := A`, so every lemma reduced definitionally on both sides to `A`, exercising neither group multiplication nor the action — hollow even by trivial-brick standards. The YM wall is now **18 bricks**, not 24, and YM bricks live exclusively in `Towers.YM.MassGap` against `Matrix.specialUnitaryGroup`. Rule going forward: no `gauge_action_*` on `TrivialConfiguration` — only real SU(3). See `docs/ROADMAP.md` for the retirement note and `scripts/check-towers.sh` for the comment block.
 
 ## User preferences
