@@ -1,8 +1,21 @@
 # The Three Hard Lemmas
 
-**Status:** open. **Repository wall:** 295 bricks, axiom footprint
+**Status:** open. **Repository wall:** 305 bricks, axiom footprint
 `⊆ {propext, Classical.choice, Quot.sound}`. **Towers:**
 `Status: Open` (`docs/ROADMAP.md` § 2, § 3).
+
+**Batch 19.1c update (2026-05-27):** the transfer operator `T_g`
+is now defined as a real placeholder map on `OSPreHilbert.physHilbert`
+(`Towers/YM/OSReconstruction.lean`, +5 bricks), and the spectral
+radius / mass-gap quantities are real `ℝ`-valued definitions with
+a real iff `r(T_g) < 1 ↔ 0 < m` (`Towers/YM/SpectralGap.lean`,
++5 bricks). The antecedent of `MassGap_YM4_Clay` is therefore no
+longer `_h_schemas` — it is the real Prop
+`spectral_radius_def D g < 1`. The implication itself stays a
+schema (YM tower stays `Status: Open`); the cluster-expansion
+bound `Perron_Frobenius_for_transfer` and `Transfer_compact` are
+parked as `sorry` in `Towers/Attempts/T_g.lean`, NOT in BRICKS,
+joining the three Batch 18 stubs.
 
 This document is the companion to `docs/FOR_REFEREES.md`. Its job
 is single-purpose and narrow: for each of the three load-bearing

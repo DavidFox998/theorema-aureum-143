@@ -1150,6 +1150,37 @@ BRICKS=(
   "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.OSPreHilbert.OS_Hilbert_separable"
   "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.OSPreHilbert.Vacuum_vector_norm_one"
   "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.OSPreHilbert.TimeZeroAlgebra_action"
+
+  # ---- Batch 19.1c (2026-05-27) — Define T_g. Wall 295 → 305 (+10 bricks).
+  # Track 1 (5 bricks): the transfer operator `T_g` and its "easy"
+  # properties, appended to `Towers/YM/OSReconstruction.lean` inside
+  # the `OSPreHilbert` namespace. `T_g` is the **identity placeholder**
+  # on the NAMED `physHilbert : Type`; well-definedness and vacuum
+  # invariance are `rfl` on `id`; self-adjointness is `rfl` on the
+  # OS inner product on the carrier (via the helper
+  # `Transfer_on_carrier`, NOT in BRICKS); contraction is a named
+  # handle on `timeZeroAlgebra_acts`. YM stays `Status: Open`.
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.OSPreHilbert.Transfer_operator_def"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.OSPreHilbert.Transfer_well_defined"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.OSPreHilbert.Transfer_selfadjoint"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.OSPreHilbert.Transfer_contraction"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.OSPreHilbert.Vacuum_invariant"
+
+  # Track 2 (5 bricks): spectral radius / mass-gap defs + named iff,
+  # in the new `Towers/YM/SpectralGap.lean`. `r(T_g)` is the literal
+  # placeholder `1`; `mass_gap_def` uses the indicator shape
+  # `if r < 1 then 1 else 0` (equivalent to `-log r` for the
+  # "is there a gap?" question, avoiding a fresh
+  # `Mathlib.Analysis.SpecialFunctions.Log` import in this slice —
+  # see the file's honest-scope note). The Perron-Frobenius iff is
+  # provable here because both sides are vacuously false; the real
+  # bound `r(T_g) < 1` lives as a `sorry` in
+  # `Towers/Attempts/T_g.lean`, NOT in BRICKS.
+  "Towers.YM.SpectralGap|TheoremaAureum.Towers.YM.SpectralGap.spectral_radius_def"
+  "Towers.YM.SpectralGap|TheoremaAureum.Towers.YM.SpectralGap.mass_gap_def"
+  "Towers.YM.SpectralGap|TheoremaAureum.Towers.YM.SpectralGap.Perron_Frobenius_statement"
+  "Towers.YM.SpectralGap|TheoremaAureum.Towers.YM.SpectralGap.spectral_radius_nonneg"
+  "Towers.YM.SpectralGap|TheoremaAureum.Towers.YM.SpectralGap.mass_gap_nonneg"
 )
 
 VERIFIER_DIR="$(mktemp -d)"

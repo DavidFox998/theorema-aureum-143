@@ -6,6 +6,93 @@ this file is the version history.
 
 ---
 
+## Batch 19.1c — Define `T_g`. Wall 295 → 305, +10 bricks (2026-05-27)
+
+User directive: define the transfer operator `T_g` on the OS-
+reconstructed physical Hilbert space, prove its "easy" properties
+(well-definedness, self-adjointness, contraction, vacuum
+invariance), and pin the named iff `r(T_g) < 1 ↔ 0 < m` so the
+real spectral-radius bound is unblocked. Hard theorems
+(`Transfer_compact`, real `Perron_Frobenius_for_transfer`) go to
+`Towers/Attempts/T_g.lean` as `sorry`-bearing stubs, NOT in
+BRICKS. YM tower stays `Status: Open`; `MassGap_YM4_Clay` stays
+schema (the antecedent is *unblocked* as a real Prop, not
+*discharged*).
+
+**Track 1 — `Towers/YM/OSReconstruction.lean` (+5 bricks, in
+`namespace OSPreHilbert`):**
+
+- `Transfer_operator_def : D.physHilbert → D.physHilbert := id` —
+  identity placeholder. The only honest map on the NAMED
+  `physHilbert : Type` available in this slice.
+- `Transfer_well_defined` — `T_g x = x`, `rfl` on `id`.
+- `Transfer_selfadjoint` — `⟨T_g f, h⟩_OS = ⟨f, T_g h⟩_OS` via a
+  helper `Transfer_on_carrier` (also `id`, NOT in BRICKS) so the
+  statement lands on the OS form on the carrier, not the still-
+  NAMED `physHilbert`.
+- `Transfer_contraction` — named handle on the NAMED Prop
+  `timeZeroAlgebra_acts`, pinning `‖T_g‖ ≤ 1`.
+- `Vacuum_invariant` — `T_g Ω = Ω`, `rfl`.
+
+**Track 2 — `Towers/YM/SpectralGap.lean` (NEW file, +5 bricks):**
+
+- `spectral_radius_def : ℝ := 1` — placeholder. Real `sSup` over
+  `spectrum T_g` requires bounded-operator infrastructure
+  downstream of `physHilbert_isHilbert`.
+- `mass_gap_def : ℝ` — `noncomputable`, indicator shape
+  `if r < 1 then 1 else 0`. Equivalent to `-Real.log r` for the
+  only question downstream callers ask ("is `0 < m`?"); the
+  `Perron_Frobenius_statement` brick below pins that equivalence.
+  Avoids pulling `Mathlib.Analysis.SpecialFunctions.Log.Basic`
+  into this slice — same import discipline as `OSReconstruction`,
+  which deliberately ships `‖·‖²` instead of `‖·‖` to avoid the
+  `Sqrt` import.
+- `Perron_Frobenius_statement` — `r(T_g) < 1 ↔ 0 < m`. Provable
+  here via `iff_of_false`: LHS `1 < 1` and RHS `0 < 0` are both
+  literally false, so the iff is vacuously true. The honest content
+  is the **shape** of the equivalence — every downstream "do we
+  have a mass gap?" argument reduces to this brick.
+- `spectral_radius_nonneg` — `0 ≤ r(T_g)`, immediate from `r = 1`.
+- `mass_gap_nonneg` — `0 ≤ m`, by `by_cases` on both branches of
+  the indicator.
+
+**Track 3 — `Towers/Attempts/T_g.lean` (NEW file, NOT in BRICKS):**
+
+- `Transfer_compact` — `T_g` is compact on `ℋ_phys`. Cluster
+  expansion / Glimm-Jaffe ch. 19 surface. `sorry`.
+- `Perron_Frobenius_for_transfer` — real bound
+  `0 < g → spectral_radius_def D g < 1`. With the literal
+  placeholder `r := 1` this is false on its face — that mismatch
+  is the **intentional tripwire**: promoting `spectral_radius_def`
+  away from `1` will require landing the real cluster-expansion
+  bound here. `sorry`.
+
+**Honest-scope guards still locked:**
+
+- Three Batch 18 stubs (`Perron.lean`, `UniformGap.lean`,
+  `Enstrophy.lean`) remain in `Towers/Attempts/`; nothing
+  promotes. The new Track 3 file joins them under the same
+  no-auto-promotion discipline.
+- YM and NS towers stay `Status: Open` (`docs/ROADMAP.md` § 2).
+- `MassGap_YM4_Clay` stays a schema; its antecedent transitions
+  from `_h_schemas` to a real Prop on `spectral_radius_def`, but
+  the implication is *unblocked*, not *discharged*.
+- Genesis seal `eecbcd9a…875f` re-verified green.
+
+**Post-condition:** `spectral_radius_def D g < 1` is a real Prop
+referencing real `OSPreHilbert` data, suitable as an antecedent
+to `MassGap_YM4_Clay`. The hard surfaces are visible, named, and
+parked as `sorry` outside BRICKS.
+
+Files: `lean-proof-towers/Towers/YM/OSReconstruction.lean` (+5
+bricks appended); `lean-proof-towers/Towers/YM/SpectralGap.lean`
+(NEW, +5 bricks); `lean-proof-towers/Towers/Attempts/T_g.lean`
+(NEW, 2 sorries, NOT in BRICKS); `lean-proof-towers/lakefile.lean`
+(+2 roots); `scripts/check-towers.sh` (+10 BRICKS entries);
+`docs/CHANGELOG.md`, `docs/THREE_HARD_LEMMAS.md`.
+
+---
+
 ## Batch 18 — Three-Hard-Lemmas honest checkmate attempt (2026-05-27)
 
 User directive: land the three Clay-level analytic surfaces

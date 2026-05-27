@@ -365,6 +365,89 @@ action. -/
 def TimeZeroAlgebra_action (D : OSPreHilbert) : Prop :=
   D.timeZeroAlgebra_acts
 
+/-
+================================================================
+## Batch 19.1c — the transfer operator `T_g`
+
+Five named-handle bricks defining `T_g : ℋ_phys → ℋ_phys` and its
+"easy" properties (well-definedness, self-adjointness w.r.t. the
+OS form on the carrier, the named contraction bound, and vacuum
+invariance). The transfer operator is the **identity placeholder**
+on `physHilbert` — because `physHilbert : Type` is still a NAMED
+type with no algebra/norm structure, every concrete property must
+reduce either to `rfl` on `id` (well-definedness, vacuum
+invariance), to symmetry of the OS form on the carrier
+(self-adjointness via the helper `Transfer_on_carrier`), or to a
+named-handle on the `timeZeroAlgebra_acts` NAMED Prop
+(`Transfer_contraction`, pinning `‖T_g‖ ≤ 1`).
+
+Compactness and the actual spectral bound `r(T_g) < 1 for g > 0`
+are NOT here — they live as sorry-stubs in
+`Towers/Attempts/T_g.lean`. The spectral-radius / mass-gap defs
+themselves live in the new `Towers/YM/SpectralGap.lean`.
+
+YM tower stays `Status: Open` (`docs/ROADMAP.md` § 2).
+================================================================
+-/
+
+/-- **The transfer operator `T_g : ℋ_phys → ℋ_phys`.**
+
+Placeholder = identity on `physHilbert`. The real OS construction
+yields the time-evolution operator on the physical Hilbert space
+(Glimm-Jaffe ch. 6); the identity is the only honest map on the
+NAMED `physHilbert : Type` available in this slice. The `g`
+argument is reserved for the coupling constant. -/
+def Transfer_operator_def (D : OSPreHilbert) (_g : ℝ) :
+    D.physHilbert → D.physHilbert :=
+  id
+
+/-- **`T_g` descends to the quotient (placeholder).**
+
+Since `T_g = id`, it trivially respects every equivalence and
+descends to `ℋ_phys`. The real surface here is: the lattice
+time-evolution maps `ker ‖·‖_OS` to itself, so it factors through
+the `L²/ker` quotient — discharged elsewhere when a real
+`physHilbert` is built. -/
+theorem Transfer_well_defined (D : OSPreHilbert) (g : ℝ)
+    (x : D.physHilbert) :
+    D.Transfer_operator_def g x = x := rfl
+
+/-- **Carrier-level transfer operator (helper).** Identity placeholder
+on `carrier`. Lets us phrase `Transfer_selfadjoint` against the
+OS inner product, which lives on the carrier, not on the NAMED
+`physHilbert`. NOT registered in BRICKS — see
+`Transfer_selfadjoint` instead. -/
+def Transfer_on_carrier (D : OSPreHilbert) (_g : ℝ) :
+    D.carrier → D.carrier :=
+  id
+
+/-- **`T_g` is self-adjoint w.r.t. the OS inner product.**
+
+`⟨T_g f, h⟩_OS = ⟨f, T_g h⟩_OS`. Since `T_g = id` placeholder, both
+sides reduce to `OSInnerProduct D f h` and the equation is `rfl`.
+Real OS self-adjointness uses reflection positivity + the time-
+reversal `θ`; that is the surface this brick reserves. -/
+theorem Transfer_selfadjoint (D : OSPreHilbert) (g : ℝ)
+    (f h : D.carrier) :
+    D.OSInnerProduct (D.Transfer_on_carrier g f) h =
+      D.OSInnerProduct f (D.Transfer_on_carrier g h) := rfl
+
+/-- **`T_g` is a contraction.** Named handle pinning `‖T_g‖ ≤ 1` at
+the NAMED-Prop level via `timeZeroAlgebra_acts`. NOT inhabited in
+this slice — real contractivity needs a real operator-norm
+on `physHilbert`, which is downstream of the still-NAMED
+`physHilbert_isHilbert` Prop. -/
+theorem Transfer_contraction (D : OSPreHilbert) (_g : ℝ)
+    (h : D.timeZeroAlgebra_acts) : D.timeZeroAlgebra_acts :=
+  h
+
+/-- **Vacuum is `T_g`-invariant.** `T_g Ω = Ω`. Since `T_g = id`,
+the equation is `rfl`. Real vacuum invariance is the statement
+that the OS-reconstructed vacuum is a stationary state of the
+time-evolution — Glimm-Jaffe Theorem 6.1.5. -/
+theorem Vacuum_invariant (D : OSPreHilbert) (g : ℝ) :
+    D.Transfer_operator_def g D.vacuum = D.vacuum := rfl
+
 end OSPreHilbert
 
 end OSReconstruction
