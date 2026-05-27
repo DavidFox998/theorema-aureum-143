@@ -1,6 +1,6 @@
 # The Three Hard Lemmas
 
-**Status:** open. **Repository wall:** 278 bricks, axiom footprint
+**Status:** open. **Repository wall:** 285 bricks, axiom footprint
 `⊆ {propext, Classical.choice, Quot.sound}`. **Towers:**
 `Status: Open` (`docs/ROADMAP.md` § 2, § 3).
 
@@ -288,3 +288,92 @@ is "278 bricks, 0 research axioms, 3 named open problems," not a
 Millennium discharge.
 
 — Morning Star Project
+
+---
+
+## Batch 19.1 split (OS reconstruction skeleton)
+
+The Three Hard Lemmas above all depend on Osterwalder–Schrader
+reconstruction machinery this repository does not yet have. The
+original Batch 19.1 was scoped at +42 bricks to land that
+machinery in a single batch; that proved unrealistic against the
+"no `sorry`, axiom footprint `⊆ {propext, Classical.choice,
+Quot.sound}`" lock, and was re-split into four honest sub-batches.
+
+### 19.1a — Abstract `ReflectionPositiveData` skeleton ✅ LANDED
+
+**Wall:** 278 → 285 (+7 bricks). **File:**
+`lean-proof-towers/Towers/YM/OSReconstruction.lean`.
+
+Adds an abstract `ReflectionPositiveData` structure (carrier
+type, time-reflection involution `θ` with `θ² = id`, and the
+reflection-positivity property as a *named* `Prop` field) plus
+seven structural lemmas that follow from the involution axiom
+alone:
+
+- `theta_theta_eq` — named handle for `θ ∘ θ = id` pointwise
+- `theta_injective`, `theta_surjective`, `theta_bijective` —
+  `θ` is a bijection (proven from the involution axiom)
+- `pullback_pullback` — pullback of a field by `θ` is an
+  involution on fields
+- `vacuumFunction_apply` — the constant-1 vacuum function
+  evaluates to `1` at every configuration
+- `pullback_vacuum` — the vacuum function is `θ`-invariant
+
+Every brick carries axiom footprint
+`⊆ {propext, Classical.choice, Quot.sound}`. No `sorry`. No new
+axioms.
+
+**What 19.1a is NOT:** the carrier `Ω` stays abstract; the
+Wilson lattice measure, Bochner–Minlos, and inhabiting
+`reflectionPositive` for any concrete action are all OUT OF
+SCOPE. YM tower stays `Status: Open`.
+
+### 19.1b — Physical Hilbert space `ℋ_phys` quotient (PLANNED)
+
+Construct the OS quotient `ℋ_phys := L²(Ω, dμ) / ker(⟨·, θ·⟩)`
+as a Hilbert space. Requires `MeasureTheory.Lp` on a constructed
+measure, which 19.1a does NOT supply. Bricks: ~10. Wall target:
+285 → ~295. Conditional on supplying `[MeasureSpace D.carrier]`
+and a measure `μ`; the OS-reconstruction Wilson measure remains
+out of scope for this sub-batch.
+
+### 19.1c — Self-adjoint transfer operator `T` on `ℋ_phys` (PLANNED)
+
+Define the time-translation transfer operator `T` on `ℋ_phys`,
+state `IsSelfAdjoint T` as a conditional theorem. Bricks: ~10.
+Wall target: ~295 → ~305. Replaces the abstract
+`Perron_Frobenius_for_transfer` conditional in
+`Towers/YM/Transfer.lean` (Hard Lemma 1) with a less abstract
+conditional whose hypotheses are the OS measure and Wilson
+positivity, not the transfer operator itself.
+
+### 19.1d — Mass-gap uniformity in volume (PLANNED)
+
+Replace `gap_uniform_in_Lambda_v2` (Hard Lemma 2) with a
+conditional whose hypotheses are properties of the
+constructed-but-unconstructed Wilson measure. Bricks: ~10–15.
+Wall target: ~305 → ~320.
+
+### What is NOT in any 19.1\* sub-batch
+
+The three actual Hard Lemmas (`Perron_Frobenius_for_transfer`,
+`gap_uniform_in_Lambda_v2`, `enstrophy_bound_global`) remain
+conditional after 19.1d lands. Discharging them requires:
+
+- a real construction of the Wilson SU(3) measure on
+  `SU(3)^{|Λ|}` with reflection positivity (Osterwalder–Seiler
+  1978), NOT in any 19.1\* sub-batch;
+- spectral-gap analysis at small coupling uniform in `Λ`
+  (Balaban 1985 / Magnen–Rivasseau–Sénéor 1993), NOT in any
+  19.1\* sub-batch;
+- the Tao 2016 enstrophy bootstrap or equivalent for 3D NS,
+  NOT in any 19.1\* sub-batch.
+
+The 19.1\* line makes the abstract framework *less abstract*; it
+does NOT close any of the three towers. All three towers stay
+`Status: Open` until a sub-batch actually inhabits the
+hypothesis side of one of the three conditional theorems with
+real analysis. Per `replit.md` "honest-scope wording is locked,"
+no UI surface or doc claims any tower discharged at landing of
+any 19.1\* sub-batch.

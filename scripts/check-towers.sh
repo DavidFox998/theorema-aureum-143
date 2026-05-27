@@ -1086,6 +1086,18 @@ BRICKS=(
   "Towers.NS.EnergyV2|TheoremaAureum.Towers.NS.EnergyV2.enstrophy_bootstrap_strong"
   "Towers.NS.EnergyV2|TheoremaAureum.Towers.NS.EnergyV2.enstrophy_bound_global"
   "Towers.NS.EnergyV2|TheoremaAureum.Towers.NS.EnergyV2.NavierStokes_global_regular_promotion_v2"
+  # Batch 19.1a — abstract OS reconstruction skeleton (first slice of the
+  # Three-Hard-Lemmas OS prerequisite; Wall 278 → 285). Structure + 7
+  # bricks that follow from the involution axiom alone. The full OS
+  # reconstruction (Wilson measure construction, ℋ_phys quotient, hard
+  # surfaces) stays OUT OF SCOPE per docs/THREE_HARD_LEMMAS.md.
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.ReflectionPositiveData.theta_theta_eq"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.ReflectionPositiveData.theta_injective"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.ReflectionPositiveData.theta_surjective"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.ReflectionPositiveData.theta_bijective"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.ReflectionPositiveData.pullback_pullback"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.ReflectionPositiveData.vacuumFunction_apply"
+  "Towers.YM.OSReconstruction|TheoremaAureum.Towers.YM.OSReconstruction.ReflectionPositiveData.pullback_vacuum"
 )
 
 VERIFIER_DIR="$(mktemp -d)"

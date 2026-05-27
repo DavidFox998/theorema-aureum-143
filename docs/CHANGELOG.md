@@ -6,6 +6,58 @@ this file is the version history.
 
 ---
 
+## Batch 19.1a — Abstract OS-reconstruction skeleton (2026-05-27)
+
+First slice of the Three-Hard-Lemmas OS prerequisite. Wall
+**278 → 285** (+7 bricks). **File:**
+`lean-proof-towers/Towers/YM/OSReconstruction.lean` (new).
+
+Adds an abstract `ReflectionPositiveData` structure capturing the
+type-level shape of an Osterwalder–Schrader data tuple — a
+carrier type, a time-reflection involution `θ : Ω → Ω` with
+`θ² = id`, and the reflection-positivity property as a *named*
+`Prop` field — plus seven structural lemmas that follow from the
+involution axiom alone:
+
+- `theta_theta_eq` — named handle for `θ ∘ θ = id` pointwise
+- `theta_injective` / `theta_surjective` / `theta_bijective` —
+  `θ` is a bijection (real consequence of the involution axiom,
+  not assumed)
+- `pullback_pullback` — pullback of a field by `θ` is itself an
+  involution on fields
+- `vacuumFunction_apply` — constant-1 vacuum function evaluates
+  to `1` at every configuration
+- `pullback_vacuum` — vacuum function is `θ`-invariant
+
+All seven carry axiom footprint
+`⊆ {propext, Classical.choice, Quot.sound}` (mathlib's classical
+trio). No `sorry`. No new axioms.
+
+**What 19.1a is NOT.** Not a construction of the Wilson SU(3)
+lattice measure. Not a construction of the physical Hilbert
+space `ℋ_phys := L²(Ω, dμ) / ker(⟨·, θ·⟩)`. Not a discharge of
+`Perron_Frobenius_for_transfer`, `gap_uniform_in_Lambda_v2`, or
+`enstrophy_bound_global`. The carrier `Ω` stays abstract; the
+`reflectionPositive` field is named but never inhabited for any
+concrete action. YM tower stays `Status: Open`; honest-scope
+wording in `replit.md` is unchanged. See `docs/THREE_HARD_LEMMAS.md`
+"Batch 19.1 split" for the four-sub-batch roadmap (19.1a landed,
+19.1b/c/d planned).
+
+**Sandbox note (not a code change).** The lake recovery workflow's
+full `git clone` of `mathlib4` fails inside the sandbox with
+`unable to write ... .git/objects/pack/*.pack`. A manual shallow
+clone (`git clone --depth=1 --branch v4.12.0`) into
+`lean-proof-towers/.lake/packages/mathlib` works and is what
+`restore-lake-git.sh` then sees as `already restored`. Recorded
+here so that a future operator hitting the same lake-recovery
+failure knows the workaround.
+
+`scripts/check-towers.sh` BRICKS array updated: +7 entries
+appended after the EnergyV2 block, before the closing `)`.
+
+---
+
 ## task #79 — Fix `Towers/YM/RealCurvatureV2.lean` so `towers-build` is green
 
 `lean-proof-towers/Towers/YM/RealCurvatureV2.lean` (Path B batch 6,
