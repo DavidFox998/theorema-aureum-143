@@ -84,6 +84,15 @@ interface LedgerIntegrityStatus {
   // see a tamper attempt distinctly from a fresh boot (`missing`).
   lastOkSidecarStatus: LastOkSidecarStatus;
   /**
+   * Task #137: whether the API server was booted with
+   * `LEDGER_SIDECAR_SECRET_STRICT_MODE` enabled. Sourced from the
+   * same `isSidecarSecretStrictMode` helper used at boot so this
+   * value cannot drift from the runtime posture. Surfaced as a small
+   * badge on the Ledger Integrity dashboard card so operators can
+   * confirm a hardened deploy at a glance.
+   */
+  sidecarSecretStrictMode: boolean;
+  /**
    * Task #124: ISO-8601 timestamp at which the operator acknowledged
    * the current forged-sidecar incident via
    * `POST /ledger/sidecar-forged-ack`. Null while the banner is
@@ -1038,6 +1047,7 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
       checkpointStaleThresholdSeconds: CHECKPOINT_STALE_THRESHOLD_SECONDS,
       checkpointStale: cpInit.checkpointStale,
       lastOkSidecarStatus,
+      sidecarSecretStrictMode: STRICT_MODE,
       lastOkSidecarStatusAcknowledgedAt: null,
     };
 

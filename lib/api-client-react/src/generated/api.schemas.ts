@@ -920,6 +920,21 @@ export interface LedgerIntegrityStatus {
   path as the integrity-mismatch alerts.
    */
   lastOkSidecarStatus?: LedgerIntegrityStatusLastOkSidecarStatus;
+  /** Task #137. True when the API server was booted with
+  `LEDGER_SIDECAR_SECRET_STRICT_MODE` set to a truthy value
+  (`1` / `true` / `yes` / `on`, case-insensitive), in which
+  case a group/world-readable on-disk sidecar keyfile would
+  have prevented boot (`SidecarSecretLooseModeError`). False
+  in the default lenient posture, where a loose keyfile only
+  emits a startup `WARN`. Sourced from the same env parsing
+  helper (`isSidecarSecretStrictMode`) used at boot, so this
+  value cannot drift from the runtime posture. Surfaced on
+  the Ledger Integrity dashboard card as a small badge
+  ("Strict keyfile mode: ON" / "OFF") so operators can
+  confirm a hardened deploy at a glance without grepping
+  startup logs or inspecting env vars.
+   */
+  sidecarSecretStrictMode?: boolean;
   /**
      * Task #124. ISO-8601 timestamp when an operator dismissed
   the current forged-sidecar incident via

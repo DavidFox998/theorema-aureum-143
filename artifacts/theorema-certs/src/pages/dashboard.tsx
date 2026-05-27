@@ -1772,6 +1772,33 @@ export default function DashboardPage() {
             ) : null}
           </div>
 
+          {ledgerIntegrity ? (
+            <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+              <span className="text-muted-foreground uppercase tracking-wider">
+                Sidecar keyfile posture:
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 border text-[11px] font-bold uppercase tracking-wider ${
+                  ledgerIntegrity.sidecarSecretStrictMode
+                    ? "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400"
+                    : "border-muted-foreground/40 bg-muted-foreground/5 text-muted-foreground"
+                }`}
+                data-testid="badge-ledger-sidecar-strict-mode"
+                data-strict-mode={
+                  ledgerIntegrity.sidecarSecretStrictMode ? "on" : "off"
+                }
+                title={
+                  ledgerIntegrity.sidecarSecretStrictMode
+                    ? "LEDGER_SIDECAR_SECRET_STRICT_MODE is ON — the API server refuses to boot when the on-disk sidecar keyfile is group/world-readable."
+                    : "LEDGER_SIDECAR_SECRET_STRICT_MODE is OFF (default lenient mode) — a loose keyfile only emits a startup WARN. Set LEDGER_SIDECAR_SECRET_STRICT_MODE=1 for hardened deploys."
+                }
+              >
+                Strict keyfile mode:{" "}
+                {ledgerIntegrity.sidecarSecretStrictMode ? "ON" : "OFF"}
+              </span>
+            </div>
+          ) : null}
+
           <p className="text-xs font-mono text-muted-foreground">
             Compares <span className="text-foreground">data/hits.txt</span> against the
             committed{" "}
