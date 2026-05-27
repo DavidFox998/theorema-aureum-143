@@ -2021,6 +2021,72 @@ export default function DashboardPage() {
             );
           })()}
 
+          {(() => {
+            // Task #115: when the operator has dismissed the most
+            // recent monitor alert via POST /lean/ledger-alerts/ack,
+            // `monitor.lastAcknowledgedAlertId` becomes non-null and
+            // the monitor holds fire on subsequent non-ok ticks —
+            // including failure_mode transitions — until a recovery
+            // clears the state. Without a visible cue here, an
+            // operator who sees the ledger stay red has no way to
+            // tell that the monitor is intentionally silenced rather
+            // than broken or stalled.
+            if (!ledgerIntegrity) return null;
+            const m = ledgerIntegrity.monitor;
+            if (!m || !m.enabled) return null;
+            const ackedId = m.lastAcknowledgedAlertId;
+            if (!ackedId) return null;
+            const shortId = ackedId.slice(0, 12);
+            const currentFm = ledgerIntegrity.failureMode ?? null;
+            const alertedFm = m.lastAlertedFailureMode ?? null;
+            // A failure_mode transition while silenced: the live
+            // ledger is non-ok and its failureMode no longer matches
+            // the failureMode that was acked. lastAlertedFailureMode
+            // does not update silently while silenced, so compare
+            // against the live failureMode rather than against itself.
+            const silencedTransition =
+              ledgerIntegrity.status !== "ok" &&
+              currentFm != null &&
+              alertedFm != null &&
+              currentFm !== alertedFm;
+            return (
+              <p
+                className="text-xs font-mono border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 px-3 py-2"
+                data-testid="text-ledger-monitor-suppressed"
+                data-acknowledged-alert-id={ackedId}
+                title={`monitor alerts suppressed — operator acknowledged alert ${ackedId} via POST /api/lean/ledger-alerts/ack; the monitor will hold fire on subsequent non-ok ticks until a recovery clears the state`}
+              >
+                <span className="font-bold uppercase tracking-wider">
+                  alerts suppressed — acknowledged
+                </span>
+                <span className="ml-2 text-muted-foreground">ack id</span>{" "}
+                <a
+                  href={`#alert-${ackedId}`}
+                  className="text-foreground underline decoration-dotted underline-offset-2"
+                  data-testid="link-ledger-monitor-ack-id"
+                  title={ackedId}
+                >
+                  {shortId}…
+                </a>
+                {alertedFm ? (
+                  <span className="ml-2 text-muted-foreground">
+                    (last fired:{" "}
+                    <span className="text-foreground">{alertedFm}</span>)
+                  </span>
+                ) : null}
+                {silencedTransition ? (
+                  <span
+                    className="ml-2 font-bold uppercase tracking-wider text-red-700 dark:text-red-400"
+                    data-testid="badge-ledger-monitor-silenced-transition"
+                    title={`while suppressed, the live ledger failure mode changed from ${alertedFm} to ${currentFm} — the monitor did not re-alert because the previous alert is still acknowledged`}
+                  >
+                    failure mode changed while silenced → {currentFm}
+                  </span>
+                ) : null}
+              </p>
+            );
+          })()}
+
           {ledgerIntegrity && ledgerIntegrity.status !== "ok" ? (
             <div
               className="border border-red-500/50 bg-red-500/10 p-3 font-mono text-xs space-y-1 text-red-700 dark:text-red-400"
