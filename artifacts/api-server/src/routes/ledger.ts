@@ -1082,6 +1082,13 @@ export function startLedgerMonitor(
   let lastFailureMode: string | null = null;
   let lastFiredAlertId: string | null = null;
   let lastAcknowledgedAlertId: string | null = null;
+  // Task #111: track checkpointStale separately from the integrity-
+  // status state machine. The sealed prefix going stale is an
+  // operator-attention signal (re-roll the checkpoint), not a tamper
+  // signal, so it gets its own dedup latch and its own
+  // failure_mode = "checkpoint_stale" so dashboards / alert history
+  // can distinguish it from hits_truncated / hits_rewritten_in_place.
+  let lastCheckpointStaleAlerted = false;
   let lastTickAt: string | null = null;
   let inFlight = false;
   const intervalSeconds = Math.max(
@@ -1278,6 +1285,101 @@ export function startLedgerMonitor(
         lastFailureMode = null;
         lastFiredAlertId = null;
         lastAcknowledgedAlertId = null;
+      }
+
+      // Task #111: checkpoint-stale transitions, tracked independently
+      // of the tamper-status state machine above. Fires one alert when
+      // the sealed prefix crosses the configured staleness threshold
+      // (operator needs to re-roll the checkpoint), and one "recovered"
+      // when the prefix is re-rolled. Same dedup contract: silent while
+      // the boolean stays in the same state.
+      if (s.checkpointStale && !lastCheckpointStaleAlerted) {
+        const alertTimestamp = new Date().toISOString();
+        const ageDays =
+          s.checkpointAgeSeconds != null
+            ? Math.floor(s.checkpointAgeSeconds / 86400)
+            : null;
+        const message =
+          `Ledger checkpoint is stale (api-server monitor): ` +
+          `the sealed prefix at ${opts.checkpointPath ?? "checkpoint"} ` +
+          (ageDays != null
+            ? `is ${ageDays} day(s) old `
+            : `has no readable mtime `) +
+          `(threshold ${s.checkpointStaleThresholdSeconds}s). ` +
+          `Re-roll the checkpoint to restore tamper coverage of the latest appends.`;
+        const alertId = computeAlertId(alertTimestamp, message);
+        const context: LedgerAlertContext = {
+          failure_mode: "checkpoint_stale",
+          expected_size: s.checkpointSize,
+          expected_sha: s.checkpointSha,
+          actual_size: s.liveSize,
+          actual_sha: s.livePrefixSha,
+          checked_at: s.checkedAt,
+          timestamp: alertTimestamp,
+          checkpoint_age_seconds: s.checkpointAgeSeconds,
+          checkpoint_last_modified: s.checkpointLastModified,
+          checkpoint_coverage_ratio: s.checkpointCoverageRatio,
+          checkpoint_stale_threshold_seconds: s.checkpointStaleThresholdSeconds,
+          ...commonCtx,
+        };
+        const invocation: LedgerAlertInvocation = {
+          kind: "alert",
+          message,
+          context,
+        };
+        log.warn(
+          { alertId, ageSeconds: s.checkpointAgeSeconds },
+          "ledger monitor: firing checkpoint-stale alert",
+        );
+        try {
+          await opts.sink(invocation);
+        } catch (err) {
+          log.warn(
+            { err },
+            "ledger monitor: checkpoint-stale sink threw (best-effort, swallowed)",
+          );
+        }
+        lastCheckpointStaleAlerted = true;
+      } else if (!s.checkpointStale && lastCheckpointStaleAlerted) {
+        const alertTimestamp = new Date().toISOString();
+        const message =
+          `Ledger checkpoint RECOVERED (api-server monitor): ` +
+          `sealed prefix re-rolled (age now ${s.checkpointAgeSeconds ?? "unknown"}s, ` +
+          `threshold ${s.checkpointStaleThresholdSeconds}s)`;
+        const alertId = computeAlertId(alertTimestamp, message);
+        const context: LedgerAlertContext = {
+          failure_mode: "recovered",
+          previous_failure_mode: "checkpoint_stale",
+          expected_size: s.checkpointSize,
+          expected_sha: s.checkpointSha,
+          actual_size: s.liveSize,
+          actual_sha: s.livePrefixSha,
+          checked_at: s.checkedAt,
+          timestamp: alertTimestamp,
+          checkpoint_age_seconds: s.checkpointAgeSeconds,
+          checkpoint_last_modified: s.checkpointLastModified,
+          checkpoint_coverage_ratio: s.checkpointCoverageRatio,
+          checkpoint_stale_threshold_seconds: s.checkpointStaleThresholdSeconds,
+          ...commonCtx,
+        };
+        const invocation: LedgerAlertInvocation = {
+          kind: "recovered",
+          message,
+          context,
+        };
+        log.info(
+          { alertId, ageSeconds: s.checkpointAgeSeconds },
+          "ledger monitor: firing checkpoint-stale recovery alert",
+        );
+        try {
+          await opts.sink(invocation);
+        } catch (err) {
+          log.warn(
+            { err },
+            "ledger monitor: checkpoint-stale recovery sink threw (best-effort, swallowed)",
+          );
+        }
+        lastCheckpointStaleAlerted = false;
       }
     } finally {
       lastTickAt = new Date().toISOString();

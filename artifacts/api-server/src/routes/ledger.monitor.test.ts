@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync, unlinkSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, unlinkSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -462,6 +462,109 @@ describe("startLedgerMonitor", () => {
     } catch {
       /* ignore */
     }
+  });
+
+  it("fires exactly one 'checkpoint_stale' alert when the checkpoint mtime ages past the threshold, then 'recovered' when re-rolled (task #111)", async () => {
+    const sealed = "line1\nline2\nline3\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const { buildStatus, hitsPath: hp, checkpointPath: cp } =
+      createLedgerChecker({
+        hitsPath,
+        checkpointPath,
+        lastOkPath,
+        checkpointStaleThresholdSeconds: 60,
+      });
+    const { sink, calls } = makeRecordingSink();
+    monitor = startLedgerMonitor({
+      buildStatus,
+      sink,
+      intervalMs: 60_000,
+      hitsPath: hp,
+      checkpointPath: cp,
+      logger: silentLogger(),
+    });
+
+    // Fresh checkpoint, not stale yet: no alert.
+    await monitor.tick();
+    expect(calls).toHaveLength(0);
+
+    // Back-date the checkpoint mtime well past the 60s threshold.
+    const stalePast = new Date(Date.now() - 30 * 86400 * 1000);
+    utimesSync(checkpointPath, stalePast, stalePast);
+
+    await monitor.tick();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].kind).toBe("alert");
+    expect(calls[0].context.failure_mode).toBe("checkpoint_stale");
+    expect(calls[0].context.source).toBe("api-server-monitor");
+    expect(calls[0].context.hits_path).toBe(hp);
+    expect(calls[0].context.checkpoint_path).toBe(cp);
+    expect(calls[0].context["checkpoint_stale_threshold_seconds"]).toBe(60);
+    expect(
+      typeof calls[0].context["checkpoint_age_seconds"],
+    ).toBe("number");
+    expect(calls[0].message).toMatch(/checkpoint is stale/i);
+    expect(calls[0].message).toMatch(/re-roll/i);
+
+    // Stays stale across ticks: silent (same dedup contract).
+    await monitor.tick();
+    await monitor.tick();
+    expect(calls).toHaveLength(1);
+
+    // Operator re-rolls the checkpoint: mtime is fresh again.
+    const fresh = new Date();
+    utimesSync(checkpointPath, fresh, fresh);
+
+    await monitor.tick();
+    expect(calls).toHaveLength(2);
+    expect(calls[1].kind).toBe("recovered");
+    expect(calls[1].context.failure_mode).toBe("recovered");
+    expect(calls[1].context.previous_failure_mode).toBe("checkpoint_stale");
+    expect(calls[1].message).toMatch(/checkpoint RECOVERED/i);
+
+    // Stays fresh: silent.
+    await monitor.tick();
+    expect(calls).toHaveLength(2);
+
+    // Goes stale again: fresh alert.
+    utimesSync(checkpointPath, stalePast, stalePast);
+    await monitor.tick();
+    expect(calls).toHaveLength(3);
+    expect(calls[2].kind).toBe("alert");
+    expect(calls[2].context.failure_mode).toBe("checkpoint_stale");
+  });
+
+  it("checkpoint_stale alert is independent of the tamper-status state machine (task #111)", async () => {
+    const sealed = "line1\nline2\nline3\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const { buildStatus } = createLedgerChecker({
+      hitsPath,
+      checkpointPath,
+      lastOkPath,
+      checkpointStaleThresholdSeconds: 60,
+    });
+    const { sink, calls } = makeRecordingSink();
+    monitor = startLedgerMonitor({
+      buildStatus,
+      sink,
+      intervalMs: 60_000,
+      logger: silentLogger(),
+    });
+
+    // Make the checkpoint stale AND tamper the live ledger in one tick.
+    const stalePast = new Date(Date.now() - 30 * 86400 * 1000);
+    utimesSync(checkpointPath, stalePast, stalePast);
+    writeFileSync(hitsPath, "x");
+
+    await monitor.tick();
+    // Two alerts fire: one tamper, one checkpoint_stale.
+    expect(calls).toHaveLength(2);
+    const modes = calls.map((c) => c.context.failure_mode).sort();
+    expect(modes).toEqual(["checkpoint_stale", "hits_truncated"]);
   });
 
   it("stop() halts the interval", async () => {
