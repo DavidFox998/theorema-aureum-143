@@ -247,10 +247,15 @@ export const getLedgerAlertsQueryLimitDefault = 20;
 export const getLedgerAlertsQueryLimitMax = 200;
 
 export const getLedgerAlertsQueryIncludeAcknowledgedDefault = false;
+export const getLedgerAlertsQueryRotationDefault = 0;
+export const getLedgerAlertsQueryRotationMin = 0;
+
+
 
 export const GetLedgerAlertsQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(getLedgerAlertsQueryLimitMax).default(getLedgerAlertsQueryLimitDefault).describe('Maximum number of most-recent entries to return (default 20, max 200).'),
-  "includeAcknowledged": zod.coerce.boolean().default(getLedgerAlertsQueryIncludeAcknowledgedDefault).describe('When true, include entries that have been acknowledged via\n`POST \/lean\/ledger-alerts\/ack`. Defaults to false so the panel\nonly shows actionable (unhandled) alerts. Each entry always\ncarries its `acknowledgedAt` field so the UI can render a\n\"show acknowledged\" toggle without a second round-trip.\n')
+  "includeAcknowledged": zod.coerce.boolean().default(getLedgerAlertsQueryIncludeAcknowledgedDefault).describe('When true, include entries that have been acknowledged via\n`POST \/lean\/ledger-alerts\/ack`. Defaults to false so the panel\nonly shows actionable (unhandled) alerts. Each entry always\ncarries its `acknowledgedAt` field so the UI can render a\n\"show acknowledged\" toggle without a second round-trip.\n'),
+  "rotation": zod.coerce.number().min(getLedgerAlertsQueryRotationMin).default(getLedgerAlertsQueryRotationDefault).describe('Which alert log file to read. `0` (the default) reads the\nlive `data\/ledger-alerts.jsonl`. `1` reads\n`data\/ledger-alerts.jsonl.1` (the most recently rotated\narchive), `2` reads `.2`, and so on up to the rotator\'s\nconfigured `MORNINGSTAR_ALERTS_MAX_ROTATIONS`. Rotated reads\nare best-effort: missing or partially written rotations\nreturn an empty `alerts` array with `logExists: false`.\nAck-sidecar garbage collection only runs on the live file,\nso paging back into an archive never destroys dismissal\nrecords that still apply to entries that already rolled off.\n')
 })
 
 export const GetLedgerAlertsResponse = zod.object({
@@ -287,7 +292,14 @@ export const GetLedgerAlertsResponse = zod.object({
   "totalReturned": zod.number(),
   "logPath": zod.string().describe('Filesystem path of the alert log that was read'),
   "logExists": zod.boolean().describe('True iff `data\/ledger-alerts.jsonl` exists on disk. False is\nthe normal healthy state — no alert has ever fired.\n'),
-  "ackGcDropped": zod.number().optional().describe('Count of dismissed-alert records garbage-collected on this\ncall because the underlying alert has rolled off the log\n(task #102 \/ #119). Always present; usually 0. Surfaced so\noperators can confirm housekeeping is running and notice\nif it ever runs away.\n')
+  "ackGcDropped": zod.number().optional().describe('Count of dismissed-alert records garbage-collected on this\ncall because the underlying alert has rolled off the log\n(task #102 \/ #119). Always present; usually 0. Surfaced so\noperators can confirm housekeeping is running and notice\nif it ever runs away. Only the live read (`rotation=0`)\never runs ack GC; reads of rotated archives always report\n`0` here.\n'),
+  "rotation": zod.number().optional().describe('Which rotation index was read on this call. `0` means the\nlive `data\/ledger-alerts.jsonl`; `N >= 1` means\n`data\/ledger-alerts.jsonl.N`. Echoes the request param so\nthe dashboard can keep its paging UI in sync (task #120).\n'),
+  "availableRotations": zod.array(zod.object({
+  "index": zod.number().describe('Rotation index (1 = most recently rotated)'),
+  "path": zod.string().describe('Filesystem path of the rotated archive'),
+  "size": zod.number().describe('Byte size of the rotated archive'),
+  "mtime": zod.string().describe('ISO-8601 mtime of the rotated archive')
+})).optional().describe('Snapshot of every rotated alert log file the server can see\non disk right now (`data\/ledger-alerts.jsonl.1`,\n`.2`, ...), newest-rotated first. Empty when no rotation\nhas happened yet. The dashboard uses this list to render\n\"page back into archive .N\" controls without polling each\nrotation index blindly (task #120).\n')
 })
 
 

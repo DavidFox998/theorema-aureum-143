@@ -245,18 +245,22 @@ export default function DashboardPage() {
     },
     request: lockoutsAuthHeader ? { headers: lockoutsAuthHeader } : undefined,
   });
+  const [alertRotation, setAlertRotation] = useState<number>(0);
   const {
     data: ledgerAlertsData,
     error: ledgerAlertsError,
   } = useGetLedgerAlerts(
-    { limit: 20, includeAcknowledged: true },
+    { limit: 20, includeAcknowledged: true, rotation: alertRotation },
     {
       query: {
         queryKey: getGetLedgerAlertsQueryKey({
           limit: 20,
           includeAcknowledged: true,
+          rotation: alertRotation,
         }),
-        refetchInterval: 30000,
+        // Rotated archives are immutable, so don't waste cycles polling
+        // them — only the live read needs to refresh on a timer.
+        refetchInterval: alertRotation === 0 ? 30000 : false,
         refetchIntervalInBackground: false,
         retry: false,
       },
@@ -1426,6 +1430,74 @@ export default function DashboardPage() {
                     </span>
                   </span>
                 </div>
+                {(() => {
+                  const rotations = ledgerAlertsData?.availableRotations ?? [];
+                  const currentRotation = ledgerAlertsData?.rotation ?? alertRotation;
+                  if (rotations.length === 0 && currentRotation === 0) {
+                    return null;
+                  }
+                  const fmtSize = (n: number): string => {
+                    if (n < 1024) return `${n} B`;
+                    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+                    return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+                  };
+                  return (
+                    <div
+                      className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/10"
+                      data-testid="panel-ledger-alerts-rotations"
+                    >
+                      <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                        Archive
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAlertRotation(0)}
+                        className={`font-mono text-[11px] px-2 py-0.5 border border-border rounded-sm ${
+                          currentRotation === 0
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/30 hover:bg-muted/50"
+                        }`}
+                        data-testid="btn-ledger-alerts-rotation-0"
+                        title="Live alert log (data/ledger-alerts.jsonl)"
+                      >
+                        live
+                      </button>
+                      {rotations.map((r) => (
+                        <button
+                          key={`rot-${r.index}`}
+                          type="button"
+                          onClick={() => setAlertRotation(r.index)}
+                          className={`font-mono text-[11px] px-2 py-0.5 border border-border rounded-sm ${
+                            currentRotation === r.index
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/30 hover:bg-muted/50"
+                          }`}
+                          data-testid={`btn-ledger-alerts-rotation-${r.index}`}
+                          title={`Rotated archive .${r.index} — ${fmtSize(r.size)}, rotated ${formatTimestamp(r.mtime)}`}
+                        >
+                          .{r.index}
+                        </button>
+                      ))}
+                      {currentRotation > 0 ? (
+                        <span
+                          className="font-mono text-[11px] text-muted-foreground ml-auto"
+                          data-testid="text-ledger-alerts-rotation-hint"
+                        >
+                          read-only archive — acknowledgements are
+                          disabled
+                        </span>
+                      ) : rotations.length > 0 ? (
+                        <span
+                          className="font-mono text-[11px] text-muted-foreground ml-auto"
+                          data-testid="text-ledger-alerts-rotation-hint"
+                        >
+                          {rotations.length} rotated archive
+                          {rotations.length === 1 ? "" : "s"} available
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })()}
                 {ledgerAlertsError ? (
                   <p
                     className="px-3 py-2 font-mono text-[11px] text-red-700 dark:text-red-400"
@@ -1550,7 +1622,7 @@ export default function DashboardPage() {
                                     >
                                       ack'd {formatTimestamp(alert.acknowledgedAt ?? undefined)}
                                     </span>
-                                  ) : rebuildToken ? (
+                                  ) : rebuildToken && alertRotation === 0 ? (
                                     <button
                                       type="button"
                                       onClick={() => {

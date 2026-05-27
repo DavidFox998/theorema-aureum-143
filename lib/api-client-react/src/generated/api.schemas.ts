@@ -334,6 +334,17 @@ export interface LedgerAlertEntry {
   delivery: LedgerAlertEntryDelivery;
 }
 
+export type LedgerAlertsResponseAvailableRotationsItem = {
+  /** Rotation index (1 = most recently rotated) */
+  index: number;
+  /** Filesystem path of the rotated archive */
+  path: string;
+  /** Byte size of the rotated archive */
+  size: number;
+  /** ISO-8601 mtime of the rotated archive */
+  mtime: string;
+};
+
 export interface LedgerAlertsResponse {
   /** Most-recent-first slice of alert entries */
   alerts: LedgerAlertEntry[];
@@ -350,9 +361,25 @@ export interface LedgerAlertsResponse {
   call because the underlying alert has rolled off the log
   (task #102 / #119). Always present; usually 0. Surfaced so
   operators can confirm housekeeping is running and notice
-  if it ever runs away.
+  if it ever runs away. Only the live read (`rotation=0`)
+  ever runs ack GC; reads of rotated archives always report
+  `0` here.
    */
   ackGcDropped?: number;
+  /** Which rotation index was read on this call. `0` means the
+  live `data/ledger-alerts.jsonl`; `N >= 1` means
+  `data/ledger-alerts.jsonl.N`. Echoes the request param so
+  the dashboard can keep its paging UI in sync (task #120).
+   */
+  rotation?: number;
+  /** Snapshot of every rotated alert log file the server can see
+  on disk right now (`data/ledger-alerts.jsonl.1`,
+  `.2`, ...), newest-rotated first. Empty when no rotation
+  has happened yet. The dashboard uses this list to render
+  "page back into archive .N" controls without polling each
+  rotation index blindly (task #120).
+   */
+  availableRotations?: LedgerAlertsResponseAvailableRotationsItem[];
 }
 
 export interface MorningstarProbe {
@@ -816,6 +843,21 @@ carries its `acknowledgedAt` field so the UI can render a
 
  */
 includeAcknowledged?: boolean;
+/**
+ * Which alert log file to read. `0` (the default) reads the
+live `data/ledger-alerts.jsonl`. `1` reads
+`data/ledger-alerts.jsonl.1` (the most recently rotated
+archive), `2` reads `.2`, and so on up to the rotator's
+configured `MORNINGSTAR_ALERTS_MAX_ROTATIONS`. Rotated reads
+are best-effort: missing or partially written rotations
+return an empty `alerts` array with `logExists: false`.
+Ack-sidecar garbage collection only runs on the live file,
+so paging back into an archive never destroys dismissal
+records that still apply to entries that already rolled off.
+
+ * @minimum 0
+ */
+rotation?: number;
 };
 
 export type GetMorningstarHitsParams = {

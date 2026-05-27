@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { LedgerAlertEntry } from './ledgerAlertEntry';
+import type { LedgerAlertsResponseAvailableRotationsItem } from './ledgerAlertsResponseAvailableRotationsItem';
 
 export interface LedgerAlertsResponse {
   /** Most-recent-first slice of alert entries */
@@ -23,7 +24,23 @@ export interface LedgerAlertsResponse {
   call because the underlying alert has rolled off the log
   (task #102 / #119). Always present; usually 0. Surfaced so
   operators can confirm housekeeping is running and notice
-  if it ever runs away.
+  if it ever runs away. Only the live read (`rotation=0`)
+  ever runs ack GC; reads of rotated archives always report
+  `0` here.
    */
   ackGcDropped?: number;
+  /** Which rotation index was read on this call. `0` means the
+  live `data/ledger-alerts.jsonl`; `N >= 1` means
+  `data/ledger-alerts.jsonl.N`. Echoes the request param so
+  the dashboard can keep its paging UI in sync (task #120).
+   */
+  rotation?: number;
+  /** Snapshot of every rotated alert log file the server can see
+  on disk right now (`data/ledger-alerts.jsonl.1`,
+  `.2`, ...), newest-rotated first. Empty when no rotation
+  has happened yet. The dashboard uses this list to render
+  "page back into archive .N" controls without polling each
+  rotation index blindly (task #120).
+   */
+  availableRotations?: LedgerAlertsResponseAvailableRotationsItem[];
 }

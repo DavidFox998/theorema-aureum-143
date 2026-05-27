@@ -30,6 +30,7 @@ export * from './ledgerAlertDeliveryStatusStatus';
 export * from './ledgerAlertEntry';
 export * from './ledgerAlertEntryDelivery';
 export * from './ledgerAlertsResponse';
+export * from './ledgerAlertsResponseAvailableRotationsItem';
 export * from './ledgerIntegrityStatus';
 export * from './ledgerIntegrityStatusLastOkSidecarStatus';
 export * from './ledgerIntegrityStatusMonitor';

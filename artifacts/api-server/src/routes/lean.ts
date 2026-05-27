@@ -159,6 +159,41 @@ let ALERTS_LOG_PATH = path.join(REPO_ROOT, "data", "ledger-alerts.jsonl");
 let ALERTS_ACK_PATH = path.join(REPO_ROOT, "data", "ledger-alerts.ack.json");
 const ALERTS_DEFAULT_LIMIT = 20;
 const ALERTS_MAX_LIMIT = 200;
+// Upper bound on how many rotated alert files we probe for. The Python
+// rotator caps itself at `MORNINGSTAR_ALERTS_MAX_ROTATIONS` (default 3),
+// but operators can tune that env var up; we scan a generous fixed
+// window so the dashboard surfaces any rotation a sysadmin may have
+// kept around manually.
+const ALERTS_ROTATION_PROBE_MAX = 32;
+
+interface AlertRotationInfo {
+  index: number;
+  path: string;
+  size: number;
+  mtime: string;
+}
+
+function listAlertRotations(): AlertRotationInfo[] {
+  const out: AlertRotationInfo[] = [];
+  for (let i = 1; i <= ALERTS_ROTATION_PROBE_MAX; i++) {
+    const p = `${ALERTS_LOG_PATH}.${i}`;
+    try {
+      const st = statSync(p);
+      if (st.isFile()) {
+        out.push({
+          index: i,
+          path: p,
+          size: st.size,
+          mtime: st.mtime.toISOString(),
+        });
+      }
+    } catch {
+      // Missing or unreadable rotation — skip silently. The dashboard
+      // surface is informational, not a correctness one.
+    }
+  }
+  return out;
+}
 
 import {
   computeAlertId,
@@ -265,31 +300,52 @@ router.get("/lean/ledger-alerts", (req, res) => {
   const rawInclude = req.query["includeAcknowledged"];
   const includeAcknowledged =
     typeof rawInclude === "string" && /^(1|true|yes)$/i.test(rawInclude);
+  const rawRotation = req.query["rotation"];
+  let rotation = 0;
+  if (typeof rawRotation === "string" && rawRotation.length > 0) {
+    const n = Number.parseInt(rawRotation, 10);
+    if (Number.isFinite(n) && n > 0) {
+      rotation = Math.min(ALERTS_ROTATION_PROBE_MAX, n);
+    }
+  }
+  const availableRotations = listAlertRotations();
+  const targetPath =
+    rotation > 0 ? `${ALERTS_LOG_PATH}.${rotation}` : ALERTS_LOG_PATH;
+  // GC of stale ack entries only runs when reading the live log. Rotated
+  // files are immutable archives; their acks may legitimately predate the
+  // oldest entry in the live ring buffer, and reaping them here would
+  // destroy the operator's ability to see "this incident was already
+  // dismissed" when paging back.
+  const isLiveRead = rotation === 0;
   const ackMap = readAckMap(req.log);
-  const logExists = existsSync(ALERTS_LOG_PATH);
+  const logExists = existsSync(targetPath);
   if (!logExists) {
     res.json({
       alerts: [],
       limit,
       totalReturned: 0,
-      logPath: ALERTS_LOG_PATH,
+      logPath: targetPath,
       logExists: false,
       ackGcDropped: 0,
+      rotation,
+      availableRotations,
     });
     return;
   }
   let raw: string;
   try {
-    raw = readFileSync(ALERTS_LOG_PATH, "utf8");
+    raw = readFileSync(targetPath, "utf8");
   } catch (err) {
-    req.log.warn({ err, path: ALERTS_LOG_PATH }, "Failed to read alerts log");
+    req.log.warn({ err, path: targetPath }, "Failed to read alerts log");
     res.json({
       alerts: [],
       limit,
       totalReturned: 0,
-      logPath: ALERTS_LOG_PATH,
+      logPath: targetPath,
       logExists: true,
       ackGcDropped: 0,
+      rotation,
+      availableRotations,
     });
     return;
   }
@@ -299,40 +355,42 @@ router.get("/lean/ledger-alerts", (req, res) => {
   // ring buffer and can never match a real entry again — keeping them
   // around just bloats the sidecar and risks spurious collisions if a
   // future alert hashes to the same id.
-  let oldestLiveAlertMs: number | null = null;
-  for (const line of lines) {
-    const t = line.trim();
-    if (!t) continue;
-    try {
-      const parsed = JSON.parse(t) as unknown;
-      const entry = normalizeAlertEntry(parsed);
-      if (!entry) continue;
-      const ms = Date.parse(entry.timestamp);
-      if (Number.isFinite(ms)) {
-        oldestLiveAlertMs = ms;
-        break;
-      }
-    } catch {
-      // Skip malformed lines.
-    }
-  }
   let ackGcDropped = 0;
-  if (oldestLiveAlertMs !== null && Object.keys(ackMap).length > 0) {
-    for (const [id, ackedAt] of Object.entries(ackMap)) {
-      const ackMs = Date.parse(ackedAt);
-      if (Number.isFinite(ackMs) && ackMs < oldestLiveAlertMs) {
-        delete ackMap[id];
-        ackGcDropped++;
+  if (isLiveRead) {
+    let oldestLiveAlertMs: number | null = null;
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t) continue;
+      try {
+        const parsed = JSON.parse(t) as unknown;
+        const entry = normalizeAlertEntry(parsed);
+        if (!entry) continue;
+        const ms = Date.parse(entry.timestamp);
+        if (Number.isFinite(ms)) {
+          oldestLiveAlertMs = ms;
+          break;
+        }
+      } catch {
+        // Skip malformed lines.
       }
     }
-    if (ackGcDropped > 0) {
-      try {
-        writeAckMap(ackMap, req.log);
-      } catch (err) {
-        req.log.warn(
-          { err, path: ALERTS_ACK_PATH },
-          "Failed to persist GC'd alert ack sidecar",
-        );
+    if (oldestLiveAlertMs !== null && Object.keys(ackMap).length > 0) {
+      for (const [id, ackedAt] of Object.entries(ackMap)) {
+        const ackMs = Date.parse(ackedAt);
+        if (Number.isFinite(ackMs) && ackMs < oldestLiveAlertMs) {
+          delete ackMap[id];
+          ackGcDropped++;
+        }
+      }
+      if (ackGcDropped > 0) {
+        try {
+          writeAckMap(ackMap, req.log);
+        } catch (err) {
+          req.log.warn(
+            { err, path: ALERTS_ACK_PATH },
+            "Failed to persist GC'd alert ack sidecar",
+          );
+        }
       }
     }
   }
@@ -359,9 +417,11 @@ router.get("/lean/ledger-alerts", (req, res) => {
     alerts,
     limit,
     totalReturned: alerts.length,
-    logPath: ALERTS_LOG_PATH,
+    logPath: targetPath,
     logExists: true,
     ackGcDropped,
+    rotation,
+    availableRotations,
   });
 });
 

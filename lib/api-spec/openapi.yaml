@@ -293,6 +293,24 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: rotation
+          in: query
+          required: false
+          description: |
+            Which alert log file to read. `0` (the default) reads the
+            live `data/ledger-alerts.jsonl`. `1` reads
+            `data/ledger-alerts.jsonl.1` (the most recently rotated
+            archive), `2` reads `.2`, and so on up to the rotator's
+            configured `MORNINGSTAR_ALERTS_MAX_ROTATIONS`. Rotated reads
+            are best-effort: missing or partially written rotations
+            return an empty `alerts` array with `logExists: false`.
+            Ack-sidecar garbage collection only runs on the live file,
+            so paging back into an archive never destroys dismissal
+            records that still apply to entries that already rolled off.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         "200":
           description: Alert snapshot (newest first)
@@ -874,7 +892,41 @@ components:
             call because the underlying alert has rolled off the log
             (task #102 / #119). Always present; usually 0. Surfaced so
             operators can confirm housekeeping is running and notice
-            if it ever runs away.
+            if it ever runs away. Only the live read (`rotation=0`)
+            ever runs ack GC; reads of rotated archives always report
+            `0` here.
+        rotation:
+          type: integer
+          description: |
+            Which rotation index was read on this call. `0` means the
+            live `data/ledger-alerts.jsonl`; `N >= 1` means
+            `data/ledger-alerts.jsonl.N`. Echoes the request param so
+            the dashboard can keep its paging UI in sync (task #120).
+        availableRotations:
+          type: array
+          description: |
+            Snapshot of every rotated alert log file the server can see
+            on disk right now (`data/ledger-alerts.jsonl.1`,
+            `.2`, ...), newest-rotated first. Empty when no rotation
+            has happened yet. The dashboard uses this list to render
+            "page back into archive .N" controls without polling each
+            rotation index blindly (task #120).
+          items:
+            type: object
+            required: [index, path, size, mtime]
+            properties:
+              index:
+                type: integer
+                description: Rotation index (1 = most recently rotated)
+              path:
+                type: string
+                description: Filesystem path of the rotated archive
+              size:
+                type: integer
+                description: Byte size of the rotated archive
+              mtime:
+                type: string
+                description: ISO-8601 mtime of the rotated archive
 
     MorningstarProbe:
       type: object

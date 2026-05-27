@@ -974,6 +974,66 @@ describe("GET /api/lean/ledger-alerts — corrupt log resilience", () => {
     expect(r.json.logExists).toBe(false);
     expect(r.json.ackGcDropped).toBe(0);
   });
+
+  it("surfaces rotated archives and pages back into .1 / .2 (task #120)", async () => {
+    const liveEntry = {
+      timestamp: "2026-05-26T18:00:00Z",
+      message: "live alert",
+      workflow: "zeta-burst-live",
+    };
+    const rot1Entry = {
+      timestamp: "2026-05-25T18:00:00Z",
+      message: "rotated .1 alert",
+      workflow: "zeta-burst-r1",
+    };
+    const rot2Entry = {
+      timestamp: "2026-05-24T18:00:00Z",
+      message: "rotated .2 alert",
+      workflow: "zeta-burst-r2",
+    };
+    writeFileSync(fixturePath, JSON.stringify(liveEntry) + "\n");
+    writeFileSync(`${fixturePath}.1`, JSON.stringify(rot1Entry) + "\n");
+    writeFileSync(`${fixturePath}.2`, JSON.stringify(rot2Entry) + "\n");
+    __testing.setAlertsLogPath(fixturePath);
+
+    // Default (live) read sees the live entry and lists both rotations.
+    const live = await call({ path: "/api/lean/ledger-alerts" });
+    expect(live.status).toBe(200);
+    expect(live.json.rotation).toBe(0);
+    expect(live.json.alerts).toHaveLength(1);
+    expect(live.json.alerts[0].message).toBe(liveEntry.message);
+    expect(live.json.logPath).toBe(fixturePath);
+    expect(live.json.availableRotations).toHaveLength(2);
+    expect(live.json.availableRotations[0].index).toBe(1);
+    expect(live.json.availableRotations[1].index).toBe(2);
+    expect(live.json.availableRotations[0].size).toBeGreaterThan(0);
+    expect(typeof live.json.availableRotations[0].mtime).toBe("string");
+
+    // rotation=1 reads the .1 archive.
+    const r1 = await call({ path: "/api/lean/ledger-alerts?rotation=1" });
+    expect(r1.status).toBe(200);
+    expect(r1.json.rotation).toBe(1);
+    expect(r1.json.logPath).toBe(`${fixturePath}.1`);
+    expect(r1.json.alerts).toHaveLength(1);
+    expect(r1.json.alerts[0].message).toBe(rot1Entry.message);
+    expect(r1.json.ackGcDropped).toBe(0);
+
+    // rotation=2 reads the .2 archive.
+    const r2 = await call({ path: "/api/lean/ledger-alerts?rotation=2" });
+    expect(r2.status).toBe(200);
+    expect(r2.json.rotation).toBe(2);
+    expect(r2.json.alerts[0].message).toBe(rot2Entry.message);
+
+    // A rotation index pointing at a missing file degrades to an empty
+    // result instead of 500, so the dashboard stays read-only-safe.
+    const missing = await call({
+      path: "/api/lean/ledger-alerts?rotation=7",
+    });
+    expect(missing.status).toBe(200);
+    expect(missing.json.rotation).toBe(7);
+    expect(missing.json.logExists).toBe(false);
+    expect(missing.json.alerts).toEqual([]);
+  });
 });
 
 describe("POST /api/lean/ledger-alerts/ack — dismiss flow", () => {

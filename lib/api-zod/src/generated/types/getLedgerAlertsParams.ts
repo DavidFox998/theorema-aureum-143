@@ -22,4 +22,19 @@ carries its `acknowledgedAt` field so the UI can render a
 
  */
 includeAcknowledged?: boolean;
+/**
+ * Which alert log file to read. `0` (the default) reads the
+live `data/ledger-alerts.jsonl`. `1` reads
+`data/ledger-alerts.jsonl.1` (the most recently rotated
+archive), `2` reads `.2`, and so on up to the rotator's
+configured `MORNINGSTAR_ALERTS_MAX_ROTATIONS`. Rotated reads
+are best-effort: missing or partially written rotations
+return an empty `alerts` array with `logExists: false`.
+Ack-sidecar garbage collection only runs on the live file,
+so paging back into an archive never destroys dismissal
+records that still apply to entries that already rolled off.
+
+ * @minimum 0
+ */
+rotation?: number;
 };
