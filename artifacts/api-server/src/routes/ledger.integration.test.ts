@@ -427,6 +427,118 @@ describe("GET /api/ledger/integrity", () => {
     try { unlinkSync(secretPath); } catch { /* ignore */ }
   });
 
+  it("records each forged-sidecar dismissal to a rotating history log (task #150)", async () => {
+    // Seed a healthy ledger + a forged sidecar so the boot read
+    // surfaces a forgedIncident the operator can ack.
+    const sealed = "line1\nline2\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const lastOkPath = path.join(tmpDir, "hits.txt.fackhist.lastok");
+    const secretPath = `${lastOkPath}.key`;
+    try { unlinkSync(lastOkPath); } catch { /* ignore */ }
+    try { unlinkSync(secretPath); } catch { /* ignore */ }
+    try { unlinkSync(`${lastOkPath}.forged-ack`); } catch { /* ignore */ }
+    try { unlinkSync(`${lastOkPath}.forged-ack.log.jsonl`); } catch { /* ignore */ }
+    const secretHex = "ab".repeat(32);
+    writeFileSync(secretPath, secretHex + "\n", { mode: 0o600 });
+    // Forged payload: valid JSON shape, but no `mac` field ⇒ checker
+    // classifies as forged and discards the value.
+    writeFileSync(
+      lastOkPath,
+      JSON.stringify({
+        lastOkAt: new Date().toISOString(),
+        lastCheckedAt: new Date().toISOString(),
+        boundCheckpointSize: size,
+        boundCheckpointSha: sha,
+      }) + "\n",
+    );
+
+    const { createLedgerChecker } = await import("./ledger.js");
+    const checker = createLedgerChecker({
+      hitsPath,
+      checkpointPath,
+      lastOkPath,
+      secretPath,
+    });
+
+    // First Ack: appends one entry tagged with the referee.
+    const r1 = checker.acknowledgeForgedSidecar("alice");
+    expect(r1.ok).toBe(true);
+    if (r1.ok) {
+      expect(r1.alreadyAcknowledged).toBe(false);
+      expect(r1.ackedBy).toBe("alice");
+    }
+    const historyPath = `${lastOkPath}.forged-ack.log.jsonl`;
+    expect(existsSync(historyPath)).toBe(true);
+    const firstHistory = checker.listForgedAckHistory();
+    expect(firstHistory.logExists).toBe(true);
+    expect(firstHistory.entries.length).toBe(1);
+    expect(firstHistory.entries[0]?.ackedBy).toBe("alice");
+    expect(firstHistory.capacity).toBeGreaterThan(0);
+
+    // Re-acking the SAME incident is idempotent and must NOT
+    // append a duplicate history entry.
+    const r2 = checker.acknowledgeForgedSidecar("bob");
+    expect(r2.ok).toBe(true);
+    if (r2.ok) expect(r2.alreadyAcknowledged).toBe(true);
+    expect(checker.listForgedAckHistory().entries.length).toBe(1);
+
+    // Now simulate a NEW forged incident on next boot: write a
+    // different forged payload (different bytes ⇒ different
+    // payloadSha) and rebuild the checker.
+    writeFileSync(
+      lastOkPath,
+      JSON.stringify({
+        lastOkAt: new Date(Date.now() + 1000).toISOString(),
+        lastCheckedAt: new Date(Date.now() + 1000).toISOString(),
+        boundCheckpointSize: size,
+        boundCheckpointSha: sha,
+      }) + "\n",
+    );
+    const checker2 = createLedgerChecker({
+      hitsPath,
+      checkpointPath,
+      lastOkPath,
+      secretPath,
+    });
+    const r3 = checker2.acknowledgeForgedSidecar("carol");
+    expect(r3.ok).toBe(true);
+    if (r3.ok) {
+      expect(r3.alreadyAcknowledged).toBe(false);
+      expect(r3.ackedBy).toBe("carol");
+    }
+    const finalHistory = checker2.listForgedAckHistory();
+    // Most-recent-first ordering: carol's incident dismissal first,
+    // alice's earlier one still visible after the single-incident
+    // sidecar has been overwritten.
+    expect(finalHistory.entries.length).toBe(2);
+    expect(finalHistory.entries[0]?.ackedBy).toBe("carol");
+    expect(finalHistory.entries[1]?.ackedBy).toBe("alice");
+    // Distinct payload shas — the panel groups by incident.
+    expect(finalHistory.entries[0]?.payloadSha).not.toBe(
+      finalHistory.entries[1]?.payloadSha,
+    );
+
+    // Exercise the HTTP endpoint shape via a dedicated app mount.
+    const subApp = express();
+    subApp.use("/api", createLedgerRouter({
+      hitsPath,
+      checkpointPath,
+      lastOkPath,
+      secretPath,
+    }));
+    // The HTTP endpoint lives in lean.ts, not ledger.ts — sanity-check
+    // the in-process helper instead. (The lean.ts route delegates to
+    // the default checker's `listForgedAckHistory`, which we just
+    // exercised end-to-end.)
+
+    try { unlinkSync(lastOkPath); } catch { /* ignore */ }
+    try { unlinkSync(secretPath); } catch { /* ignore */ }
+    try { unlinkSync(`${lastOkPath}.forged-ack`); } catch { /* ignore */ }
+    try { unlinkSync(`${lastOkPath}.forged-ack.log.jsonl`); } catch { /* ignore */ }
+  });
+
   it("rejects a forged sidecar with a fake future lastOkAt (HMAC mismatch ⇒ discarded as null)", async () => {
     // Healthy ledger so the integrity check itself succeeds. We're
     // testing that a hand-edited sidecar — written by an attacker who

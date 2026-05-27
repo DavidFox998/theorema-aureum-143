@@ -330,6 +330,43 @@ export interface CheckpointRerollHistory {
 }
 
 /**
+ * One operator-driven dismissal of a forged-sidecar banner,
+as parsed from the rotating history log.
+
+ */
+export interface SidecarForgedAckHistoryEntry {
+  /** sha256 hex of the forged sidecar payload the ack was bound to. */
+  payloadSha: string;
+  /** ISO-8601 timestamp of when the Acknowledge click happened. */
+  acknowledgedAt: string;
+  /**
+     * Attribution string for the operator who dismissed the
+  banner. Matched named token, sanitized `X-Referee-Name`
+  header, or the literal `"anonymous"`. Null only on legacy
+  entries written before task #139 attribution landed.
+
+     * @nullable
+     */
+  ackedBy?: string | null;
+}
+
+/**
+ * Result of `GET /ledger/sidecar-forged-ack/history` (task #150).
+
+ */
+export interface SidecarForgedAckHistory {
+  /** Most-recent-first slice of past forged-sidecar dismissals. */
+  entries: SidecarForgedAckHistoryEntry[];
+  /** True iff the rotating history log exists on disk. False is
+  the normal healthy state — no forged-sidecar incident has
+  ever been acknowledged on this deploy.
+   */
+  logExists: boolean;
+  /** Maximum number of entries the endpoint will return per request. */
+  capacity: number;
+}
+
+/**
  * Result of `POST /ledger/sidecar-forged-ack` (task #124). On
 success, the dashboard banner driven by
 `lastOkSidecarStatus === "forged"` gains an "acknowledged"
@@ -1148,6 +1185,17 @@ records that still apply to entries that already rolled off.
  * @minimum 0
  */
 rotation?: number;
+};
+
+export type GetSidecarForgedAckHistoryParams = {
+/**
+ * Maximum entries to return (default = capacity). Values
+above the server cap are clamped down silently.
+
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type GetMorningstarHitsParams = {

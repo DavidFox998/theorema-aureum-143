@@ -13,6 +13,8 @@ import {
   useRotateSidecarSecret,
   useRerollLedgerCheckpoint,
   useGetLedgerCheckpointRerollHistory,
+  useGetSidecarForgedAckHistory,
+  getGetSidecarForgedAckHistoryQueryKey,
   getGetMorningstarHitsQueryKey,
   getGetLeanVerificationQueryKey,
   getGetLeanRebuildHistoryQueryKey,
@@ -398,6 +400,17 @@ export default function DashboardPage() {
   const [isRerollingCheckpoint, setIsRerollingCheckpoint] = useState(false);
   const [rerollLogLines, setRerollLogLines] = useState<RebuildLogLine[]>([]);
   const rerollAbortRef = useRef<AbortController | null>(null);
+  const { data: forgedAckHistory } = useGetSidecarForgedAckHistory(undefined, {
+    query: {
+      queryKey: getGetSidecarForgedAckHistoryQueryKey(),
+      // Task #150: poll alongside the integrity status so the
+      // "Recent dismissals" panel under the forged banner stays
+      // fresh after each Acknowledge click.
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+      retry: false,
+    },
+  });
   const { data: checkpointRerollHistory } = useGetLedgerCheckpointRerollHistory({
     query: {
       queryKey: getGetLedgerCheckpointRerollHistoryQueryKey(),
@@ -2100,6 +2113,70 @@ export default function DashboardPage() {
                   {sidecarSecretRotateError}
                 </div>
               ) : null}
+              {(() => {
+                // Task #150: prior forged-sidecar dismissals from the
+                // rotating history log. The single-incident sidecar
+                // only carries the current incident's ack, so this
+                // panel is what operators investigating a repeat
+                // tamper attack rely on to see who dismissed earlier
+                // banners.
+                const entries = forgedAckHistory?.entries ?? [];
+                if (entries.length === 0) return null;
+                const capacity =
+                  forgedAckHistory?.capacity ?? entries.length;
+                return (
+                  <div
+                    className="border border-red-500/30 bg-background/40 mt-2"
+                    data-testid="panel-ledger-sidecar-forged-history"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-1 border-b border-red-500/20">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-red-700/80 dark:text-red-300/80">
+                        Recent dismissals
+                      </span>
+                      <span
+                        className="font-mono text-[10px] text-red-700/70 dark:text-red-300/70"
+                        data-testid="text-ledger-sidecar-forged-history-count"
+                      >
+                        {entries.length} of last {capacity}
+                      </span>
+                    </div>
+                    <ul className="divide-y divide-red-500/15">
+                      {entries.map((entry, i) => (
+                        <li
+                          key={`${entry.acknowledgedAt}-${i}`}
+                          className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1 font-mono text-[10px]"
+                          data-testid={`row-ledger-sidecar-forged-history-${i}`}
+                          data-payload-sha={entry.payloadSha}
+                          data-acked-by={entry.ackedBy ?? ""}
+                        >
+                          <span className="text-foreground/70 md:w-44">
+                            {formatTimestamp(entry.acknowledgedAt)}
+                          </span>
+                          <span
+                            className={
+                              entry.ackedBy
+                                ? "text-foreground md:w-40 truncate"
+                                : "text-muted-foreground italic md:w-40 truncate"
+                            }
+                            title={
+                              entry.ackedBy ??
+                              "no operator attribution captured"
+                            }
+                          >
+                            {entry.ackedBy ?? "anonymous"}
+                          </span>
+                          <span
+                            className="text-muted-foreground truncate"
+                            title={`payloadSha: ${entry.payloadSha}`}
+                          >
+                            payload {entry.payloadSha.slice(0, 12)}…
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
             </div>
           ) : ledgerIntegrity?.lastOkSidecarStatus ===
             "stale_checkpoint_binding" ? (

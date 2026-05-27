@@ -319,6 +319,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/LedgerAlertsResponse"
 
+  /ledger/sidecar-forged-ack/history:
+    get:
+      operationId: getSidecarForgedAckHistory
+      tags: [ledger]
+      summary: Recent forged-sidecar dismissals (audit trail)
+      description: |
+        Task #150. Returns the most recent operator-driven dismissals
+        of the red "Sidecar tamper detected" banner — who clicked
+        Acknowledge, when, and against which `payloadSha` prefix.
+        Sourced from the rotating history log
+        `data/hits.txt.lastok.forged-ack.log.jsonl` (rotated by size,
+        capped via `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES` /
+        `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS`).
+
+        The single-incident sidecar `data/hits.txt.lastok.forged-ack`
+        only carries the *current* incident's ack — when the next
+        forged read replaces it with a new un-acked incident, the
+        prior dismissal disappears from `lastOkSidecarStatusAcknowledgedBy`.
+        This endpoint surfaces those prior dismissals so operators
+        investigating a repeat tamper attack can still see who
+        handled the earlier incidents. Read-only, no auth — mirrors
+        `/ledger/checkpoint/reroll/history`.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: |
+            Maximum entries to return (default = capacity). Values
+            above the server cap are clamped down silently.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Forged-ack history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SidecarForgedAckHistory"
+
   /ledger/sidecar-forged-ack:
     post:
       operationId: ackSidecarForged
@@ -1044,6 +1086,49 @@ components:
         capacity:
           type: integer
           description: Maximum number of attempts retained in the audit trail.
+
+    SidecarForgedAckHistoryEntry:
+      type: object
+      required: [payloadSha, acknowledgedAt]
+      description: |
+        One operator-driven dismissal of a forged-sidecar banner,
+        as parsed from the rotating history log.
+      properties:
+        payloadSha:
+          type: string
+          description: sha256 hex of the forged sidecar payload the ack was bound to.
+        acknowledgedAt:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp of when the Acknowledge click happened.
+        ackedBy:
+          type: ["string", "null"]
+          description: |
+            Attribution string for the operator who dismissed the
+            banner. Matched named token, sanitized `X-Referee-Name`
+            header, or the literal `"anonymous"`. Null only on legacy
+            entries written before task #139 attribution landed.
+
+    SidecarForgedAckHistory:
+      type: object
+      required: [entries, logExists, capacity]
+      description: |
+        Result of `GET /ledger/sidecar-forged-ack/history` (task #150).
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SidecarForgedAckHistoryEntry"
+          description: Most-recent-first slice of past forged-sidecar dismissals.
+        logExists:
+          type: boolean
+          description: |
+            True iff the rotating history log exists on disk. False is
+            the normal healthy state — no forged-sidecar incident has
+            ever been acknowledged on this deploy.
+        capacity:
+          type: integer
+          description: Maximum number of entries the endpoint will return per request.
 
     SidecarForgedAckResult:
       type: object

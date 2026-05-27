@@ -659,6 +659,193 @@ function writeForgedAck(
   }
 }
 
+/**
+ * Task #150: append-only history of every operator-driven
+ * forged-sidecar dismissal. Lives next to the single-incident ack
+ * file at `<ackPath>.log.jsonl` and rotates on a byte cap so the
+ * file does not grow without bound. The dashboard tails the live
+ * file to render a small "Recent dismissals" list under the red
+ * banner — operators investigating a repeat tamper attack can see
+ * who clicked Acknowledge on prior incidents (and when, against
+ * which payloadSha prefix) even after the next forged read has
+ * replaced the single-incident sidecar.
+ *
+ * Rotation policy mirrors `data/ledger-alerts.jsonl`: when the live
+ * file exceeds `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES` bytes
+ * after an append, it is rotated to `.1` (with `.1 → .2`, etc.) and
+ * the oldest rotation past `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS`
+ * is deleted. The dashboard endpoint only reads the live file;
+ * rotated copies are archival.
+ */
+interface ForgedAckHistoryEntry {
+  payloadSha: string;
+  acknowledgedAt: string;
+  ackedBy: string | null;
+}
+
+const FORGED_ACK_HISTORY_DEFAULT_MAX_BYTES = 256 * 1024;
+const FORGED_ACK_HISTORY_DEFAULT_MAX_ROTATIONS = 3;
+
+function resolvePositiveIntFromEnv(
+  raw: string | undefined,
+  fallback: number,
+): number {
+  if (raw == null) return fallback;
+  const trimmed = raw.trim();
+  if (trimmed === "") return fallback;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
+function forgedAckHistoryMaxBytes(): number {
+  return resolvePositiveIntFromEnv(
+    process.env.MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES,
+    FORGED_ACK_HISTORY_DEFAULT_MAX_BYTES,
+  );
+}
+
+function forgedAckHistoryMaxRotations(): number {
+  return resolvePositiveIntFromEnv(
+    process.env.MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS,
+    FORGED_ACK_HISTORY_DEFAULT_MAX_ROTATIONS,
+  );
+}
+
+function rotateForgedAckHistory(
+  historyPath: string,
+  logger?: { warn: (...args: unknown[]) => void },
+): void {
+  try {
+    const maxRotations = forgedAckHistoryMaxRotations();
+    // Drop the oldest archive first so the shift below cannot
+    // overwrite it.
+    const oldest = `${historyPath}.${maxRotations}`;
+    if (existsSync(oldest)) {
+      try {
+        unlinkSync(oldest);
+      } catch (err) {
+        logger?.warn?.(
+          { err, oldest },
+          "forged-ack history: failed to delete oldest rotation",
+        );
+      }
+    }
+    for (let i = maxRotations - 1; i >= 1; i--) {
+      const src = `${historyPath}.${i}`;
+      const dst = `${historyPath}.${i + 1}`;
+      if (existsSync(src)) {
+        try {
+          renameSync(src, dst);
+        } catch (err) {
+          logger?.warn?.(
+            { err, src, dst },
+            "forged-ack history: failed to shift rotation",
+          );
+        }
+      }
+    }
+    if (existsSync(historyPath)) {
+      try {
+        renameSync(historyPath, `${historyPath}.1`);
+      } catch (err) {
+        logger?.warn?.(
+          { err, historyPath },
+          "forged-ack history: failed to rotate live file",
+        );
+      }
+    }
+  } catch (err) {
+    logger?.warn?.(
+      { err, historyPath },
+      "forged-ack history: rotation failed (best-effort, continuing)",
+    );
+  }
+}
+
+function appendForgedAckHistory(
+  historyPath: string,
+  entry: ForgedAckHistoryEntry,
+  logger?: { warn: (...args: unknown[]) => void },
+): void {
+  try {
+    const line = JSON.stringify(entry) + "\n";
+    // Use writeFileSync with flag 'a' for atomic appends within a
+    // single process. The history file is small per-line so this is
+    // fine; we are not contending with the kernel append loop.
+    writeFileSync(historyPath, line, { flag: "a", mode: 0o600 });
+    let size = 0;
+    try {
+      size = statSync(historyPath).size;
+    } catch {
+      size = 0;
+    }
+    if (size > forgedAckHistoryMaxBytes()) {
+      rotateForgedAckHistory(historyPath, logger);
+    }
+  } catch (err) {
+    logger?.warn?.(
+      { err, historyPath },
+      "forged-ack history: failed to append entry (best-effort)",
+    );
+  }
+}
+
+function readForgedAckHistory(
+  historyPath: string,
+  limit: number,
+  logger?: { warn: (...args: unknown[]) => void },
+): { entries: ForgedAckHistoryEntry[]; logExists: boolean } {
+  if (!existsSync(historyPath)) {
+    return { entries: [], logExists: false };
+  }
+  try {
+    const raw = readFileSync(historyPath, "utf-8");
+    const lines = raw.split("\n").filter((l) => l.length > 0);
+    const out: ForgedAckHistoryEntry[] = [];
+    // Walk from the tail so we only parse `limit` good entries.
+    for (let i = lines.length - 1; i >= 0 && out.length < limit; i--) {
+      const line = lines[i];
+      try {
+        const parsed = JSON.parse(line) as unknown;
+        if (!parsed || typeof parsed !== "object") continue;
+        const obj = parsed as Record<string, unknown>;
+        const payloadSha = obj["payloadSha"];
+        const acknowledgedAt = obj["acknowledgedAt"];
+        if (
+          typeof payloadSha !== "string" ||
+          !/^[0-9a-f]{64}$/i.test(payloadSha) ||
+          typeof acknowledgedAt !== "string" ||
+          Number.isNaN(Date.parse(acknowledgedAt))
+        ) {
+          continue;
+        }
+        const ackedByRaw = obj["ackedBy"];
+        const ackedBy =
+          typeof ackedByRaw === "string" && ackedByRaw.length > 0
+            ? ackedByRaw
+            : null;
+        out.push({
+          payloadSha: payloadSha.toLowerCase(),
+          acknowledgedAt,
+          ackedBy,
+        });
+      } catch {
+        // Skip malformed line; keep scanning so a single bad write
+        // doesn't blank the panel.
+        continue;
+      }
+    }
+    return { entries: out, logExists: true };
+  } catch (err) {
+    logger?.warn?.(
+      { err, historyPath },
+      "forged-ack history: failed to read (returning empty)",
+    );
+    return { entries: [], logExists: true };
+  }
+}
+
 function writePersistedState(
   sidecarPath: string,
   secret: Buffer,
@@ -771,6 +958,23 @@ export interface LedgerChecker {
       }
     | { ok: false; reason: "no_incident" };
   /**
+   * Task #150: most-recent-first snapshot of operator-driven
+   * forged-sidecar dismissals from the rotating history log next to
+   * the single-incident ack file. The dashboard renders these under
+   * the red banner so a repeat tamper attack still shows who
+   * dismissed prior incidents (after the single-incident sidecar
+   * has been replaced).
+   */
+  listForgedAckHistory: (limit?: number) => {
+    entries: Array<{
+      payloadSha: string;
+      acknowledgedAt: string;
+      ackedBy: string | null;
+    }>;
+    logExists: boolean;
+    capacity: number;
+  };
+  /**
    * Task #140: rotate the sidecar HMAC secret in response to a tamper
    * alert. Persists the new key (keyfile, or in-memory env slot when
    * the boot-time secret came from `LEDGER_SIDECAR_SECRET`), re-seals
@@ -868,6 +1072,12 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
   // whose forged payload sha differs from the acknowledged one (a
   // fresh tamper attempt = new un-acked incident).
   const FORGED_ACK_PATH = `${LAST_OK_PATH}.forged-ack`;
+  // Task #150: rotating history log alongside the single-incident
+  // ack sidecar. Each operator-driven dismissal appends one JSONL
+  // line so the dashboard can show a "Recent dismissals" list under
+  // the red banner even after the next forged read has replaced
+  // FORGED_ACK_PATH.
+  const FORGED_ACK_HISTORY_PATH = `${FORGED_ACK_PATH}.log.jsonl`;
   type ForgedIncident = {
     payloadSha: string;
     acknowledgedAt: string | null;
@@ -1363,6 +1573,18 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
       },
       defaultLogger,
     );
+    // Task #150: append to the rotating history log so the
+    // "Recent dismissals" panel survives the single-incident
+    // sidecar being replaced by a later forged read.
+    appendForgedAckHistory(
+      FORGED_ACK_HISTORY_PATH,
+      {
+        payloadSha: forgedIncident.payloadSha,
+        acknowledgedAt,
+        ackedBy: ackedByNormalized,
+      },
+      defaultLogger,
+    );
     forgedIncident = {
       payloadSha: forgedIncident.payloadSha,
       acknowledgedAt,
@@ -1513,9 +1735,28 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
       return true;
     },
     acknowledgeForgedSidecar,
+    listForgedAckHistory(limit?: number) {
+      const cap = FORGED_ACK_HISTORY_LIST_CAPACITY;
+      const n =
+        typeof limit === "number" && Number.isFinite(limit) && limit > 0
+          ? Math.min(Math.floor(limit), cap)
+          : cap;
+      const { entries, logExists } = readForgedAckHistory(
+        FORGED_ACK_HISTORY_PATH,
+        n,
+        defaultLogger,
+      );
+      return { entries, logExists, capacity: cap };
+    },
     rotateSidecarSecret,
   };
 }
+
+// Task #150: hard cap on the number of "Recent dismissals" the
+// dashboard panel renders per page. The rotating log on disk can be
+// larger (and may include multiple rotations); this just bounds the
+// API surface.
+const FORGED_ACK_HISTORY_LIST_CAPACITY = 20;
 
 export function createLedgerRouter(opts: LedgerRouterOptions): IRouter {
   return createLedgerChecker(opts).router;

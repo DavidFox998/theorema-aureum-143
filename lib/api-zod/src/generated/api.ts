@@ -304,6 +304,46 @@ export const GetLedgerAlertsResponse = zod.object({
 
 
 /**
+ * Task #150. Returns the most recent operator-driven dismissals
+of the red "Sidecar tamper detected" banner — who clicked
+Acknowledge, when, and against which `payloadSha` prefix.
+Sourced from the rotating history log
+`data/hits.txt.lastok.forged-ack.log.jsonl` (rotated by size,
+capped via `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES` /
+`MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS`).
+
+The single-incident sidecar `data/hits.txt.lastok.forged-ack`
+only carries the *current* incident's ack — when the next
+forged read replaces it with a new un-acked incident, the
+prior dismissal disappears from `lastOkSidecarStatusAcknowledgedBy`.
+This endpoint surfaces those prior dismissals so operators
+investigating a repeat tamper attack can still see who
+handled the earlier incidents. Read-only, no auth — mirrors
+`/ledger/checkpoint/reroll/history`.
+
+ * @summary Recent forged-sidecar dismissals (audit trail)
+ */
+export const getSidecarForgedAckHistoryQueryLimitDefault = 20;
+export const getSidecarForgedAckHistoryQueryLimitMax = 100;
+
+
+
+export const GetSidecarForgedAckHistoryQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getSidecarForgedAckHistoryQueryLimitMax).default(getSidecarForgedAckHistoryQueryLimitDefault).describe('Maximum entries to return (default = capacity). Values\nabove the server cap are clamped down silently.\n')
+})
+
+export const GetSidecarForgedAckHistoryResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "payloadSha": zod.string().describe('sha256 hex of the forged sidecar payload the ack was bound to.'),
+  "acknowledgedAt": zod.coerce.date().describe('ISO-8601 timestamp of when the Acknowledge click happened.'),
+  "ackedBy": zod.string().nullish().describe('Attribution string for the operator who dismissed the\nbanner. Matched named token, sanitized `X-Referee-Name`\nheader, or the literal `\"anonymous\"`. Null only on legacy\nentries written before task #139 attribution landed.\n')
+}).describe('One operator-driven dismissal of a forged-sidecar banner,\nas parsed from the rotating history log.\n')).describe('Most-recent-first slice of past forged-sidecar dismissals.'),
+  "logExists": zod.boolean().describe('True iff the rotating history log exists on disk. False is\nthe normal healthy state — no forged-sidecar incident has\never been acknowledged on this deploy.\n'),
+  "capacity": zod.number().describe('Maximum number of entries the endpoint will return per request.')
+}).describe('Result of `GET \/ledger\/sidecar-forged-ack\/history` (task #150).\n')
+
+
+/**
  * Task #124. Records that an operator has investigated and
 dismissed the red "Sidecar tamper detected" banner driven by
 `lastOkSidecarStatus === "forged"`. The acknowledgement is

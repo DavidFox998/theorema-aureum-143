@@ -281,6 +281,13 @@ let forgedSidecarAcker: typeof defaultLedgerChecker.acknowledgeForgedSidecar =
 let sidecarSecretRotator: typeof defaultLedgerChecker.rotateSidecarSecret =
   defaultLedgerChecker.rotateSidecarSecret;
 
+/**
+ * Task #150: same indirection so tests can swap in a stub history
+ * source without booting the full checker.
+ */
+let forgedSidecarHistoryLister: typeof defaultLedgerChecker.listForgedAckHistory =
+  defaultLedgerChecker.listForgedAckHistory;
+
 function readAckMap(log: import("pino").Logger): Record<string, string> {
   return readAckMapShared(ALERTS_ACK_PATH, log);
 }
@@ -873,6 +880,27 @@ router.get("/ledger/checkpoint/reroll/history", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to read checkpoint reroll history");
     res.status(500).json({ error: "Failed to read checkpoint reroll history" });
+  }
+});
+
+router.get("/ledger/sidecar-forged-ack/history", (req, res) => {
+  // Task #150: read-only, no auth — mirrors `/ledger/checkpoint/reroll/history`.
+  // The "Recent dismissals" panel is an audit view; referees should be
+  // able to look at it without holding a rebuild token.
+  const rawLimit = req.query["limit"];
+  let limit: number | undefined;
+  if (typeof rawLimit === "string" && rawLimit.trim() !== "") {
+    const parsed = Number(rawLimit);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      limit = Math.floor(parsed);
+    }
+  }
+  try {
+    const result = forgedSidecarHistoryLister(limit);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Failed to read forged-ack history");
+    res.status(500).json({ error: "Failed to read forged-ack history" });
   }
 });
 
