@@ -659,6 +659,27 @@ export interface LedgerMonitorInfo {
    * outstanding acknowledged alert.
    */
   lastAcknowledgedAlertId: string | null;
+  /**
+   * Task #128: current state of the in-process watchdog (task #113).
+   * `ok` while ticks are landing within 2× the configured interval;
+   * `stalled` once the watchdog has fired a `monitor_stalled` alert
+   * and not yet seen a recovery. Distinct from the existing
+   * `checkedStale` flag on the integrity status payload: that one is
+   * derived from the sidecar's `lastCheckedAt` timestamp (and so
+   * persists across restarts), whereas `watchdogState` reflects the
+   * live in-memory state of the monitor's own watchdog and goes
+   * back to `ok` on every server restart. `null` when the monitor is
+   * disabled.
+   */
+  watchdogState: "ok" | "stalled" | null;
+  /**
+   * Task #128: ISO-8601 timestamp of the most recent
+   * `monitor_stalled` alert fired by the watchdog (task #113), or
+   * null if the watchdog has never fired in this process lifetime.
+   * Lets the dashboard show operators when the stall happened even
+   * after the watchdog has subsequently recovered.
+   */
+  watchdogLastFiredAt: string | null;
 }
 
 const DISABLED_MONITOR_INFO: LedgerMonitorInfo = {
@@ -667,6 +688,8 @@ const DISABLED_MONITOR_INFO: LedgerMonitorInfo = {
   lastTickAt: null,
   lastAlertedFailureMode: null,
   lastAcknowledgedAlertId: null,
+  watchdogState: null,
+  watchdogLastFiredAt: null,
 };
 
 export interface LedgerChecker {
@@ -1397,6 +1420,11 @@ export function startLedgerMonitor(
   const watchdogStallThresholdMs = opts.intervalMs * 2;
   let watchdogState: "ok" | "stalled" = "ok";
   let watchdogInFlight = false;
+  // Task #128: ISO-8601 timestamp of the most recent stall fire.
+  // Sticky across recoveries so the dashboard can show operators
+  // "the watchdog fired at <time>" even after the monitor has since
+  // recovered. Null until the watchdog fires for the first time.
+  let watchdogLastFiredAt: string | null = null;
 
   function checkAcknowledged(): boolean {
     if (!opts.isAcknowledged) return false;
@@ -1732,6 +1760,7 @@ export function startLedgerMonitor(
           );
         }
         watchdogState = "stalled";
+        watchdogLastFiredAt = alertTimestamp;
       } else if (!stalled && watchdogState === "stalled") {
         const ageSeconds = Math.floor(ageMs / 1000);
         const alertTimestamp = new Date(now()).toISOString();
@@ -1797,6 +1826,8 @@ export function startLedgerMonitor(
         lastAlertedFailureMode:
           lastAlerted === "alerted" ? lastFailureMode : null,
         lastAcknowledgedAlertId,
+        watchdogState,
+        watchdogLastFiredAt,
       };
     },
   };

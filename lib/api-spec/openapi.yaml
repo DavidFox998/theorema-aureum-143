@@ -1431,6 +1431,8 @@ components:
             - lastTickAt
             - lastAlertedFailureMode
             - lastAcknowledgedAlertId
+            - watchdogState
+            - watchdogLastFiredAt
           properties:
             enabled:
               type: boolean
@@ -1475,6 +1477,34 @@ components:
                 show "alerts suppressed: acknowledged" instead of
                 misleading operators into thinking the monitor is
                 still spamming on every tick.
+            watchdogState:
+              type: ["string", "null"]
+              enum: ["ok", "stalled", null]
+              description: |
+                Task #128. Current state of the in-process watchdog
+                (task #113). `ok` while the monitor's integrity ticks
+                are landing within 2× the configured interval;
+                `stalled` once the watchdog has fired a
+                `monitor_stalled` alert and not yet seen a recovery.
+                `null` when the monitor is disabled. Distinct from
+                `checkedStale` on the surrounding integrity payload —
+                that one is derived from the persisted sidecar's
+                `lastCheckedAt` and so survives restarts, whereas
+                `watchdogState` is purely in-memory and goes back to
+                `ok` whenever the api-server reboots. The dashboard
+                renders a distinct red badge on the Ledger Integrity
+                card when this is `stalled`, separate from the amber
+                "verifier not running" badge.
+            watchdogLastFiredAt:
+              type: ["string", "null"]
+              format: date-time
+              description: |
+                Task #128. ISO-8601 timestamp of the most recent
+                `monitor_stalled` watchdog fire, or null when the
+                watchdog has never fired in this process lifetime.
+                Sticky across watchdog recoveries so operators can
+                still see when the stall happened after the monitor
+                has gone back to OK.
 
     UploadUrlRequest:
       type: object

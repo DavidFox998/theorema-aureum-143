@@ -2239,6 +2239,62 @@ export default function DashboardPage() {
           })()}
 
           {(() => {
+            // Task #128: surface the in-process watchdog (task #113)
+            // distinctly from the checkedStale badge. checkedStale is
+            // derived from the persisted sidecar's lastCheckedAt and
+            // survives restarts; watchdogState is purely in-memory
+            // and tells operators "the monitor's tick loop has wedged
+            // RIGHT NOW (or did at watchdogLastFiredAt)" — a related
+            // but distinct signal. A red badge fires while
+            // watchdogState === "stalled"; an amber recovered-recently
+            // badge fires when the watchdog has previously fired in
+            // this process lifetime but has since gone back to ok.
+            if (!ledgerIntegrity) return null;
+            const m = ledgerIntegrity.monitor;
+            if (!m || !m.enabled) return null;
+            const wdState = m.watchdogState;
+            const wdFiredAt = m.watchdogLastFiredAt;
+            if (wdState !== "stalled" && !wdFiredAt) return null;
+            const stalled = wdState === "stalled";
+            const firedAgo = formatRelativeAge(wdFiredAt, nowMs);
+            return (
+              <p
+                className={`text-xs font-mono px-3 py-2 border ${
+                  stalled
+                    ? "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400"
+                    : "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                }`}
+                data-testid="text-ledger-monitor-watchdog"
+                data-watchdog-state={wdState ?? "ok"}
+                data-watchdog-fired-at={wdFiredAt ?? ""}
+                title={
+                  stalled
+                    ? `monitor watchdog fired at ${wdFiredAt ?? "unknown"} — no integrity tick has completed in 2× the configured interval; push alerts on ledger tamper may not fire until the api-server is restarted`
+                    : `monitor watchdog previously fired at ${wdFiredAt} but has since recovered — ticks are landing again`
+                }
+              >
+                <span className="font-bold uppercase tracking-wider">
+                  {stalled
+                    ? "watchdog fired — monitor stalled"
+                    : "watchdog recovered"}
+                </span>
+                {wdFiredAt ? (
+                  <span className="ml-2 text-muted-foreground">
+                    last fire{" "}
+                    <span
+                      className="text-foreground"
+                      data-testid="text-ledger-monitor-watchdog-fired"
+                      title={wdFiredAt}
+                    >
+                      {firedAgo ?? wdFiredAt}
+                    </span>
+                  </span>
+                ) : null}
+              </p>
+            );
+          })()}
+
+          {(() => {
             // Task #115: when the operator has dismissed the most
             // recent monitor alert via POST /lean/ledger-alerts/ack,
             // `monitor.lastAcknowledgedAlertId` becomes non-null and

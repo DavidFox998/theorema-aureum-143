@@ -576,6 +576,32 @@ export const LedgerIntegrityStatusLastOkSidecarStatus = {
 } as const;
 
 /**
+ * Task #128. Current state of the in-process watchdog
+(task #113). `ok` while the monitor's integrity ticks
+are landing within 2× the configured interval;
+`stalled` once the watchdog has fired a
+`monitor_stalled` alert and not yet seen a recovery.
+`null` when the monitor is disabled. Distinct from
+`checkedStale` on the surrounding integrity payload —
+that one is derived from the persisted sidecar's
+`lastCheckedAt` and so survives restarts, whereas
+`watchdogState` is purely in-memory and goes back to
+`ok` whenever the api-server reboots. The dashboard
+renders a distinct red badge on the Ledger Integrity
+card when this is `stalled`, separate from the amber
+"verifier not running" badge.
+
+ * @nullable
+ */
+export type LedgerIntegrityStatusMonitorWatchdogState = typeof LedgerIntegrityStatusMonitorWatchdogState[keyof typeof LedgerIntegrityStatusMonitorWatchdogState] | null;
+
+
+export const LedgerIntegrityStatusMonitorWatchdogState = {
+  ok: 'ok',
+  stalled: 'stalled',
+} as const;
+
+/**
  * Task #97. Observability surface for the server-side
 ledger-integrity monitor (the background timer added in
 task #85). Lets the dashboard show operators that the
@@ -634,6 +660,36 @@ export type LedgerIntegrityStatusMonitor = {
      * @nullable
      */
   lastAcknowledgedAlertId: string | null;
+  /**
+     * Task #128. Current state of the in-process watchdog
+  (task #113). `ok` while the monitor's integrity ticks
+  are landing within 2× the configured interval;
+  `stalled` once the watchdog has fired a
+  `monitor_stalled` alert and not yet seen a recovery.
+  `null` when the monitor is disabled. Distinct from
+  `checkedStale` on the surrounding integrity payload —
+  that one is derived from the persisted sidecar's
+  `lastCheckedAt` and so survives restarts, whereas
+  `watchdogState` is purely in-memory and goes back to
+  `ok` whenever the api-server reboots. The dashboard
+  renders a distinct red badge on the Ledger Integrity
+  card when this is `stalled`, separate from the amber
+  "verifier not running" badge.
+
+     * @nullable
+     */
+  watchdogState: LedgerIntegrityStatusMonitorWatchdogState;
+  /**
+     * Task #128. ISO-8601 timestamp of the most recent
+  `monitor_stalled` watchdog fire, or null when the
+  watchdog has never fired in this process lifetime.
+  Sticky across watchdog recoveries so operators can
+  still see when the stall happened after the monitor
+  has gone back to OK.
+
+     * @nullable
+     */
+  watchdogLastFiredAt: string | null;
 };
 
 export interface LedgerIntegrityStatus {
