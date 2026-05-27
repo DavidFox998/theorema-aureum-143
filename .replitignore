@@ -3,3 +3,21 @@
 
 # No need to store the pnpm store twice.
 .local
+
+# Lean 4 / mathlib research surface. NOT consumed at runtime by api-server or
+# theorema-certs — the published dashboard surfaces Lean *status* through
+# precomputed JSON / API endpoints, not by invoking `lake`. lean-proof-towers/
+# alone is ~4.4 GB (mathlib oleans + .lake build cache) and pushed the
+# deployment image over the 8 GiB Cloud Run limit on 2026-05-27. Keep ignored.
+lean-proof-towers
+
+# Local agent / editor / CI scratch space — never read at runtime.
+attached_assets
+.cache
+__pycache__
+.pytest_cache
+.pythonlibs
+
+# Architecture write-up sources (LaTeX + aux). The compiled PDF is committed
+# under docs/ and is small; the paper/ working dir is not needed in prod.
+paper
