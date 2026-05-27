@@ -400,7 +400,71 @@ this sorry to "prove Σ converges." That is one Varadhan-style
 result away from a green discharge. Statement unchanged;
 proof still `sorry`. **YM tower stays `Status: Open`** — the
 continuum limit and Brydges-Federbush polymer convergence
-remain the genuine hard walls. -/
+remain the genuine hard walls.
+
+**19.1p-redux update — honest reduction, no fake closure.**
+The 19.1p spec originally proposed promoting this sorry by
+adding `Weyl_sum_tsum_eq_heat_kernel_SU3`, `Weyl_sum_summable`,
+`Heat_kernel_asymptotics_infinite`, and `Small_t_dominance_infinite`
+to `Towers/YM/ClusterExpansion.lean` as classical-trio-only
+bricks. That batch was **rejected as dishonest**: the missing
+infrastructure (compact-Lie-group representation theory, the
+heat semigroup on a Lie group, the Casimir spectral action,
+Varadhan / Molchanov / Ben Arous small-`t` asymptotics) is
+not in our mathlib closure, and `Heat_kernel_def_real` is not
+a defined term in the repo — only the 19.1o placeholder
+`Heat_kernel_at_identity := 2 · Weyl_sum_explicit_SU3_real`.
+A "trio-clean proof" of those statements would only typecheck
+because every RHS would be a placeholder; the *names* would
+falsely advertise Peter-Weyl + Molchanov, while the *content*
+would be `tsum = tsum` by definition. That is exactly the kind
+of name/statement drift the locked honest-scope rule
+(`replit.md`) forbids.
+
+19.1p-redux therefore lands **zero new bricks in YM/** and
+**zero new sorries in Attempts/**. The wall stays 443 and this
+sorry count stays 8. The status of this sorry is now exactly:
+
+  > **Reduced to a mathlib gap, not a research gap.**
+  >
+  > For every finite `N`,
+  > `Weyl_sum_explicit_SU3_real t N ≤ C · t⁻⁴ · e^{-c/t}`
+  > is what the 19.1o YM/ brick wave establishes (modulo the
+  > 19.1m placeholder constants `C, c := 1`).
+  >
+  > What is missing is **mathlib infrastructure**, in three
+  > layered pieces:
+  >   1. Representation theory of compact Lie groups (irreps,
+  >      Peter-Weyl decomposition of `L²(G)`).
+  >   2. Heat semigroup on a Riemannian manifold,
+  >      `K_t := e^{tΔ}`, specialised to SU(3) with the
+  >      bi-invariant metric.
+  >   3. Peter-Weyl identity at the identity element:
+  >      `K_t(1) = Σ_λ dim(λ)² · e^{-t·C₂(λ)}`,
+  >      with summability via the Casimir lower bound
+  >      `C₂(λ) ≥ c · |λ|²` and the Weyl dimension upper bound
+  >      `dim(λ) = O(|λ|³)` for SU(3).
+  >
+  > References for the analytic content (NOT for tactic
+  > shortcuts): Varadhan 1967, Ben Arous 1988, Lieb–Loss
+  > *Analysis* Ch. 10. Estimated formalisation cost in
+  > mathlib-track style: 6–12 months, 2000+ lines, with most
+  > of the work being (1) and (2) — items reusable across
+  > Yang–Mills, heat-equation, and harmonic-analysis projects
+  > far beyond this repo.
+
+**Downstream non-blocker.** This sorry does NOT block the
+polymer expansion. For `β` sufficiently small, the **finite-N**
+bound from 19.1o is sufficient to derive
+`Polymer_activity_bound_real` directly via uniform-in-N
+truncation control. The next batch (19.1q) will exercise that
+route in `Towers/Attempts/` without touching this sorry. The
+two genuine Clay-hard walls remain unchanged:
+Brydges–Federbush polymer convergence and the UV continuum
+limit `a → 0` downstream of `MassGap_YM4_Clay`.
+
+Statement and proof body **unchanged**. YM tower stays
+`Status: Open`. No new axioms. No fake proofs. -/
 theorem Single_plaquette_bound_SU3 (β : ℝ) (_hβ : 0 < β) :
     Character_expansion_plaquette β * SU3_Haar_measure_explicit ≤
       Real.exp (-(Casimir_SU3 * β)) := by
