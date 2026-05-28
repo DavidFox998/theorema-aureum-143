@@ -46,6 +46,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const REBUILD_TOKEN_STORAGE_KEY = "lean-rebuild-token";
 const REBUILD_REFEREE_NAME_STORAGE_KEY = "lean-rebuild-referee-name";
+const REBUILD_HISTORY_REFEREE_FILTER_STORAGE_KEY =
+  "lean-rebuild-history-referee-filter";
+const REROLL_HISTORY_REFEREE_FILTER_STORAGE_KEY =
+  "lean-checkpoint-reroll-history-referee-filter";
 const REFEREE_NAME_PATTERN = /^[A-Za-z0-9 _.\-]{1,64}$/;
 
 const STALE_THRESHOLD_DAYS = 30;
@@ -516,7 +520,35 @@ export default function DashboardPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelConfirmElapsedMs, setCancelConfirmElapsedMs] = useState(0);
   const [rebuildLogLines, setRebuildLogLines] = useState<RebuildLogLine[]>([]);
-  const [historyRefereeFilter, setHistoryRefereeFilter] = useState<string>("");
+  const [historyRefereeFilter, setHistoryRefereeFilterState] =
+    useState<string>(() => {
+      try {
+        return (
+          window.localStorage.getItem(
+            REBUILD_HISTORY_REFEREE_FILTER_STORAGE_KEY,
+          ) ?? ""
+        );
+      } catch {
+        return "";
+      }
+    });
+  const setHistoryRefereeFilter = useCallback((value: string) => {
+    setHistoryRefereeFilterState(value);
+    try {
+      if (value) {
+        window.localStorage.setItem(
+          REBUILD_HISTORY_REFEREE_FILTER_STORAGE_KEY,
+          value,
+        );
+      } else {
+        window.localStorage.removeItem(
+          REBUILD_HISTORY_REFEREE_FILTER_STORAGE_KEY,
+        );
+      }
+    } catch {
+      // ignore (private mode, etc.)
+    }
+  }, []);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -569,8 +601,35 @@ export default function DashboardPage() {
     );
   }, [rebuildHistory, historyRefereeFilter]);
 
-  const [rerollHistoryRefereeFilter, setRerollHistoryRefereeFilter] =
-    useState<string>("");
+  const [rerollHistoryRefereeFilter, setRerollHistoryRefereeFilterState] =
+    useState<string>(() => {
+      try {
+        return (
+          window.localStorage.getItem(
+            REROLL_HISTORY_REFEREE_FILTER_STORAGE_KEY,
+          ) ?? ""
+        );
+      } catch {
+        return "";
+      }
+    });
+  const setRerollHistoryRefereeFilter = useCallback((value: string) => {
+    setRerollHistoryRefereeFilterState(value);
+    try {
+      if (value) {
+        window.localStorage.setItem(
+          REROLL_HISTORY_REFEREE_FILTER_STORAGE_KEY,
+          value,
+        );
+      } else {
+        window.localStorage.removeItem(
+          REROLL_HISTORY_REFEREE_FILTER_STORAGE_KEY,
+        );
+      }
+    } catch {
+      // ignore (private mode, etc.)
+    }
+  }, []);
 
   const rerollRefereeSummaries = useMemo(() => {
     const map = new Map<
