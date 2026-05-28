@@ -461,4 +461,425 @@ lemma gaussian_moment_7 (a : ℝ) (ha : 0 < a) :
   field_simp
   ring
 
+/-! ### Batch 156.3c — polynomial heat-trace bound `K t ≤ C · t^{-4}` -/
+
+set_option maxHeartbeats 1600000 in
+/-- **Polynomial heat-trace bound.**  There exists a constant `C > 0` such that
+for every `t ∈ (0, 1]`, `K t ≤ C · t^{-4}`.
+
+The proof uses the antidiagonal envelope `heat_trace_envelope`, then splits the
+resulting sum at `N := ⌊1/√t⌋ + 2`: the head (`k < N`) is bounded by
+`64 · N^8 ≤ 64 · 6561 · t^{-4}` using `exp ≤ 1`, and the tail uses
+`y^5 · exp(-y) ≤ 120` (from `Real.pow_div_factorial_le_exp` at `n = 5`) with
+`y = (3/4) · t · k²`, then a telescoping bound on `∑ 1/(k+N)²`. -/
+theorem heat_trace_poly_bound :
+    ∃ C : ℝ, 0 < C ∧ ∀ t ∈ Set.Ioc (0:ℝ) 1, K t ≤ C * t^(-4 : ℝ) := by
+  -- Corollary of `pow_div_factorial_le_exp` at `n = 5`.
+  have y5_bound : ∀ y : ℝ, 0 ≤ y → y ^ 5 * Real.exp (-y) ≤ 120 := by
+    intro y hy
+    have h := Real.pow_div_factorial_le_exp y hy 5
+    -- h : y ^ 5 / ↑(5).factorial ≤ Real.exp y
+    have h120 : (0:ℝ) < 120 := by norm_num
+    have hfact : ((5 : ℕ).factorial : ℝ) = 120 := by
+      norm_num [Nat.factorial]
+    have h' : y ^ 5 / 120 ≤ Real.exp y := by
+      have := h; rw [hfact] at this; exact this
+    have hy5_le : y ^ 5 ≤ 120 * Real.exp y := by
+      have := (div_le_iff h120).mp h'
+      linarith
+    have hexp_neg_pos : (0:ℝ) < Real.exp (-y) := Real.exp_pos _
+    have heq : Real.exp y * Real.exp (-y) = 1 := by
+      rw [← Real.exp_add, add_neg_cancel, Real.exp_zero]
+    calc y ^ 5 * Real.exp (-y)
+        ≤ (120 * Real.exp y) * Real.exp (-y) :=
+          mul_le_mul_of_nonneg_right hy5_le hexp_neg_pos.le
+      _ = 120 * (Real.exp y * Real.exp (-y)) := by ring
+      _ = 120 := by rw [heq, mul_one]
+  -- Constants.
+  set Chead : ℝ := 64 * 6561 with hChead_def
+  set Ctail : ℝ := 64 * 128 * 120 * (4/3) ^ 5 with hCtail_def
+  refine ⟨Chead + Ctail, by unfold_let Chead Ctail; positivity, ?_⟩
+  rintro t ⟨ht_pos, ht_le_one⟩
+  -- Square root and t-related arithmetic.
+  set st := Real.sqrt t with hst_def
+  have hst_pos : 0 < st := Real.sqrt_pos.mpr ht_pos
+  have hst_sq : st * st = t := Real.mul_self_sqrt ht_pos.le
+  have hst_le_one : st ≤ 1 := by
+    rw [hst_def, show (1:ℝ) = Real.sqrt 1 from Real.sqrt_one.symm]
+    exact Real.sqrt_le_sqrt ht_le_one
+  have h_one_le_inv_st : 1 ≤ 1 / st := by rw [le_div_iff hst_pos]; linarith
+  have hinv_st_pos : 0 < 1 / st := by positivity
+  -- M := ⌊1/√t⌋, N := M + 2.
+  set M : ℕ := Nat.floor (1 / st) with hM_def
+  set N : ℕ := M + 2 with hN_def
+  have hN_ge_two : 2 ≤ N := by unfold_let N; omega
+  have hN_pos : 0 < N := by omega
+  have hN_real_pos : (0:ℝ) < (N:ℝ) := by exact_mod_cast hN_pos
+  -- (M+1 : ℝ) ≥ 1/st.
+  have hMp1_ge_inv : (1 / st : ℝ) ≤ ((M + 1 : ℕ) : ℝ) := by
+    have hlt : (1 / st : ℝ) < (Nat.floor (1 / st) : ℝ) + 1 := Nat.lt_floor_add_one _
+    push_cast
+    linarith
+  have hMp1_pos_real : (0:ℝ) < ((M + 1 : ℕ) : ℝ) := by
+    exact_mod_cast Nat.succ_pos M
+  -- (M+1)^2 ≥ 1/t.
+  have h_eq_inv_t : (1 / st) * (1 / st) = 1 / t := by
+    rw [div_mul_div_comm, one_mul, hst_sq]
+  have h_Mp1_sq_ge : (1 / t : ℝ) ≤ ((M + 1 : ℕ) : ℝ) ^ 2 := by
+    have hsq_mono := mul_self_le_mul_self hinv_st_pos.le hMp1_ge_inv
+    have hsq : ((M + 1 : ℕ) : ℝ) ^ 2 = ((M + 1 : ℕ) : ℝ) * ((M + 1 : ℕ) : ℝ) := sq _
+    rw [hsq]; linarith
+  -- t * (M+1)^2 ≥ 1.
+  have h_t_Mp1_sq_ge : 1 ≤ t * ((M + 1 : ℕ) : ℝ) ^ 2 := by
+    have := (div_le_iff ht_pos).mp h_Mp1_sq_ge
+    linarith
+  -- N ≤ 1/st + 2.
+  have hN_le_inv_plus_two : (N : ℝ) ≤ 1 / st + 2 := by
+    have hMub : ((M : ℕ) : ℝ) ≤ 1 / st := Nat.floor_le hinv_st_pos.le
+    have hNeq : ((N : ℕ) : ℝ) = (M : ℝ) + 2 := by unfold_let N; push_cast; ring
+    rw [hNeq]; linarith
+  -- N ≤ 3/st.
+  have hN_le_3 : (N : ℝ) ≤ 3 / st := by
+    have h_two_le : (2 : ℝ) ≤ 2 / st := by
+      rw [le_div_iff hst_pos]; linarith
+    have : (1 : ℝ) / st + 2 ≤ 3 / st := by
+      have e : (3 : ℝ) / st = 1 / st + 2 / st := by ring
+      linarith
+    linarith
+  -- N^8 ≤ 6561 / t^4.
+  have hst_ne : st ≠ 0 := ne_of_gt hst_pos
+  have h_st8_pos : 0 < st ^ 8 := pow_pos hst_pos 8
+  have h_t4_pos : 0 < t ^ 4 := pow_pos ht_pos 4
+  have h_st8_eq_t4 : st ^ 8 = t ^ 4 := by
+    have : st ^ 8 = (st * st) ^ 4 := by ring
+    rw [this, hst_sq]
+  have h_N_nonneg : (0 : ℝ) ≤ (N : ℝ) := hN_real_pos.le
+  have h_3invst_nonneg : (0 : ℝ) ≤ 3 / st := by positivity
+  have hN8_le : (N : ℝ) ^ 8 ≤ 6561 / t ^ 4 := by
+    have hpow : ((N : ℝ)) ^ 8 ≤ (3 / st) ^ 8 :=
+      pow_le_pow_left h_N_nonneg hN_le_3 8
+    have hrhs : (3 / st) ^ 8 = 6561 / t ^ 4 := by
+      rw [div_pow, h_st8_eq_t4]
+      norm_num
+    linarith
+  -- Define g(k) := 64 · (k+1)^7 · exp(-(3/4)·t·k²).
+  set g : ℕ → ℝ := fun k =>
+    64 * ((k : ℝ) + 1) ^ 7 * Real.exp (-(3/4) * t * (k : ℝ) ^ 2) with hg_def
+  have hg_nonneg : ∀ k, 0 ≤ g k := by
+    intro k
+    refine mul_nonneg (mul_nonneg (by norm_num) ?_) (Real.exp_pos _).le
+    positivity
+  -- The envelope sum equals ∑'_k g k.
+  have h_env := heat_trace_envelope t ht_pos
+  have h_env_eq :
+      (∑' k : ℕ, ((k : ℝ) + 1) * (8 * ((k : ℝ) + 1) ^ 3) ^ 2 *
+          Real.exp (-(3 / 4) * t * (k : ℝ) ^ 2))
+        = ∑' k : ℕ, g k := by
+    apply tsum_congr; intro k; unfold_let g; ring
+  rw [h_env_eq] at h_env
+  -- Per-term tail bound: g (k + N) ≤ Ctail · (1/t)^5 · 1/((k+N : ℝ))^3.
+  -- Let m := (k+N : ℕ) so (m : ℝ) ≥ 2 ≥ 1.
+  have h_tail_term : ∀ k : ℕ,
+      g (k + N) ≤ Ctail * (1 / t) ^ 5 * (1 / ((k + N : ℕ) : ℝ) ^ 3) := by
+    intro k
+    set m : ℕ := k + N with hm_def
+    have hm_ge_two_nat : 2 ≤ m := by unfold_let m; omega
+    have hm_ge_one_real : (1 : ℝ) ≤ (m : ℝ) := by
+      have : (1 : ℕ) ≤ m := by omega
+      exact_mod_cast this
+    have hm_pos_real : (0 : ℝ) < (m : ℝ) := by linarith
+    have hm_ne : (m : ℝ) ≠ 0 := ne_of_gt hm_pos_real
+    -- y = (3/4)·t·m².
+    set y : ℝ := (3/4) * t * (m : ℝ) ^ 2 with hy_def
+    have hy_pos : 0 < y := by
+      unfold_let y
+      have : (0:ℝ) < (3/4 : ℝ) * t := by positivity
+      have h2 : (0:ℝ) < (m : ℝ) ^ 2 := pow_pos hm_pos_real 2
+      positivity
+    have hy_nonneg : 0 ≤ y := hy_pos.le
+    -- y^5 · exp(-y) ≤ 120, so exp(-y) ≤ 120/y^5.
+    have h_y5 := y5_bound y hy_nonneg
+    have hy5_pos : 0 < y ^ 5 := pow_pos hy_pos 5
+    have h_exp_le : Real.exp (-y) ≤ 120 / y ^ 5 := by
+      rw [le_div_iff hy5_pos]; linarith
+    -- (m+1 : ℝ) ≤ 2·m  (since m ≥ 1).
+    have h_succ_le : (m : ℝ) + 1 ≤ 2 * (m : ℝ) := by linarith
+    have h_succ_nn : 0 ≤ (m : ℝ) + 1 := by linarith
+    have h_succ_pow : ((m : ℝ) + 1) ^ 7 ≤ (2 * (m : ℝ)) ^ 7 :=
+      pow_le_pow_left h_succ_nn h_succ_le 7
+    -- exp arg: g (k+N) uses ((k+N:ℕ):ℝ) which equals (m:ℝ).
+    have h_mreal : ((k + N : ℕ) : ℝ) = (m : ℝ) := by unfold_let m; rfl
+    -- Unfold g (k+N).
+    have h_gval :
+        g (k + N) = 64 * ((m : ℝ) + 1) ^ 7 * Real.exp (-(3/4) * t * (m : ℝ) ^ 2) := by
+      unfold_let g; rw [h_mreal]
+    rw [h_gval]
+    -- exp(-(3/4)·t·m²) = exp(-y).
+    have h_exp_arg : -(3/4) * t * (m : ℝ) ^ 2 = -y := by unfold_let y; ring
+    rw [h_exp_arg]
+    -- 64 · (m+1)^7 ≥ 0; exp(-y) ≥ 0.
+    have h64sev_nn : 0 ≤ 64 * ((m : ℝ) + 1) ^ 7 := by positivity
+    have hexp_neg_nn : 0 ≤ Real.exp (-y) := (Real.exp_pos _).le
+    have h_step1 :
+        64 * ((m : ℝ) + 1) ^ 7 * Real.exp (-y)
+          ≤ 64 * ((m : ℝ) + 1) ^ 7 * (120 / y ^ 5) :=
+      mul_le_mul_of_nonneg_left h_exp_le h64sev_nn
+    have h_step2 :
+        64 * ((m : ℝ) + 1) ^ 7 * (120 / y ^ 5)
+          ≤ 64 * (2 * (m : ℝ)) ^ 7 * (120 / y ^ 5) := by
+      have h_div_nn : 0 ≤ 120 / y ^ 5 := by positivity
+      have h64_nn : (0 : ℝ) ≤ 64 := by norm_num
+      have h_step :
+          64 * ((m : ℝ) + 1) ^ 7 ≤ 64 * (2 * (m : ℝ)) ^ 7 :=
+        mul_le_mul_of_nonneg_left h_succ_pow h64_nn
+      exact mul_le_mul_of_nonneg_right h_step h_div_nn
+    -- Simplify RHS of step2 to Ctail · (1/t)^5 · 1/m^3.
+    have h_eq_final :
+        64 * (2 * (m : ℝ)) ^ 7 * (120 / y ^ 5)
+          = Ctail * (1 / t) ^ 5 * (1 / (m : ℝ) ^ 3) := by
+      unfold_let Ctail y
+      have ht_ne : t ≠ 0 := ne_of_gt ht_pos
+      have hm5 : (m : ℝ) ^ 10 = (m : ℝ) ^ 7 * (m : ℝ) ^ 3 := by ring
+      field_simp
+      ring
+    rw [h_mreal]
+    linarith [h_step1, h_step2, h_eq_final.le, h_eq_final.ge]
+  -- Summability of 1/((k+N:ℕ):ℝ)^3 via comparing with summable 1/(k+1)^3
+  -- (using `Real.summable_one_div_nat_add_rpow` with s=3 and shift).
+  -- We use a simpler route: show partial sum bound directly via telescoping
+  -- for 1/(k+N)^2, then prove summability of the dominating series.
+  -- ----- Summability of the bound function -----
+  have h_sum_inv_sq_partial :
+      ∀ K : ℕ, (∑ k ∈ range K, 1 / (((k + N : ℕ) : ℝ)) ^ 2)
+                ≤ 1 / ((M + 1 : ℕ) : ℝ) := by
+    intro K
+    -- 1/(k+N)^2 ≤ 1/(k+N-1) - 1/(k+N) for k+N ≥ 2.
+    have h_telescope_term : ∀ k : ℕ,
+        (1 : ℝ) / ((k + N : ℕ) : ℝ) ^ 2
+          ≤ 1 / ((k + M + 1 : ℕ) : ℝ) - 1 / ((k + N : ℕ) : ℝ) := by
+      intro k
+      have hkN_pos : (0 : ℝ) < ((k + N : ℕ) : ℝ) := by
+        have : 0 < k + N := by omega
+        exact_mod_cast this
+      have hkM1_pos : (0 : ℝ) < ((k + M + 1 : ℕ) : ℝ) := by
+        have : 0 < k + M + 1 := by omega
+        exact_mod_cast this
+      -- (k+N : ℕ) = (k+M+1) + 1, i.e. as reals (k+N:ℝ) = (k+M+1:ℝ) + 1.
+      have h_succ : ((k + N : ℕ) : ℝ) = ((k + M + 1 : ℕ) : ℝ) + 1 := by
+        unfold_let N; push_cast; ring
+      -- 1/((k+M+1)·(k+N)) ≤ 1/(k+N)^2... actually we want the other direction.
+      -- 1/(k+N)^2 ≤ 1/((k+M+1)·(k+N)) since (k+M+1) ≤ (k+N).
+      have h_le_factor : ((k + M + 1 : ℕ) : ℝ) ≤ ((k + N : ℕ) : ℝ) := by
+        rw [h_succ]; linarith
+      have h_prod_pos : 0 < ((k + M + 1 : ℕ) : ℝ) * ((k + N : ℕ) : ℝ) :=
+        mul_pos hkM1_pos hkN_pos
+      have h_kN_sq_pos : 0 < ((k + N : ℕ) : ℝ) ^ 2 := by positivity
+      have h_inv_le :
+          (1 : ℝ) / ((k + N : ℕ) : ℝ) ^ 2
+            ≤ 1 / (((k + M + 1 : ℕ) : ℝ) * ((k + N : ℕ) : ℝ)) := by
+        rw [div_le_div_iff h_kN_sq_pos h_prod_pos]
+        have hsq : ((k + N : ℕ) : ℝ) ^ 2 = ((k + N : ℕ) : ℝ) * ((k + N : ℕ) : ℝ) := sq _
+        rw [hsq]
+        have := mul_le_mul_of_nonneg_right h_le_factor hkN_pos.le
+        nlinarith [this, hkN_pos.le]
+      -- telescoping: 1/((k+M+1)·(k+N)) = 1/(k+M+1) - 1/(k+N).
+      have h_tele : (1 : ℝ) / (((k + M + 1 : ℕ) : ℝ) * ((k + N : ℕ) : ℝ))
+                      = 1 / ((k + M + 1 : ℕ) : ℝ) - 1 / ((k + N : ℕ) : ℝ) := by
+        rw [h_succ]
+        field_simp
+      linarith [h_inv_le, h_tele.le, h_tele.ge]
+    -- Apply to partial sum and telescope.
+    have h_sum_term_le :
+        (∑ k ∈ range K, 1 / (((k + N : ℕ) : ℝ)) ^ 2)
+          ≤ ∑ k ∈ range K, (1 / ((k + M + 1 : ℕ) : ℝ)
+                              - 1 / ((k + N : ℕ) : ℝ)) :=
+      Finset.sum_le_sum (fun k _ => h_telescope_term k)
+    -- Telescoping ∑_{k<K} (1/(k+M+1) - 1/(k+N)).
+    -- (k+N : ℕ) = ((k+1) + (M+1) : ℕ) since N = M+2.
+    have h_succ_index :
+        (fun k : ℕ => (1 : ℝ) / ((k + N : ℕ) : ℝ))
+          = (fun k : ℕ => (1 : ℝ) / (((k + 1) + (M + 1) : ℕ) : ℝ)) := by
+      funext k; unfold_let N; congr 2; push_cast; ring
+    -- This is a telescoping sum.
+    have h_partial_sum_eq :
+        ∑ k ∈ range K, (1 / ((k + M + 1 : ℕ) : ℝ)
+                          - 1 / ((k + N : ℕ) : ℝ))
+          = 1 / ((M + 1 : ℕ) : ℝ) - 1 / ((K + M + 1 : ℕ) : ℝ) := by
+      -- Switch to a clean telescoping form.
+      have hfun : (fun k : ℕ => (1 : ℝ) / ((k + M + 1 : ℕ) : ℝ)
+                                  - 1 / ((k + N : ℕ) : ℝ))
+                  = (fun k : ℕ => (fun j : ℕ => (1 : ℝ) / ((j + M + 1 : ℕ) : ℝ)) k
+                                    - (fun j : ℕ => (1 : ℝ) / ((j + M + 1 : ℕ) : ℝ)) (k + 1)) := by
+        funext k
+        unfold_let N
+        congr 1
+        congr 2; push_cast; ring
+      rw [hfun, Finset.sum_range_sub']
+      simp
+    -- Final bound.
+    have h_neg : (0 : ℝ) ≤ 1 / ((K + M + 1 : ℕ) : ℝ) := by positivity
+    linarith [h_sum_term_le, h_partial_sum_eq.le, h_partial_sum_eq.ge]
+  -- Summability of 1/((k+N:ℕ):ℝ)^2.
+  have h_inv_sq_summable : Summable (fun k : ℕ => 1 / (((k + N : ℕ) : ℝ)) ^ 2) := by
+    refine summable_of_sum_range_le (c := 1 / ((M + 1 : ℕ) : ℝ))
+      (fun k => by positivity) (fun K => ?_)
+    exact h_sum_inv_sq_partial K
+  -- tsum bound.
+  have h_inv_sq_tsum_le :
+      (∑' k : ℕ, 1 / (((k + N : ℕ) : ℝ)) ^ 2) ≤ 1 / ((M + 1 : ℕ) : ℝ) :=
+    Real.tsum_le_of_sum_range_le (fun k => by positivity) h_sum_inv_sq_partial
+  -- For each k: 1/(k+N)^3 ≤ (1/(M+1)) · (1/(k+N)^2).
+  have h_cube_le_sq : ∀ k : ℕ,
+      (1 : ℝ) / (((k + N : ℕ) : ℝ)) ^ 3
+        ≤ (1 / ((M + 1 : ℕ) : ℝ)) * (1 / (((k + N : ℕ) : ℝ)) ^ 2) := by
+    intro k
+    have hkN_pos : (0 : ℝ) < ((k + N : ℕ) : ℝ) := by
+      have : 0 < k + N := by omega
+      exact_mod_cast this
+    have h_ge_M1 : ((M + 1 : ℕ) : ℝ) ≤ ((k + N : ℕ) : ℝ) := by
+      have : M + 1 ≤ k + N := by unfold_let N; omega
+      exact_mod_cast this
+    have h_inv_le : (1 : ℝ) / ((k + N : ℕ) : ℝ) ≤ 1 / ((M + 1 : ℕ) : ℝ) :=
+      one_div_le_one_div_of_le hMp1_pos_real h_ge_M1
+    have h_kN_sq_nn : 0 ≤ (1 : ℝ) / (((k + N : ℕ) : ℝ)) ^ 2 := by positivity
+    have hcube_eq : (1 : ℝ) / (((k + N : ℕ) : ℝ)) ^ 3
+                      = (1 / ((k + N : ℕ) : ℝ)) * (1 / (((k + N : ℕ) : ℝ)) ^ 2) := by
+      field_simp; ring
+    rw [hcube_eq]
+    exact mul_le_mul_of_nonneg_right h_inv_le h_kN_sq_nn
+  -- Summability of 1/(k+N)^3 dominated by (1/(M+1))·(1/(k+N)^2).
+  have h_inv_cube_summable : Summable (fun k : ℕ => 1 / (((k + N : ℕ) : ℝ)) ^ 3) := by
+    refine Summable.of_nonneg_of_le (fun k => by positivity) h_cube_le_sq ?_
+    exact h_inv_sq_summable.mul_left _
+  -- tsum 1/(k+N)^3 ≤ (1/(M+1))^2 ≤ t.
+  have h_inv_cube_tsum_le :
+      (∑' k : ℕ, 1 / (((k + N : ℕ) : ℝ)) ^ 3)
+        ≤ (1 / ((M + 1 : ℕ) : ℝ)) ^ 2 := by
+    have h1 : (∑' k : ℕ, 1 / (((k + N : ℕ) : ℝ)) ^ 3)
+                ≤ ∑' k : ℕ, (1 / ((M + 1 : ℕ) : ℝ)) * (1 / (((k + N : ℕ) : ℝ)) ^ 2) :=
+      tsum_le_tsum h_cube_le_sq h_inv_cube_summable (h_inv_sq_summable.mul_left _)
+    have h2 : ∑' k : ℕ, (1 / ((M + 1 : ℕ) : ℝ)) * (1 / (((k + N : ℕ) : ℝ)) ^ 2)
+                = (1 / ((M + 1 : ℕ) : ℝ)) * ∑' k : ℕ, 1 / (((k + N : ℕ) : ℝ)) ^ 2 := by
+      rw [tsum_mul_left]
+    rw [h2] at h1
+    have h_M1_nn : (0 : ℝ) ≤ 1 / ((M + 1 : ℕ) : ℝ) := by positivity
+    have h3 : (1 / ((M + 1 : ℕ) : ℝ)) * ∑' k : ℕ, 1 / (((k + N : ℕ) : ℝ)) ^ 2
+                ≤ (1 / ((M + 1 : ℕ) : ℝ)) * (1 / ((M + 1 : ℕ) : ℝ)) :=
+      mul_le_mul_of_nonneg_left h_inv_sq_tsum_le h_M1_nn
+    have h_sq : (1 / ((M + 1 : ℕ) : ℝ)) * (1 / ((M + 1 : ℕ) : ℝ))
+                  = (1 / ((M + 1 : ℕ) : ℝ)) ^ 2 := by ring
+    linarith
+  -- (1/(M+1))^2 ≤ t.
+  have h_inv_M1_sq_le_t : (1 / ((M + 1 : ℕ) : ℝ)) ^ 2 ≤ t := by
+    have h_M1_sq_pos : 0 < ((M + 1 : ℕ) : ℝ) ^ 2 := by positivity
+    have h_one_le : (1 : ℝ) ≤ t * ((M + 1 : ℕ) : ℝ) ^ 2 := h_t_Mp1_sq_ge
+    have h_div : (1 : ℝ) / ((M + 1 : ℕ) : ℝ) ^ 2 ≤ t := by
+      rw [div_le_iff h_M1_sq_pos]; linarith
+    have h_eq : (1 / ((M + 1 : ℕ) : ℝ)) ^ 2 = 1 / ((M + 1 : ℕ) : ℝ) ^ 2 := by
+      rw [div_pow, one_pow]
+    rw [h_eq]; exact h_div
+  -- Bound the tail tsum: ∑'_k g(k+N) ≤ Ctail · (1/t)^5 · t = Ctail · t^{-4}.
+  have h_g_summable_tail : Summable (fun k : ℕ => g (k + N)) := by
+    refine Summable.of_nonneg_of_le (fun k => hg_nonneg _) h_tail_term ?_
+    exact (h_inv_cube_summable.mul_left _)
+  have h_tail_tsum_le :
+      (∑' k : ℕ, g (k + N))
+        ≤ Ctail * (1 / t) ^ 5 * (1 / ((M + 1 : ℕ) : ℝ)) ^ 2 := by
+    have hdom_summable :
+        Summable (fun k : ℕ => Ctail * (1 / t) ^ 5 *
+                    (1 / (((k + N : ℕ) : ℝ)) ^ 3)) := h_inv_cube_summable.mul_left _
+    have hle : (∑' k : ℕ, g (k + N))
+                  ≤ ∑' k : ℕ, Ctail * (1 / t) ^ 5 *
+                      (1 / (((k + N : ℕ) : ℝ)) ^ 3) :=
+      tsum_le_tsum h_tail_term h_g_summable_tail hdom_summable
+    have heq : ∑' k : ℕ, Ctail * (1 / t) ^ 5 * (1 / (((k + N : ℕ) : ℝ)) ^ 3)
+                = Ctail * (1 / t) ^ 5 *
+                    ∑' k : ℕ, 1 / (((k + N : ℕ) : ℝ)) ^ 3 := by
+      rw [tsum_mul_left]
+    rw [heq] at hle
+    have h_coef_nn : 0 ≤ Ctail * (1 / t) ^ 5 := by
+      unfold_let Ctail; positivity
+    have := mul_le_mul_of_nonneg_left h_inv_cube_tsum_le h_coef_nn
+    linarith
+  -- Combine the tail estimate.
+  have h_tail_final : (∑' k : ℕ, g (k + N)) ≤ Ctail / t ^ 4 := by
+    have h_step :
+        Ctail * (1 / t) ^ 5 * (1 / ((M + 1 : ℕ) : ℝ)) ^ 2
+          ≤ Ctail * (1 / t) ^ 5 * t := by
+      have h_coef_nn : 0 ≤ Ctail * (1 / t) ^ 5 := by
+        unfold_let Ctail; positivity
+      exact mul_le_mul_of_nonneg_left h_inv_M1_sq_le_t h_coef_nn
+    have h_simpl : Ctail * (1 / t) ^ 5 * t = Ctail / t ^ 4 := by
+      have ht_ne : t ≠ 0 := ne_of_gt ht_pos
+      field_simp
+      ring
+    linarith [h_tail_tsum_le, h_step, h_simpl.le, h_simpl.ge]
+  -- Head bound: ∑_{k < N} g k ≤ Chead / t^4.
+  have h_head_term_le : ∀ k ∈ range N, g k ≤ 64 * ((N : ℝ)) ^ 7 := by
+    intro k hk
+    have hk_lt : k < N := Finset.mem_range.mp hk
+    have h_kp1_le : ((k : ℝ) + 1) ≤ (N : ℝ) := by
+      have : (k + 1 : ℕ) ≤ N := hk_lt
+      have hcast : ((k + 1 : ℕ) : ℝ) = (k : ℝ) + 1 := by push_cast; ring
+      have := (Nat.cast_le (α := ℝ)).mpr this
+      rw [hcast] at this; exact this
+    have h_kp1_nn : (0 : ℝ) ≤ (k : ℝ) + 1 := by positivity
+    have h_kp1_pow : ((k : ℝ) + 1) ^ 7 ≤ ((N : ℝ)) ^ 7 :=
+      pow_le_pow_left h_kp1_nn h_kp1_le 7
+    -- exp(-(3/4)·t·k²) ≤ 1.
+    have h_arg_nonpos : -(3/4) * t * (k : ℝ) ^ 2 ≤ 0 := by
+      have h1 : 0 ≤ (k : ℝ) ^ 2 := sq_nonneg _
+      nlinarith [ht_pos, h1]
+    have h_exp_le_one : Real.exp (-(3/4) * t * (k : ℝ) ^ 2) ≤ 1 := by
+      have := Real.exp_le_one_iff.mpr h_arg_nonpos
+      exact this
+    have h_exp_nn : 0 ≤ Real.exp (-(3/4) * t * (k : ℝ) ^ 2) := (Real.exp_pos _).le
+    have h_64_kp1_nn : 0 ≤ 64 * ((k : ℝ) + 1) ^ 7 := by positivity
+    calc g k = 64 * ((k : ℝ) + 1) ^ 7 * Real.exp (-(3/4) * t * (k : ℝ) ^ 2) := rfl
+      _ ≤ 64 * ((k : ℝ) + 1) ^ 7 * 1 :=
+          mul_le_mul_of_nonneg_left h_exp_le_one h_64_kp1_nn
+      _ = 64 * ((k : ℝ) + 1) ^ 7 := by ring
+      _ ≤ 64 * ((N : ℝ)) ^ 7 := by
+          have h64 : (0 : ℝ) ≤ 64 := by norm_num
+          exact mul_le_mul_of_nonneg_left h_kp1_pow h64
+  have h_head_sum_le : (∑ k ∈ range N, g k) ≤ Chead / t ^ 4 := by
+    have h1 : (∑ k ∈ range N, g k) ≤ ∑ k ∈ range N, 64 * ((N : ℝ)) ^ 7 :=
+      Finset.sum_le_sum h_head_term_le
+    have h2 : (∑ k ∈ range N, (64 * ((N : ℝ)) ^ 7 : ℝ))
+                = (N : ℝ) * (64 * ((N : ℝ)) ^ 7) := by
+      rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
+    have h3 : (N : ℝ) * (64 * ((N : ℝ)) ^ 7) = 64 * (N : ℝ) ^ 8 := by ring
+    have h4 : 64 * (N : ℝ) ^ 8 ≤ 64 * (6561 / t ^ 4) := by
+      have h64 : (0 : ℝ) ≤ 64 := by norm_num
+      exact mul_le_mul_of_nonneg_left hN8_le h64
+    have h5 : 64 * (6561 / t ^ 4) = Chead / t ^ 4 := by
+      unfold_let Chead; ring
+    linarith [h1, h2.le, h2.ge, h3.le, h3.ge, h4, h5.le, h5.ge]
+  -- Sum-split: ∑'_k g k = (∑_{k<N} g k) + ∑'_k g (k+N).
+  have h_g_summable : Summable g := by
+    -- g k = g((k - N) + N) for k ≥ N, etc. Use shift summability:
+    -- Summable (fun k => g (k + N)) ↔ Summable g.
+    exact (summable_nat_add_iff (G := ℝ) N).mp h_g_summable_tail
+  have h_split : (∑' k : ℕ, g k)
+                  = (∑ k ∈ range N, g k) + ∑' k : ℕ, g (k + N) :=
+    (sum_add_tsum_nat_add (G := ℝ) N h_g_summable).symm
+  -- Final bound: ∑'_k g k ≤ (Chead + Ctail) / t^4 = (Chead + Ctail) · t^{-4}.
+  have h_tsum_le : (∑' k : ℕ, g k) ≤ (Chead + Ctail) / t ^ 4 := by
+    rw [h_split]
+    have h_add : Chead / t ^ 4 + Ctail / t ^ 4 = (Chead + Ctail) / t ^ 4 := by
+      field_simp
+    linarith [h_head_sum_le, h_tail_final, h_add.le, h_add.ge]
+  -- Convert t^4 → t^(-4 : ℝ).
+  have h_rpow_eq : (Chead + Ctail) / t ^ 4 = (Chead + Ctail) * t ^ (-4 : ℝ) := by
+    have ht_ne : t ≠ 0 := ne_of_gt ht_pos
+    have h4cast : ((4 : ℕ) : ℝ) = (4 : ℝ) := by norm_num
+    have hrpow : t ^ (-4 : ℝ) = (t ^ (4 : ℕ))⁻¹ := by
+      rw [show (-4 : ℝ) = -((4 : ℕ) : ℝ) from by rw [h4cast],
+          Real.rpow_neg ht_pos.le, Real.rpow_natCast]
+    rw [hrpow]
+    field_simp
+  calc K t ≤ ∑' k : ℕ, g k := h_env
+    _ ≤ (Chead + Ctail) / t ^ 4 := h_tsum_le
+    _ = (Chead + Ctail) * t ^ (-4 : ℝ) := h_rpow_eq
+
 end TheoremaAureum.Towers.YM.HeatTraceBound
