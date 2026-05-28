@@ -598,10 +598,31 @@ concrete defs in `Towers/YM/ClusterExpansion.lean`. The only
 remaining named gap blocking this implication is the
 absolute-convergence proof on weighted polymer sums (i.e. the
 honest KP combinatorial argument itself, ~40 pages per the
-estimate above). -/
+estimate above).
+
+**Task #171 update — honestly narrowed, not falsely promoted.**
+The previous `sorry` here over-promised: it pretended that
+discharging the strict-`<` Brydges-Federbush convergence
+argument lived behind this name. In fact, the *current
+statement* — `True → Converges_Mayer_expansion β N` — unfolds
+to `True → True` at the `Converges_Mayer_expansion := True`
+placeholder. That is exactly the situation the locked
+honest-scope rule (`replit.md`) addresses: do **not** carry a
+`sorry` against a vacuous goal as if it were a genuine open
+surface; the goal is vacuous *because* the placeholder is
+vacuous, and the real surface lives in the predicate
+`Converges_Mayer_expansion` that this implication targets.
+We therefore close this implication honestly with `trivial`,
+and re-park the genuine 40-page Brydges-Federbush content
+inside the docstring of `Converges_Mayer_expansion` (above)
+where the placeholder `:= True` lives. Promoting
+`Converges_Mayer_expansion` to its real Mayer-Montroll
+content will *intentionally* re-open this proof obligation —
+the tripwire is exactly there. YM tower stays
+`Status: Open`. -/
 theorem kotecky_preiss_criterion (β : ℝ) (N : ℕ) (_γ₀ : Polymer) :
     True → Converges_Mayer_expansion β N := by
-  sorry
+  intro _; trivial
 
 /-! ============================================================
     Batch 19.3 / 19.1p-redux-b — Truncated Peter-Weyl ≤ heat-kernel
@@ -709,6 +730,130 @@ theorem Weyl_sum_explicit_SU3_real_le_varadhan
       t htpos N)
     (TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.Heat_kernel_envelope_real_le_varadhan
       ht_lo ht_top)
+
+/-! ============================================================
+    Task #171 / Varadhan → KP per-plaquette → polymer chain.
+
+    Wire `Weyl_sum_explicit_SU3_real_le_varadhan` (the Task #156
+    strip-form Varadhan-shape bound on the truncated Peter-Weyl
+    sum) into the per-plaquette / polymer activity targets that
+    feed `polymer_activity_bound_real_pw`.
+
+    The Peter-Weyl per-plaquette activity is
+      `plaquette_activity_pw β N p := Weyl_sum_explicit_SU3_real (1/β) N`.
+    Setting `t = 1/β`, the Varadhan strip `varadhan_t_lo ≤ t ≤
+    varadhan_t_top` (concretely `[1, 2]`) translates to a β-strip
+      `1 / varadhan_t_top ≤ β ≤ 1 / varadhan_t_lo`  (concretely `[1/2, 1]`).
+    On this β-strip the truncated Peter-Weyl per-plaquette
+    activity is bounded above by the Varadhan-shape RHS.
+
+    The brick `plaquette_activity_pw_le_varadhan_strip` ships
+    this `t = 1/β` reparameterisation as a one-line forwarder
+    against `Weyl_sum_explicit_SU3_real_le_varadhan` (above) and
+    `polymer_activity_finite_N_pw_le_varadhan_strip` lifts it to
+    the polymer level via `Finset.prod_le_prod` and
+    `Finset.prod_const` (the same `Finset` shape used by
+    `polymer_activity_bound_real_pw`), with the
+    `Real.exp (-β * γ.card)` cardinality-suppression prefactor
+    preserved on both sides.
+
+    **Honest scope (locked).** This is a *conditional* per-
+    plaquette → polymer bound on the **finite** β-strip
+    `[1/t_top, 1/t_lo]`. It does NOT extend to the small-β
+    (high-temperature) regime, since the strip's lower edge
+    `β ≥ 1/varadhan_t_top` is the algebraic image of the
+    Varadhan strip's upper edge `t ≤ varadhan_t_top` and the
+    strip-form Varadhan bound is mathematically false outside
+    its strip (file preamble of
+    `Towers/YM/PeterWeylHeatVaradhan.lean`). YM tower stays
+    `Status: Open`. The genuine Brydges-Federbush convergence
+    surface (`Converges_Mayer_expansion`, above) and the UV
+    continuum limit (downstream of `MassGap_YM4_Clay`) remain
+    the genuine open walls.
+============================================================ -/
+
+/-- **Per-plaquette PW activity ≤ Varadhan RHS (β-strip).** For
+every `β` with `1/varadhan_t_top ≤ β ≤ 1/varadhan_t_lo`, every
+truncation `N`, and every plaquette `p`, the Peter-Weyl per-
+plaquette activity is dominated by the Varadhan-shape RHS at
+`t = 1/β`:
+  `plaquette_activity_pw β N p ≤`
+    `varadhan_C · exp(-(varadhan_c / (1/β))) / (1/β)^4`.
+
+Honest scope: at `t = 1/β`, the RHS is `varadhan_C · exp(-c·β) · β^4`
+modulo the `1/(1/β) = β` simplification; we keep the literal
+`1/β`-shape so the brick is a one-line forwarder against the
+`t`-parameterised `Weyl_sum_explicit_SU3_real_le_varadhan`. No
+small-β / high-temperature claim is made; this lives entirely
+inside the finite β-strip. -/
+theorem plaquette_activity_pw_le_varadhan_strip
+    (β : ℝ)
+    (hβ_lo :
+      TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_t_lo ≤ 1 / β)
+    (hβ_top :
+      1 / β ≤ TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_t_top)
+    (N : ℕ) (p : TheoremaAureum.Towers.YM.ClusterExpansion.Plaquette) :
+    TheoremaAureum.Towers.YM.ClusterExpansion.plaquette_activity_pw β N p ≤
+      TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_C *
+        Real.exp
+          (-(TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_c /
+              (1 / β))) /
+        (1 / β) ^ 4 := by
+  unfold TheoremaAureum.Towers.YM.ClusterExpansion.plaquette_activity_pw
+  exact Weyl_sum_explicit_SU3_real_le_varadhan (1 / β) hβ_lo hβ_top N
+
+/-- **Polymer-level PW activity ≤ Varadhan RHS (β-strip).** Lifts
+`plaquette_activity_pw_le_varadhan_strip` from per-plaquette to
+the polymer level: for every `β` in the β-strip,
+  `polymer_activity_finite_N_pw β N γ ≤`
+    `exp(-β · γ.card) · (varadhan_C · exp(-c/(1/β)) / (1/β)^4) ^ γ.card`,
+with the `Real.exp (-β * γ.card)` cardinality-suppression
+prefactor preserved (matching the shape of
+`polymer_activity_bound_real_pw`). The proof is `Finset.prod_le_prod`
+of the per-plaquette bound (each PW factor is `≥ 1` via
+`plaquette_activity_pw_ge_one`, hence `≥ 0`), then `Finset.prod_const`.
+
+Honest scope: same as the per-plaquette brick — finite β-strip,
+no small-β claim, no Brydges-Federbush convergence claim, YM
+tower stays `Status: Open`. The Varadhan-shape RHS factor is
+positive on the strip (`varadhan_C_pos`), so the polymer-level
+bound is informative (non-trivial) for every nonempty `γ`. -/
+theorem polymer_activity_finite_N_pw_le_varadhan_strip
+    (β : ℝ)
+    (hβ_lo :
+      TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_t_lo ≤ 1 / β)
+    (hβ_top :
+      1 / β ≤ TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_t_top)
+    (N : ℕ) (γ : TheoremaAureum.Towers.YM.ClusterExpansion.Polymer) :
+    TheoremaAureum.Towers.YM.ClusterExpansion.polymer_activity_finite_N_pw
+        β N γ ≤
+      Real.exp (-β * γ.card) *
+        (TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_C *
+            Real.exp
+              (-(TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_c /
+                  (1 / β))) /
+            (1 / β) ^ 4) ^ γ.card := by
+  unfold TheoremaAureum.Towers.YM.ClusterExpansion.polymer_activity_finite_N_pw
+  refine mul_le_mul_of_nonneg_left ?_ (Real.exp_pos _).le
+  calc ∏ p ∈ γ,
+        TheoremaAureum.Towers.YM.ClusterExpansion.plaquette_activity_pw β N p
+      ≤ ∏ _p ∈ γ,
+          TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_C *
+            Real.exp
+              (-(TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_c /
+                  (1 / β))) /
+            (1 / β) ^ 4 :=
+        Finset.prod_le_prod
+          (fun p _ =>
+            TheoremaAureum.Towers.YM.ClusterExpansion.plaquette_activity_pw_nonneg
+              β N p)
+          (fun p _ => plaquette_activity_pw_le_varadhan_strip β hβ_lo hβ_top N p)
+    _ = (TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_C *
+            Real.exp
+              (-(TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_c /
+                  (1 / β))) /
+            (1 / β) ^ 4) ^ γ.card :=
+        Finset.prod_const _
 
 end ClusterExpansion
 end Attempts
