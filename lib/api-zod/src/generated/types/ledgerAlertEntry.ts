@@ -42,12 +42,34 @@ export interface LedgerAlertEntry {
   message: string;
   /**
      * Structured failure code (e.g. `hits_truncated`,
-  `hits_rewritten_in_place`, `integrity_check_failed`).
-  Null on legacy entries that predate the field.
+  `hits_rewritten_in_place`, `integrity_check_failed`,
+  `monitor_stalled`, `recovered`). Null on legacy entries
+  that predate the field.
 
      * @nullable
      */
   failureMode?: string | null;
+  /**
+     * For `failureMode == "recovered"` rows, the failure code
+  that preceded the recovery (e.g. `monitor_stalled`,
+  `hits_truncated`). Lets the dashboard tell a monitor
+  recovery apart from a tamper recovery without parsing
+  free-text. Null on tamper / fire rows and on legacy
+  entries that predate task #144.
+
+     * @nullable
+     */
+  previousFailureMode?: string | null;
+  /** Human-readable subject line for the alert, matching the
+  email `Subject:` header and the `subject` field on the
+  webhook payload. Distinct lines for the watchdog-stalled,
+  monitor-recovered, integrity-recovered, and tamper cases
+  (task #144). Always present: the server derives a subject
+  for legacy entries that predate the field, so the
+  dashboard can render it as the row header without a null
+  check (task #161).
+   */
+  subject: string;
   /**
      * Human-readable pointer to recovery docs
      * @nullable

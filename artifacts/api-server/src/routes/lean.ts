@@ -309,7 +309,9 @@ interface LedgerAlertView {
   timestamp: string;
   workflow: string;
   message: string;
+  subject: string;
   failureMode: string | null;
+  previousFailureMode: string | null;
   recovery: string | null;
   hitsPath: string | null;
   checkpointPath: string | null;
@@ -321,6 +323,32 @@ interface LedgerAlertView {
     webhook: AlertDelivery;
     email: AlertDelivery;
   };
+}
+
+/**
+ * Mirror of `kernel._alert_subject` (task #144). The python kernel
+ * injects a `subject` field into every fired payload, but legacy
+ * `data/ledger-alerts.jsonl` entries from before that change still
+ * lack it. The dashboard renders this field as the row header (task
+ * #161), so we derive it server-side when the raw entry is missing
+ * the field — keeping the UI free of null-coalescing branches and
+ * keeping a single source of truth for subject wording.
+ */
+function deriveAlertSubject(
+  workflow: string,
+  failureMode: string | null,
+  previousFailureMode: string | null,
+): string {
+  if (failureMode === "monitor_stalled") {
+    return `[MorningStar] Ledger MONITOR STALLED — push alerts may be silent: ${workflow}`;
+  }
+  if (failureMode === "recovered" && previousFailureMode === "monitor_stalled") {
+    return `[MorningStar] Ledger monitor RECOVERED: ${workflow}`;
+  }
+  if (failureMode === "recovered") {
+    return `[MorningStar] Ledger integrity RECOVERED: ${workflow}`;
+  }
+  return `[MorningStar] Ledger integrity alert: ${workflow}`;
 }
 
 function pickString(v: unknown): string | null {
@@ -354,13 +382,22 @@ function normalizeAlertEntry(raw: unknown): LedgerAlertView | null {
   if (!timestamp || !message) return null;
   const workflow = pickString(r["workflow"]) ?? "unknown";
   const delivery = (r["delivery"] ?? {}) as Record<string, unknown>;
+  const failureMode = pickString(r["failure_mode"]);
+  const previousFailureMode = pickString(r["previous_failure_mode"]);
+  const rawSubject = pickString(r["subject"]);
+  const subject =
+    rawSubject && rawSubject.length > 0
+      ? rawSubject
+      : deriveAlertSubject(workflow, failureMode, previousFailureMode);
   return {
     id: computeAlertId(timestamp, message),
     acknowledgedAt: null,
     timestamp,
     workflow,
     message,
-    failureMode: pickString(r["failure_mode"]),
+    subject,
+    failureMode,
+    previousFailureMode,
     recovery: pickString(r["recovery"]),
     hitsPath: pickString(r["hits_path"]),
     checkpointPath: pickString(r["checkpoint_path"]),

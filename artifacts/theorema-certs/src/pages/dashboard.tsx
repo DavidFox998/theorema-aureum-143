@@ -1747,6 +1747,21 @@ export default function DashboardPage() {
                           const isAcked = Boolean(alert.acknowledgedAt);
                           const isHighlighted =
                             highlightedAlertId === alert.id;
+                          // Task #161: a "MONITOR" badge fires for both
+                          // the stalled-monitor alert and its paired
+                          // recovery row, so an operator can see at a
+                          // glance that the row is a watchdog signal
+                          // (push-alerts silent) rather than a real
+                          // tamper. The underlying signal is the same
+                          // failure_mode / previous_failure_mode pair
+                          // that drives `kernel._alert_subject`.
+                          const isMonitorRow =
+                            alert.failureMode === "monitor_stalled" ||
+                            (alert.failureMode === "recovered" &&
+                              alert.previousFailureMode ===
+                                "monitor_stalled");
+                          const isRecoveryRow =
+                            alert.failureMode === "recovered";
                           return (
                             <li
                               key={`alert-${alert.id}`}
@@ -1770,14 +1785,40 @@ export default function DashboardPage() {
                               data-dropped-backpressure={
                                 anyDropped ? "true" : undefined
                               }
+                              data-monitor-row={
+                                isMonitorRow ? "true" : undefined
+                              }
                             >
+                              <div
+                                className={`font-bold break-words ${
+                                  isRecoveryRow
+                                    ? "text-green-700 dark:text-green-400"
+                                    : "text-red-700 dark:text-red-400"
+                                }`}
+                                data-testid={`text-ledger-alert-subject-${i}`}
+                              >
+                                {alert.subject}
+                              </div>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                 <span
-                                  className="inline-flex items-center gap-1 font-bold text-red-700 dark:text-red-400"
+                                  className={`inline-flex items-center gap-1 font-bold ${
+                                    isRecoveryRow
+                                      ? "text-green-700 dark:text-green-400"
+                                      : "text-red-700 dark:text-red-400"
+                                  }`}
                                 >
                                   <AlertTriangle className="w-3 h-3" />
                                   {alert.failureMode ?? "alert"}
                                 </span>
+                                {isMonitorRow ? (
+                                  <span
+                                    className="inline-block px-1.5 py-0.5 border border-sky-600/60 bg-sky-500/15 text-sky-800 dark:text-sky-300 font-semibold uppercase tracking-wider"
+                                    title="Watchdog signal from the auto-integrity monitor — push alerts on ledger tamper may have been silent. Not a tamper alert."
+                                    data-testid={`text-ledger-alert-monitor-badge-${i}`}
+                                  >
+                                    MONITOR
+                                  </span>
+                                ) : null}
                                 <span
                                   className="text-muted-foreground"
                                   title={alert.timestamp}
