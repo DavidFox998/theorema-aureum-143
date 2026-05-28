@@ -2405,6 +2405,26 @@ BRICKS=(
   "Towers.YM.LatticeRotation|TheoremaAureum.Towers.YM.LatticeGauge.rotateConfig_const_one"
   "Towers.YM.RotationInvariance|TheoremaAureum.Towers.YM.LatticeGauge.wilson_rotateConfig_const_one"
   "Towers.YM.MeasureRotation|TheoremaAureum.Towers.YM.LatticeGauge.gibbs_rotation_inv"
+  # TRI PARALLEL #12 / Batches 172.1, 172.2, 172.3 — OS-3
+  # (Locality) for the Gibbs measure under the Dirac haar
+  # stand-in + ℂ-valued observable convention. Support defines
+  # `dependsOnlyOn` and `support` for ℂ-valued observables on
+  # `GaugeConfig`; brick `support_const` (constant observables
+  # have empty support — snippet had no theorem, brick added to
+  # account for the +1 wall jump). DisjointCommute proves
+  # `disjoint_commute` (pointwise ℂ-commutativity); the
+  # `Disjoint` hypothesis is logically vacuous under the
+  # ℂ-valued convention but tracks the OS-3 data flow — under
+  # the deferred operator-valued algebra of observables it
+  # becomes load-bearing (tripwire). LocalityOS3 proves
+  # `os3_locality` via `simp_rw [disjoint_commute]` (full
+  # Dirac-stand-in OS-3). With OS-1 (169.3) and OS-2 (170.3 +
+  # 171.3), **3 of 4 OS axioms are closed under the Dirac
+  # stand-in**. OS-4 clustering and the operator-valued real
+  # OS-1..3 still open. Surface #1 stays OPEN.
+  "Towers.YM.Support|TheoremaAureum.Towers.YM.LatticeGauge.support_const"
+  "Towers.YM.DisjointCommute|TheoremaAureum.Towers.YM.LatticeGauge.disjoint_commute"
+  "Towers.YM.LocalityOS3|TheoremaAureum.Towers.YM.LatticeGauge.os3_locality"
 )
 
 VERIFIER_DIR="$(mktemp -d)"
