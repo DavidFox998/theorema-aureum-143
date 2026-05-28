@@ -2047,6 +2047,59 @@ BRICKS=(
   # backward compatibility (additive only — no deletions).
   "Towers.YM.PeterWeylQuadratic|TheoremaAureum.Towers.YM.PeterWeylQuadratic.Weyl_dim_SU3_explicit_real_le_cubic"
   "Towers.YM.PeterWeylQuadratic|TheoremaAureum.Towers.YM.PeterWeylQuadratic.PeterWeyl_Summable_SU3_quadratic"
+  # -----------------------------------------------------------------
+  # Batch 157.1 — Reflection-positivity *predicate* (Option B,
+  # probability-measure integration functional). Replaces the
+  # rejected 156.6 Varadhan attempt, which was blocked on absent
+  # mathlib v4.12.0 prerequisites (no `RiemannianManifold`
+  # typeclass, no `heatKernel` definition, no Hopf-Rinow on
+  # manifolds, no parabolic Harnack, no Wiener measure on path
+  # space).
+  #
+  # +2 sorry-free BRICKS, footprint ⊆
+  # {propext, Classical.choice, Quot.sound}. Additive only; all
+  # prior bricks left untouched. New 3 defs (NOT in BRICKS):
+  #   reflection           : coordinate-0 spatial reflection of
+  #                          ℂ-valued test functions over
+  #                          `EuclideanSpace ℝ (Fin (n+1))`.
+  #   reflectionPos        : the OS-positivity *predicate* on a
+  #                          ℂ-linear functional ρ — "for every
+  #                          test f, (ρ (f̄ · reflection f)).re ≥ 0".
+  #                          This is the *definition* of OS
+  #                          positivity, NOT a proof.
+  #   integralFunctional   : integration against a measure,
+  #                          packaged as a (α → ℂ) → ℂ functional.
+  #                          The only kind of functional for which
+  #                          `ρ 1 = 1` is honestly true.
+  #
+  # 2 BRICKS theorems:
+  #   reflection_involutive  : reflection (reflection f) = f
+  #                            (coord-0 reflection is an involution
+  #                            at the function level, via
+  #                            `Function.update_idem` +
+  #                            `Function.update_eq_self`).
+  #   reflection_pos_one     : integralFunctional μ (fun _ => 1) = 1
+  #                            for any `[IsProbabilityMeasure μ]`,
+  #                            via `integral_const + measure_univ +
+  #                            ENNReal.one_toReal + one_smul`. Honest
+  #                            replacement for the malformed template
+  #                            `⇑ρ (1) = 1` which placed
+  #                            `[IsProbabilityMeasure ρ]` on an
+  #                            arbitrary ℂ-linear functional ρ
+  #                            (typeclass does not apply to linear
+  #                            maps; conclusion false for a generic
+  #                            functional).
+  #
+  # Wall: 471 → 473. **Honest scope (locked).** This is NOT OS
+  # Axiom 1 for any Yang-Mills / Euclidean measure; this is NOT a
+  # proof that any specific lattice-gauge or continuum measure is
+  # reflection-positive. YM tower stays `Status: Open`
+  # (`docs/ROADMAP.md` § 2). Surface #1 stays OPEN — the
+  # `Surface1_InstallmentA.tex` opengap (Varadhan short-time
+  # heat-kernel asymptotics) remains parked. mathlib v4.12.0 only.
+  # -----------------------------------------------------------------
+  "Towers.YM.ReflectionPositivityCore|TheoremaAureum.Towers.YM.OS.reflection_involutive"
+  "Towers.YM.ReflectionPositivityCore|TheoremaAureum.Towers.YM.OS.reflection_pos_one"
 )
 
 VERIFIER_DIR="$(mktemp -d)"

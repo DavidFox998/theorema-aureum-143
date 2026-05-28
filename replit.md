@@ -153,8 +153,10 @@ plaquette / `F_μν` / mass-gap, NOT the Sobolev H¹ norm / Leray–Hopf
 solution. For per-batch prose and tactic notes see
 `docs/CHANGELOG.md`.
 
-**Current wall: 470 BRICKS** (script-reported by `scripts/check-towers.sh`).
-Last verified build: `towers-build` workflow, 2026-05-28 00:31 UTC.
+**Current wall: 473 BRICKS** (script-reported by `scripts/check-towers.sh`).
+Last verified build: `towers-build` workflow, 2026-05-28 00:31 UTC (last
+script-pass at wall 471; +2 from 157.1 below pending re-run of
+`towers-build`).
 
 | Date | Task / Batch | Δ Wall | Headline (full prose in `docs/CHANGELOG.md`) |
 |---|---|---|---|
@@ -167,11 +169,21 @@ Last verified build: `towers-build` workflow, 2026-05-28 00:31 UTC.
 | 2026-05-27 | Batch 156.2 / Task #156 file 2 of 6 | 465 → 467 ¹ | `Towers/YM/WeylDim.lean` — `dim_cubic_bound` (Varadhan scaffolding) |
 | 2026-05-27 | Batch 156.3 / Task #156 file 3 of 6 | 467 → 468 | `Towers/YM/PeterWeylHeatVaradhan.lean` — `Heat_kernel_envelope_real_le_varadhan` (Varadhan strip-form, **not** small-`t`) |
 | 2026-05-28 | Task #157 / PeterWeylQuadratic | 468 → 470 | `Towers/YM/PeterWeylQuadratic.lean` — `Weyl_dim_SU3_explicit_real_le_cubic` (real-valued cubic envelope) + `PeterWeyl_Summable_SU3_quadratic` (quadratic Casimir squeeze, rate 3β) |
+| 2026-05-28 | Batch 157.1 / ReflectionPositivityCore | 471 → 473 ² | `Towers/YM/ReflectionPositivityCore.lean` (Option B, replaces rejected 156.6 Varadhan) — `reflection_involutive` (coord-0 spatial reflection is an involution on ℂ-valued test fns over `EuclideanSpace ℝ (Fin (n+1))`) + `reflection_pos_one` (integration against a probability measure sends `1 ↦ 1`; honest replacement for the malformed `[IsProbabilityMeasure ρ]`-on-a-linear-map template). Defines OS-positivity *predicate* `reflectionPos`; does **NOT** prove OS Axiom 1 for any YM / Euclidean measure. Surface #1 stays OPEN (Varadhan opengap parked). |
 
 ¹ Batch 156.2's own brick delta is **+1**; the extra +1 reconciles
 `Towers.NS.HasFiniteEnergy_galilean_group` (Task #146, already in
 BRICKS line 442, first axiom-checked in this build). Full diff in
 `docs/CHANGELOG.md` Batch 156.2 § "Script-count drift".
+
+² Batch 157.1's own brick delta is **+2**; the extra +1 (from the
+"last script-pass at 471" baseline above vs the row's "470 →"
+predecessor) reconciles `Towers.NS.HasFiniteEnergy_rotating_frame`
+(Task #164, rotating-frame Coriolis closure of placeholder NS
+finite-energy, commit `0479997`, brick in
+`Towers/NS/EnergyIneq.lean`) — an undocumented row in this table
+that the script picked up between #157 and 157.1. Task #164 will
+get its own row when this table is next compacted.
 
 **Locked invariants across every row above:** axiom footprint =
 classical trio `{propext, Classical.choice, Quot.sound}`; mathlib
