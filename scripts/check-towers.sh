@@ -2272,6 +2272,11 @@ BRICKS=(
   "Towers.YM.TailImpliesTransfer|TheoremaAureum.Towers.YM.OS.tail_implies_transfer"
   "Towers.YM.ShiftOperator|TheoremaAureum.Towers.YM.OS.norm_shift_apply"
   "Towers.YM.NontrivialGap|TheoremaAureum.Towers.YM.OS.nontrivial_gap"
+  # TRI PARALLEL #7 / Batches 167.1 & 167.2 — close the stand-in era.
+  # ChainSummary (167.3) registers no BRICK (no new theorems; it is a
+  # dep-graph closure module exercised by `lake build`).
+  "Towers.YM.GapToDecay|TheoremaAureum.Towers.YM.OS.gap_to_decay"
+  "Towers.YM.SpectralBound|TheoremaAureum.Towers.YM.OS.spectral_bound"
   # Task #174 — land the remaining 3 Varadhan-track files for Task #156
   # (files 4–6 of the original 6-file plan). All three are trio-clean
   # honest stand-ins; none promotes the YM tower past `Status: Open`.
