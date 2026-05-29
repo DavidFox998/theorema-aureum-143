@@ -69,6 +69,7 @@ namespace VaradhanStripWidened
 
 open TheoremaAureum.Towers.YM.PeterWeylHeat
 open TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan
+open TheoremaAureum.Towers.YM.RiemannianGeometry
 
 /-- **Widened strip lower endpoint.** Concrete value
 `varadhan_t_lo / 2 = 1/200` (tracks the Task #190 widening of
@@ -238,6 +239,93 @@ theorem Heat_kernel_envelope_real_le_varadhan_widened_upper
             mul_le_mul_of_nonneg_left hexp_ineq
               (mul_nonneg hep_nonneg htop4_pos.le)
   linarith
+
+/-- **Geometric-form Varadhan-shape upper bound, genuinely extended to
+the widened upper side (Task #218).** For every `t : ℝ` with
+`varadhan_t_lo ≤ t ≤ varadhan_t_top_widened` and every `x : SU3` on the
+diagonal locus `d_SU3 x 1 = 0`,
+  `Heat_kernel_envelope_real t ≤`
+    `varadhan_C_widened · exp(-(d_SU3 x 1)^2 / (4 · t)) / t^4`.
+
+This is the geometric (off-diagonal-shape) companion of
+`Heat_kernel_envelope_real_le_varadhan_widened_upper`: it carries the
+same `exp(-d(x, 1)² / 4t)` geometric decay factor as the strip-form
+geometric brick `Heat_kernel_envelope_real_le_varadhan_geometric`
+(file `PeterWeylHeatVaradhan.lean`), but **widens the valid upper
+`t`-window** from `varadhan_t_top` up to
+`varadhan_t_top_widened = 2 · varadhan_t_top`, with the RHS amplitude
+**retuned** to `varadhan_C_widened` to absorb the larger polynomial
+factor. The two bounds now cover the same `t`-window
+`[varadhan_t_lo, varadhan_t_top_widened]`.
+
+The proof mirrors `Heat_kernel_envelope_real_le_varadhan_geometric`,
+but reduces to `Heat_kernel_envelope_real_le_varadhan_widened_upper`
+(the genuinely upper-widened strip bound) rather than the original
+strip bound. On the diagonal locus `d_SU3 x 1 = 0` the geometric exp
+factor collapses to `1`, so the geometric RHS reduces to
+`varadhan_C_widened / t^4`, and the strip bound plus `exp(-c/t) ≤ 1`
+closes it.
+
+**Task #189 / #210 tripwire — diagonal hypothesis.** As in the
+strip-form geometric brick, the diagonal hypothesis `hx : d_SU3 x 1 = 0`
+is retained: with the real Killing-form chordal `d_SU3`, the
+off-diagonal case `d_SU3 x 1 > 0` makes the RHS strictly smaller than
+`varadhan_C_widened / t^4`, which is exactly the open Varadhan /
+Molchanov off-diagonal asymptotic. The lower endpoint stays at
+`varadhan_t_lo` — the literal small-`t` inequality is false on
+`(0, varadhan_t_lo)`, so only the upper side widens.
+
+**Honest scope (locked).** Still a *strip* bound on a bounded
+`t`-window, NOT the small-`t` asymptotic on a neighbourhood of `0`,
+and NOT the off-diagonal Varadhan asymptotic. YM tower stays
+`Status: Open` in `docs/ROADMAP.md` § 2; Surface #2 stays OPEN. -/
+theorem Heat_kernel_envelope_real_le_varadhan_geometric_widened_upper
+    {t : ℝ} (ht_lo : varadhan_t_lo ≤ t) (ht_top : t ≤ varadhan_t_top_widened)
+    (x : SU3) (hx : d_SU3 x (1 : SU3) = 0) :
+    Heat_kernel_envelope_real t ≤
+      varadhan_C_widened *
+        Real.exp (-((d_SU3 x (1 : SU3)) ^ 2 / (4 * t))) / t ^ 4 := by
+  have htpos : 0 < t := lt_of_lt_of_le varadhan_t_lo_pos ht_lo
+  have ht4_pos : 0 < t ^ 4 := pow_pos htpos 4
+  -- Step 1: the upper-widened strip bound (retuned amplitude).
+  have hstrip :
+      Heat_kernel_envelope_real t ≤
+        varadhan_C_widened * Real.exp (-(varadhan_c / t)) / t ^ 4 :=
+    Heat_kernel_envelope_real_le_varadhan_widened_upper ht_lo ht_top
+  -- Step 2: the geometric exp factor collapses to `1` on the diagonal.
+  have hgeom_zero : (d_SU3 x (1 : SU3)) ^ 2 / (4 * t) = 0 := by
+    rw [hx]; ring
+  have hexp_geom :
+      Real.exp (-((d_SU3 x (1 : SU3)) ^ 2 / (4 * t))) = 1 := by
+    rw [hgeom_zero, neg_zero, Real.exp_zero]
+  -- Step 3: `exp(-(c/t)) ≤ 1` since `c, t > 0`.
+  have hcoverpos : 0 ≤ varadhan_c / t :=
+    div_nonneg varadhan_c_pos.le htpos.le
+  have hexp_le_one :
+      Real.exp (-(varadhan_c / t)) ≤ 1 := by
+    calc Real.exp (-(varadhan_c / t))
+        ≤ Real.exp 0 := Real.exp_le_exp.mpr (by linarith)
+      _ = 1 := Real.exp_zero
+  -- Step 4: turn the geometric RHS into `varadhan_C_widened / t^4` and chain.
+  have hVC_pos : 0 < varadhan_C_widened := varadhan_C_widened_pos
+  have h_geom_rhs :
+      varadhan_C_widened *
+          Real.exp (-((d_SU3 x (1 : SU3)) ^ 2 / (4 * t))) / t ^ 4 =
+        varadhan_C_widened / t ^ 4 := by
+    rw [hexp_geom, mul_one]
+  rw [h_geom_rhs]
+  have hnum :
+      varadhan_C_widened * Real.exp (-(varadhan_c / t)) ≤ varadhan_C_widened := by
+    calc varadhan_C_widened * Real.exp (-(varadhan_c / t))
+        ≤ varadhan_C_widened * 1 :=
+          mul_le_mul_of_nonneg_left hexp_le_one hVC_pos.le
+      _ = varadhan_C_widened := mul_one _
+  have hstrip_le :
+      varadhan_C_widened * Real.exp (-(varadhan_c / t)) / t ^ 4 ≤
+        varadhan_C_widened / t ^ 4 := by
+    rw [div_le_div_iff ht4_pos ht4_pos]
+    nlinarith [hnum, ht4_pos]
+  exact le_trans hstrip hstrip_le
 
 end VaradhanStripWidened
 end YM

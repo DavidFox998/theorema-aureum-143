@@ -2555,6 +2555,19 @@ BRICKS=(
   "Towers.YM.VaradhanStripWidened|TheoremaAureum.Towers.YM.VaradhanStripWidened.varadhan_t_top_lt_widened"
   "Towers.YM.VaradhanStripWidened|TheoremaAureum.Towers.YM.VaradhanStripWidened.Heat_kernel_envelope_real_le_varadhan_widened"
   "Towers.YM.VaradhanStripWidened|TheoremaAureum.Towers.YM.VaradhanStripWidened.Heat_kernel_envelope_real_le_varadhan_widened_upper"
+  # Task #218 — geometric (off-diagonal-shape) companion of
+  #   `Heat_kernel_envelope_real_le_varadhan_widened_upper`. Carries the
+  #   geometric `exp(-(d_SU3 x 1)² / (4t))` factor (as in the strip-form
+  #   `Heat_kernel_envelope_real_le_varadhan_geometric`) but widens the
+  #   valid UPPER `t`-window to `varadhan_t_top_widened = 2·varadhan_t_top`
+  #   with the RHS amplitude RETUNED to `varadhan_C_widened`, so the
+  #   geometric and plain bounds now cover the same `t`-window
+  #   `[varadhan_t_lo, varadhan_t_top_widened]`. Retains the Task
+  #   #189/#210 diagonal hypothesis `d_SU3 x 1 = 0`; lower endpoint stays
+  #   at `varadhan_t_lo` (small-`t` inequality false below it). Still a
+  #   strip bound, NOT the off-diagonal Varadhan asymptotic. YM tower
+  #   stays `Status: Open`; Surface #2 stays OPEN.
+  "Towers.YM.VaradhanStripWidened|TheoremaAureum.Towers.YM.VaradhanStripWidened.Heat_kernel_envelope_real_le_varadhan_geometric_widened_upper"
   "Towers.YM.ContinuumHookup|TheoremaAureum.Towers.YM.ContinuumHookup.continuum_heat_envelope_bound"
   "Towers.YM.ContinuumHookup|TheoremaAureum.Towers.YM.ContinuumHookup.continuum_heat_envelope_bound_target_default"
   "Towers.YM.MassGapEnvelope|TheoremaAureum.Towers.YM.MassGapEnvelope.mass_gap_envelope_constant_pos"

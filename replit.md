@@ -6,10 +6,10 @@ sketches, drift footnotes, env var docs, stack, where-things-live,
 user preferences, gotchas, pointers — all rolled into CHANGELOG by
 the Wall-510 / Wall-539 / Wall-542 trims).
 
-- **Wall:** 531 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
-  528 + 3 from **Task #217** below. Was 545 pre-deferral — prior `543`
-  headline was stale by 2. See **Task #208** below for the −29-entry /
-  24-module deferral.)
+- **Wall:** 532 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
+  528 + 3 from **Task #217** + 1 from **Task #218** below. Was 545
+  pre-deferral — prior `543` headline was stale by 2. See **Task #208**
+  below for the −29-entry / 24-module deferral.)
   - Rebase note (Task #208): the `LatticeGauge.lean` `G`/`GaugeConfig`
     substrate was kept RESTORED (mathlib imports + defs) rather than
     left trimmed — additive, wall unchanged at 516; the deferred
@@ -26,7 +26,7 @@ the Wall-510 / Wall-539 / Wall-542 trims).
 
 ## Tower Status — 2026-05-29 12:47 PDT
 
-- **GREEN: 531 bricks** (`scripts/check-towers.sh` `BRICKS`).
+- **GREEN: 532 bricks** (`scripts/check-towers.sh` `BRICKS`).
 - **Registered YM walls** (tagged, landed as files — the lake-gated
   `[YM1-*]` walls, NOT counted in the BRICKS array; now FOUR after
   Task #248 Step 5, registered in `scripts/check-towers.sh`):
@@ -113,6 +113,51 @@ stays OPEN, YM Status: Open. No mass-gap / μ>0 claim.**
   mathlib lemmas + project defs.
 - **Next task (deferred bound):** prove `0 < wilsonAction U` for
   `U ≠ const 1` — the single inequality the gap now rests on.
+
+## Task #218 — widen the off-diagonal-shape heat-kernel bound on the upper side too (2026-05-29)
+
+Gave the *geometric* (off-diagonal-shape) Varadhan strip brick the same
+upper-side widening Task #194 gave the plain strip brick, so the two now
+cover the same `t`-window `[varadhan_t_lo, varadhan_t_top_widened]`.
+
+- **`Towers/YM/VaradhanStripWidened.lean`** (before `end
+  VaradhanStripWidened`):
+  - **`Heat_kernel_envelope_real_le_varadhan_geometric_widened_upper`** —
+    for `varadhan_t_lo ≤ t ≤ varadhan_t_top_widened` and `x : SU3` on the
+    diagonal locus `hx : d_SU3 x 1 = 0`,
+    `Heat_kernel_envelope_real t ≤ varadhan_C_widened ·
+    exp(-(d_SU3 x 1)²/(4t)) / t^4`. Geometric companion of the Task #194
+    `Heat_kernel_envelope_real_le_varadhan_widened_upper`: carries the
+    same `exp(-d(x,1)²/4t)` factor as the strip-form geometric brick
+    `Heat_kernel_envelope_real_le_varadhan_geometric`
+    (`PeterWeylHeatVaradhan.lean`), but widens the valid UPPER `t`-window
+    to `varadhan_t_top_widened = 2·varadhan_t_top` with the RHS amplitude
+    RETUNED to `varadhan_C_widened`. Proof mirrors the strip-form
+    geometric brick but reduces to the upper-widened strip bound; on the
+    diagonal the exp factor collapses to `1`, so the RHS becomes
+    `varadhan_C_widened / t^4` and `exp(-c/t) ≤ 1` closes it.
+  - Lives in `VaradhanStripWidened.lean` (NOT `PeterWeylHeatVaradhan.lean`,
+    despite the task's relevant-files list) because `varadhan_C_widened`,
+    `varadhan_t_top_widened`, and `Heat_kernel_envelope_real_le_varadhan_widened_upper`
+    are all owned by `VaradhanStripWidened.lean`, which *imports*
+    `PeterWeylHeatVaradhan.lean` — placing the brick upstream would be a
+    circular import. Added `open …RiemannianGeometry` for `SU3` / `d_SU3`.
+  - Retains the Task #189/#210 diagonal hypothesis `d_SU3 x 1 = 0`
+    (off-diagonal case stays the open Varadhan/Molchanov regime). Lower
+    endpoint stays at `varadhan_t_lo` (small-`t` inequality false below).
+
+- **+1 BRICK** (531 → 532) registered in `scripts/check-towers.sh`
+  `BRICKS`.
+- **Verified:** `lake env lean Towers/YM/VaradhanStripWidened.lean`
+  exits 0; `#print axioms
+  …Heat_kernel_envelope_real_le_varadhan_geometric_widened_upper` =
+  `[propext, Classical.choice, Quot.sound]` (classical trio), no `sorry`.
+  Done via direct `lake env lean` on a warm cache (after
+  `restore-lake-git.sh` worktree rehydrate + partial `cache get`; the
+  wiping `towers-build` / `check-towers.sh` NOT run per the gotcha).
+- Makes NO mass-gap / μ>0 / Surface-#1 / Surface-#2 claim — still a
+  bounded-`t` STRIP bound, NOT the small-`t` or off-diagonal asymptotic.
+  Surface #2 stays OPEN, YM **Status: Open**.
 
 ## Task #217 — lift the half-cubic heat-kernel envelope bound to the whole tsum (2026-05-29)
 
