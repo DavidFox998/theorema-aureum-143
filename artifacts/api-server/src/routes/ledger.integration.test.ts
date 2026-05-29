@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, unlinkSync, existsSync, chmodSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -10,6 +10,47 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createLedgerRouter, createLedgerChecker, startLedgerMonitor } from "./ledger.js";
 import type { LedgerAlertInvocation, LedgerAlertSink } from "../lib/ledgerAlerts.js";
+
+// Task #200: in-memory stand-in for the `ledger_checkpoint_reroll_history`
+// table so the digest test can seed rows and let the REAL
+// `fetchRerollRowsSince` read them back through the same drizzle chain
+// the production code uses (`select().from().where().orderBy()`),
+// without needing a live Postgres. `ledger.ts` / `ledgerAlerts.ts`
+// don't touch `@workspace/db`, so this mock only affects the digest
+// describe block below.
+const rerollSeededRows: Array<Record<string, unknown>> = [];
+
+vi.mock("@workspace/db", () => {
+  return {
+    db: {
+      insert: () => ({
+        values: async (v: Record<string, unknown>) => {
+          rerollSeededRows.push(v);
+        },
+      }),
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            // `fetchRerollRowsSince` orders by `desc(id)` (newest first).
+            orderBy: async () =>
+              [...rerollSeededRows].sort(
+                (a, b) => (b["id"] as number) - (a["id"] as number),
+              ),
+          }),
+        }),
+      }),
+    },
+    ledgerCheckpointRerollHistoryTable: {
+      id: Symbol("reroll-id"),
+      timestamp: Symbol("reroll-timestamp"),
+    },
+  };
+});
+
+const { db: mockDb, ledgerCheckpointRerollHistoryTable } = await import(
+  "@workspace/db"
+);
+const { startRerollDigestScheduler } = await import("../lib/rerollDigest.js");
 
 /**
  * Mirrors the canonicalize() + HMAC scheme in ledger.ts so tests can
@@ -1668,6 +1709,393 @@ describe("watchdog stall alert — SMTP + webhook subject on the wire (task #162
         expect(recoverEmail.body).not.toContain("REPRODUCE.md");
       } finally {
         monitor.stop();
+        await webhook.close();
+        await smtp.close();
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    60_000,
+  );
+});
+
+/**
+ * Task #200: end-to-end coverage that the daily re-roll digest path
+ * reaches the wire on BOTH transports with the shape the kernel
+ * email/subject formatter expects. The builder + scheduler already
+ * have unit coverage (`rerollDigest.test.ts`), and the kernel's
+ * `_alert_subject` / `_send_email` `reroll_digest` branch is smoke
+ * tested on the Python side — but nothing pinned the contract BETWEEN
+ * them. A rename of a context key on the api-server side (e.g.
+ * `digest_text` → `digestText`, or dropping `window_hours`) would slip
+ * past both suites while silently blanking the operator's email body.
+ *
+ * Flow:
+ *   seed `ledger_checkpoint_reroll_history` rows (mocked db)
+ *     → real `startRerollDigestScheduler(...).runNow()`
+ *       → real `fetchRerollRowsSince` + `buildRerollDigest`
+ *         → wire sink → real `kernel._fire_ledger_alert` (spawned)
+ *           → real `_send_email` to a Node SMTP capture
+ *           → real `_post_webhook` to a Node HTTP capture
+ *             → assert the distinct digest subject + body fields.
+ */
+describe("reroll digest — SMTP + webhook on the wire (task #200)", () => {
+  const REPO_ROOT = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "..",
+    "..",
+  );
+
+  interface WebhookCapture {
+    server: http.Server;
+    port: number;
+    captured: Array<{ headers: Record<string, string>; body: string }>;
+    close: () => Promise<void>;
+  }
+
+  async function startWebhookCapture(): Promise<WebhookCapture> {
+    const captured: Array<{
+      headers: Record<string, string>;
+      body: string;
+    }> = [];
+    const app = express();
+    app.use(express.raw({ type: "*/*", limit: "1mb" }));
+    app.post("/alert", (req, res) => {
+      captured.push({
+        headers: Object.fromEntries(
+          Object.entries(req.headers).map(([k, v]) => [
+            k,
+            Array.isArray(v) ? v.join(",") : String(v ?? ""),
+          ]),
+        ),
+        body: (req.body as Buffer).toString("utf-8"),
+      });
+      res.status(200).send("ok");
+    });
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const port = (server.address() as AddressInfo).port;
+    return {
+      server,
+      port,
+      captured,
+      close: () =>
+        new Promise<void>((resolve, reject) =>
+          server.close((err) => (err ? reject(err) : resolve())),
+        ),
+    };
+  }
+
+  interface SmtpCapture {
+    port: number;
+    messages: Array<{ raw: string; subject: string; body: string }>;
+    close: () => Promise<void>;
+  }
+
+  // Minimal RFC-5321 sink (same shape as the task #162 capture): speaks
+  // just enough EHLO / MAIL FROM / RCPT TO / DATA / QUIT for
+  // `smtplib.SMTP.send_message` and decodes quoted-printable so the
+  // long digest body can be matched on human-readable substrings even
+  // when the SMTP layer soft-wraps it across `=\r\n` breaks.
+  async function startSmtpCapture(): Promise<SmtpCapture> {
+    const net = await import("node:net");
+    const messages: Array<{ raw: string; subject: string; body: string }> = [];
+    const server = net.createServer((sock) => {
+      sock.setEncoding("utf-8");
+      let buf = "";
+      let inData = false;
+      let dataLines: string[] = [];
+      const write = (line: string) => sock.write(line + "\r\n");
+      write("220 mini.smtp ready");
+      sock.on("data", (chunk: string) => {
+        buf += chunk;
+        let nl: number;
+        while ((nl = buf.indexOf("\r\n")) >= 0) {
+          const line = buf.slice(0, nl);
+          buf = buf.slice(nl + 2);
+          if (inData) {
+            if (line === ".") {
+              const raw = dataLines.join("\r\n");
+              const headerEnd = raw.indexOf("\r\n\r\n");
+              let subject = "";
+              let body = "";
+              if (headerEnd >= 0) {
+                const headers = raw.slice(0, headerEnd);
+                const rawBody = raw.slice(headerEnd + 4);
+                const unfolded = headers.replace(/\r\n[\t ]+/g, " ");
+                let cte = "";
+                for (const h of unfolded.split("\r\n")) {
+                  const ms = /^Subject:\s*(.*)$/i.exec(h);
+                  if (ms && ms[1] !== undefined) subject = ms[1];
+                  const mc = /^Content-Transfer-Encoding:\s*(.*)$/i.exec(h);
+                  if (mc && mc[1] !== undefined) cte = mc[1].toLowerCase();
+                }
+                body = rawBody;
+                if (cte === "quoted-printable") {
+                  body = body
+                    .replace(/=\r\n/g, "")
+                    .replace(/=\n/g, "")
+                    .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) =>
+                      String.fromCharCode(parseInt(hex, 16)),
+                    );
+                }
+              }
+              messages.push({ raw, subject, body });
+              inData = false;
+              dataLines = [];
+              write("250 queued");
+            } else {
+              dataLines.push(line.startsWith("..") ? line.slice(1) : line);
+            }
+            continue;
+          }
+          const upper = line.toUpperCase();
+          if (upper.startsWith("EHLO") || upper.startsWith("HELO")) {
+            write("250 hello");
+          } else if (upper.startsWith("MAIL FROM:")) {
+            write("250 ok");
+          } else if (upper.startsWith("RCPT TO:")) {
+            write("250 ok");
+          } else if (upper.startsWith("DATA")) {
+            write("354 send data");
+            inData = true;
+            dataLines = [];
+          } else if (upper.startsWith("QUIT")) {
+            write("221 bye");
+            sock.end();
+          } else if (upper.startsWith("RSET") || upper.startsWith("NOOP")) {
+            write("250 ok");
+          } else {
+            write("250 ok");
+          }
+        }
+      });
+      sock.on("error", () => {
+        /* ignore */
+      });
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const port = (server.address() as AddressInfo).port;
+    return {
+      port,
+      messages,
+      close: () =>
+        new Promise<void>((resolve, reject) =>
+          server.close((err) => (err ? reject(err) : resolve())),
+        ),
+    };
+  }
+
+  // Mirror of `createKernelAlertSink` that redirects `kernel.ALERTS_LOG`
+  // to a per-test tmp file and plumbs the webhook + SMTP env vars into
+  // the spawn so the real `_post_webhook` / `_send_email` transports
+  // run against our capture servers. Drains the daemon dispatch thread
+  // before exit via `_await_alert_dispatch`.
+  function makeWireSink(
+    alertsLogPath: string,
+    env: Record<string, string>,
+  ): LedgerAlertSink {
+    const program = [
+      "import json, sys, pathlib",
+      `sys.path.insert(0, ${JSON.stringify(REPO_ROOT)})`,
+      "import kernel",
+      `kernel.ALERTS_LOG = pathlib.Path(${JSON.stringify(alertsLogPath)})`,
+      "data = json.load(sys.stdin)",
+      "kernel._fire_ledger_alert(data['message'], data['context'])",
+      "assert kernel._await_alert_dispatch(15.0), 'alert dispatch did not drain'",
+    ].join("\n");
+    return (invocation: LedgerAlertInvocation) =>
+      new Promise<void>((resolve, reject) => {
+        const child = spawn("python3", ["-c", program], {
+          stdio: ["pipe", "ignore", "pipe"],
+          env: { ...process.env, ...env },
+        });
+        let stderr = "";
+        child.stderr.on("data", (b: Buffer) => {
+          stderr += b.toString("utf-8");
+        });
+        child.on("error", (err) => reject(err));
+        child.on("exit", (code) => {
+          if (code !== 0) {
+            reject(
+              new Error(
+                `digest wire sink subprocess exited ${code}; stderr=${stderr}`,
+              ),
+            );
+            return;
+          }
+          resolve();
+        });
+        child.stdin.end(
+          JSON.stringify({
+            message: invocation.message,
+            context: invocation.context,
+          }),
+        );
+      });
+  }
+
+  it(
+    "delivers the digest subject + body fields on both SMTP and webhook from seeded reroll-history rows",
+    async () => {
+      const dir = mkdtempSync(path.join(tmpdir(), "reroll-digest-wire-"));
+      const alertsLogPath = path.join(dir, "ledger-alerts.jsonl");
+
+      // Fixed clock so the seeded rows land inside the 24h window and
+      // the assertions are deterministic.
+      const now = new Date("2026-05-28T12:00:00.000Z");
+
+      // Seed a few rows THROUGH the (mocked) db so the real
+      // `fetchRerollRowsSince` reads them back: two oks for alice, one
+      // fail for bob, one fail for an unnamed referee.
+      rerollSeededRows.length = 0;
+      const seed = [
+        {
+          id: 1,
+          timestamp: new Date("2026-05-28T08:00:00.000Z"),
+          durationMs: 1200,
+          exitCode: 0,
+          ok: true,
+          error: null,
+          refereeName: "alice",
+          ip: "10.0.0.1",
+        },
+        {
+          id: 2,
+          timestamp: new Date("2026-05-28T09:00:00.000Z"),
+          durationMs: 1300,
+          exitCode: 0,
+          ok: true,
+          error: null,
+          refereeName: "alice",
+          ip: "10.0.0.1",
+        },
+        {
+          id: 3,
+          timestamp: new Date("2026-05-28T10:00:00.000Z"),
+          durationMs: 4200,
+          exitCode: 2,
+          ok: false,
+          error: "checkpoint reroll script exploded",
+          refereeName: "bob",
+          ip: "10.0.0.9",
+        },
+        {
+          id: 4,
+          timestamp: new Date("2026-05-28T11:00:00.000Z"),
+          durationMs: 900,
+          exitCode: 1,
+          ok: false,
+          error: "permission denied",
+          refereeName: null,
+          ip: "10.0.0.12",
+        },
+      ];
+      for (const r of seed) {
+        await mockDb.insert(ledgerCheckpointRerollHistoryTable).values(r);
+      }
+
+      const webhook = await startWebhookCapture();
+      const smtp = await startSmtpCapture();
+
+      const sink = makeWireSink(alertsLogPath, {
+        MORNINGSTAR_ALERT_WEBHOOK_URL: `http://127.0.0.1:${webhook.port}/alert`,
+        MORNINGSTAR_ALERT_EMAIL_TO: "ops@example.com",
+        MORNINGSTAR_ALERT_EMAIL_FROM: "ledger@example.com",
+        MORNINGSTAR_ALERT_SMTP_HOST: "127.0.0.1",
+        MORNINGSTAR_ALERT_SMTP_PORT: String(smtp.port),
+        MORNINGSTAR_WORKFLOW_NAME: "api-server-e2e-200",
+        MORNINGSTAR_ALERT_SMTP_USER: "",
+        MORNINGSTAR_ALERT_SMTP_PASSWORD: "",
+      });
+
+      const scheduler = startRerollDigestScheduler({
+        windowHours: 24,
+        sink,
+        logger: { info: () => {}, warn: () => {}, error: () => {} },
+        intervalMs: 60 * 60 * 1000,
+        now: () => now,
+        // Sinks are configured for this run regardless of the parent
+        // env; the digest content is what we're pinning.
+        hasSink: () => true,
+      });
+
+      try {
+        const digest = await scheduler.runNow();
+        expect(digest).not.toBeNull();
+        expect(digest!.totalAttempts).toBe(4);
+        expect(digest!.okCount).toBe(2);
+        expect(digest!.failCount).toBe(2);
+
+        expect(webhook.captured).toHaveLength(1);
+        expect(smtp.messages).toHaveLength(1);
+
+        // Webhook: JSON body carries the digest context verbatim plus
+        // the kernel-derived `subject`.
+        const payload = JSON.parse(webhook.captured[0]!.body) as Record<
+          string,
+          unknown
+        >;
+        expect(payload["failure_mode"]).toBe("reroll_digest");
+        expect(payload["source"]).toBe("rerollDigest");
+        expect(payload["window_hours"]).toBe(24);
+        expect(payload["total_attempts"]).toBe(4);
+        expect(payload["ok_count"]).toBe(2);
+        expect(payload["fail_count"]).toBe(2);
+        expect(Array.isArray(payload["per_referee"])).toBe(true);
+        expect(Array.isArray(payload["failures"])).toBe(true);
+        expect((payload["failures"] as unknown[]).length).toBe(2);
+        expect(typeof payload["digest_text"]).toBe("string");
+        const subject = String(payload["subject"]);
+        expect(subject).toContain("Checkpoint re-roll digest");
+        expect(subject).toContain("(last 24h)");
+        expect(subject).toContain("api-server-e2e-200");
+        expect(subject).not.toContain("Ledger integrity alert");
+        expect(subject).not.toContain("MONITOR STALLED");
+
+        // SMTP: Subject header matches the same distinct line, and the
+        // body carries the digest-specific fields + the pre-formatted
+        // digest text — NOT the tamper expected/actual hash columns or
+        // the recovery pointer.
+        const email = smtp.messages[0]!;
+        expect(email.subject).toContain("Checkpoint re-roll digest");
+        expect(email.subject).toContain("(last 24h)");
+        expect(email.subject).toContain("api-server-e2e-200");
+        expect(email.body).toContain("window_hours: 24");
+        expect(email.body).toContain("total_attempts: 4");
+        expect(email.body).toContain("ok_count: 2");
+        expect(email.body).toContain("fail_count: 2");
+        // Digest text body: per-referee rollup + per-row failures.
+        expect(email.body).toContain("By referee:");
+        expect(email.body).toContain("- bob: ok=0, fail=1");
+        expect(email.body).toContain("- alice: ok=2, fail=0");
+        expect(email.body).toContain("Failures:");
+        expect(email.body).toContain("referee=bob");
+        expect(email.body).toContain("referee=(unnamed)");
+        expect(email.body).toContain(
+          'err="checkpoint reroll script exploded"',
+        );
+        // Routine-digest framing, not tamper framing.
+        expect(email.body).toContain("This is a routine digest");
+        expect(email.body).not.toContain("REPRODUCE.md");
+        expect(email.body).not.toContain("expected_sha:");
+
+        // Sanity: the kernel also wrote a ring-buffer entry tagged with
+        // the digest failure_mode (proof we routed the real path).
+        const logged = readFileSync(alertsLogPath, "utf-8")
+          .split("\n")
+          .filter((l) => l.trim() !== "")
+          .map((l) => JSON.parse(l) as Record<string, unknown>);
+        expect(logged).toHaveLength(1);
+        expect(logged[0]!["failure_mode"]).toBe("reroll_digest");
+        expect(logged[0]!["delivery"]).toBeTruthy();
+      } finally {
+        scheduler.stop();
         await webhook.close();
         await smtp.close();
         rmSync(dir, { recursive: true, force: true });
