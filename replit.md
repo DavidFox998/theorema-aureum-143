@@ -43,9 +43,25 @@ the Wall-510 / Wall-539 / Wall-542 trims).
   `lean` (lake-free). Registered as [YM1-LB-Core], NOT [YM1]; makes NO
   mass-gap / μ>0 / Surface-#1 claim — Surface #1 stays OPEN, YM Status
   Open. NOT in `scripts/check-towers.sh` BRICKS (that path is
-  lake-gated → script-reported wall unchanged). ℝ companion
-  "B-deferred" (`Towers/YM/LatticePositivityReal.lean`) awaits a
-  healthy mathlib cache. Verify: see the file's honest-scope header.
+  lake-gated → script-reported wall unchanged). ℝ companion now
+  landed as Wall 572 / [YM1-LB-Real] (see next entry).
+
+- **Wall 572 / [YM1-LB-Real]** — `Towers/YM/LatticePositivityReal.lean`
+  written + VERIFIED (`namespace TheoremaAureum.YM_MassGap`). ℝ
+  companion of Wall 571-B: `hamiltonian_pos` proves, for the IDENTITY
+  stand-in `H = 1` on the finite real ℓ² space `PiLp 2 (fun _ : Fin n
+  => ℝ)`, that `0 ≤ ⟪ψ, H ψ⟫_ℝ` with equality iff `ψ = 0`
+  (`real_inner_self_nonneg` + `inner_self_eq_zero`) — the trivial
+  Hilbert-space shadow of "H ≥ 0", NOTHING more. `H` is NOT the
+  Wilson / Yang–Mills transfer operator. `#print axioms
+  …hamiltonian_pos` = `[propext, Classical.choice, Quot.sound]`
+  (classical trio — accepted criterion, NOT []) via `lake env lean`.
+  Registered as [YM1-LB-Real], NOT [YM1]; makes NO mass-gap / μ>0 /
+  spectral-gap / Surface-#1 claim — Surface #1 stays OPEN, YM Status
+  Open. Real (non-identity) `H` and any gap statement deferred to
+  Wall 573. NOT in `scripts/check-towers.sh` BRICKS (lake-gated →
+  script-reported wall unchanged). Verify: see the file's
+  honest-scope header.
 
 - **Batch 178.1 / SLinkDef** — `Towers/YM/SLinkDef.lean` written
   (`S_link` + brick `S_link_const_one`), NOT registered to

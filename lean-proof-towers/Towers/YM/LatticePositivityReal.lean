@@ -43,5 +43,3 @@ theorem hamiltonian_pos :
   exact ⟨hpos, hzero⟩
 
 end TheoremaAureum.YM_MassGap
-
-#print axioms TheoremaAureum.YM_MassGap.hamiltonian_pos
