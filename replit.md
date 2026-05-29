@@ -6,7 +6,9 @@ sketches, drift footnotes, env var docs, stack, where-things-live,
 user preferences, gotchas, pointers — all rolled into CHANGELOG by
 the Wall-510 / Wall-539 / Wall-542 trims).
 
-- **Wall:** 543 BRICKS (script-reported by `scripts/check-towers.sh`)
+- **Wall:** 516 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
+  was 545 pre-deferral — prior `543` headline was stale by 2. See
+  **Task #208** below for the −29-entry / 24-module deferral.)
 - **YM Surface #1:** Open
 - **Axiom debt:** `[]` on `TheoremaAureum.main_theorem`
   (`#print axioms` returns `[]`; also `[]` on `H2_WeilTransfer` and
@@ -15,6 +17,42 @@ the Wall-510 / Wall-539 / Wall-542 trims).
   `{propext, Classical.choice, Quot.sound}` · no `sorry` / `admit`
   in any landed brick · YM and NS towers stay `Status: Open` in
   `docs/ROADMAP.md`
+
+## Task #208 — Mathlib build unblock + OS-surface deferral (2026-05-29)
+
+Root cause of the red `towers-build`: `Towers/YM/LatticeGauge.lean`
+and `Towers/YM/WilsonAction.lean` had been trimmed to **pure-core**
+(zero mathlib imports), which DELETED the `G` (= SU(2)),
+`GaugeConfig`, and `plaquette` substrate ("deferred to Wall 570+").
+That orphaned every brick standing on it.
+
+Resolution (user-approved, deferral path):
+
+- **Repaired in place (4 modules, no statement change):**
+  `SpectralBound` (import → `Mathlib.Analysis.Normed.Algebra.Spectrum`),
+  `KoteckyPreiss` (add `import Towers.YM.LatticeGauge` for `Link` +
+  `noncomputable polymerWeight`), `PolymerModel` (add `LatticeGauge`
+  + `Mathlib.Data.Set.Pairwise.Lattice`, `noncomputable
+  polymerWeightReal`, `PairwiseDisjoint` via `Set` coercion),
+  `MassGapEnvelope` (`open scoped InnerProductSpace` for `⟪·,·⟫_ℂ`).
+  All four verified: `#print axioms` = classical trio.
+
+- **Deferred (24 modules → 29 BRICKS entries removed):** the full
+  Osterwalder–Schrader surface (TRI #9–#13: OS-1 reflection
+  positivity, OS-2 invariance, OS-3 locality, OS-4 clustering) plus
+  the real Kotecký–Preiss / transfer-kernel chain. = 5 direct
+  orphans (`LatticeRotation`, `LatticeAction`, `TimeReflection`,
+  `Support`, `PlaquetteEnergy`) + 19 transitive importers. Removed
+  from `lakefile.lean` roots (99 → 75) and `scripts/check-towers.sh`
+  `BRICKS` (545 → 516). The `.lean` files are KEPT on disk for
+  re-registration once the `G`/`GaugeConfig`/`plaquette` substrate
+  returns at Wall 570+. These bricks made NO mass-gap / μ>0 claim
+  (all vacuous `const_one` / Dirac stand-ins) — Surface #1 stays
+  OPEN, YM Status Open. No invariant changed.
+
+- **Verified:** direct `lake build Towers` = green (the wiping
+  `check-towers.sh` / `towers-build` was NOT run — it `lake update`s
+  and re-clones mathlib per the gotcha below).
 
 ## Locked invariants (every batch must hold these)
 

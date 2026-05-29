@@ -6,6 +6,14 @@ this file is the version history.
 
 ---
 
+## Task #208 — Mathlib build unblock + OS-surface deferral (2026-05-29)
+
+| Date | Task / Batch | Δ Wall | Headline |
+|---|---|---|---|
+| 2026-05-29 | Task #208 / Mathlib build unblock + OS deferral | 545 → 516 | Red `towers-build` root-caused to the pure-core trim of `LatticeGauge.lean` + `WilsonAction.lean` (deleted the `G`=SU(2) / `GaugeConfig` / `plaquette` substrate). **Repaired in place (no statement change):** `SpectralBound` (Spectrum import), `KoteckyPreiss` (`LatticeGauge` import + `noncomputable`), `PolymerModel` (`LatticeGauge` + `Pairwise.Lattice` imports, `noncomputable`, `PairwiseDisjoint` via `Set` coercion), `MassGapEnvelope` (`open scoped InnerProductSpace`) — all four `#print axioms` = classical trio. **Deferred to Wall 570+ (24 modules / 29 BRICKS entries removed; `.lean` files kept on disk):** entire Osterwalder–Schrader surface (TRI #9–#13: OS-1..OS-4) + real Kotecký–Preiss/transfer-kernel chain = 5 direct orphans (`LatticeRotation`, `LatticeAction`, `TimeReflection`, `Support`, `PlaquetteEnergy`) + 19 transitive importers. `lakefile.lean` roots 99 → 75. All deferred bricks were vacuous `const_one`/Dirac stand-ins — NO mass-gap/μ>0 claim; Surface #1 stays OPEN, YM Status Open, no invariant changed. Verified green via direct `lake build Towers` (the wiping `check-towers.sh`/`towers-build` was not run). |
+
+---
+
 ## Batches 157–167 — TRI PARALLEL #1 through TRI PARALLEL #7 wall-jump table (trimmed from `replit.md` 2026-05-28)
 
 Compact wall-jump rows for the Varadhan-track scaffolding + the

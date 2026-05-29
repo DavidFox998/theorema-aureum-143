@@ -2445,6 +2445,19 @@ BRICKS=(
   "Towers.YM.LatticeGauge|TheoremaAureum.Towers.YM.LatticeGauge.Lattice_def"
   "Towers.YM.WilsonAction|TheoremaAureum.Towers.YM.LatticeGauge.wilsonAction_zero_beta"
   "Towers.YM.GibbsMeasure|TheoremaAureum.Towers.YM.LatticeGauge.partitionFn_zero_beta_eq_one"
+  # ============================================================
+  # DEFERRED (Wall 570+): the Osterwalder-Schrader axiom surface
+  # (TRI #9-#13: OS-1 reflection positivity, OS-2 invariance,
+  # OS-3 locality, OS-4 clustering) and the real Kotecky-Preiss /
+  # transfer-kernel chain were UNREGISTERED here because they stood
+  # on the SU(2) `G` / `GaugeConfig` / `plaquette` substrate that was
+  # trimmed out of `Towers/YM/LatticeGauge.lean` + `WilsonAction.lean`
+  # (pure-core, "deferred to Wall 570+"). The 24 affected modules
+  # (5 direct orphans + 19 transitive importers) keep their .lean
+  # files on disk and will be re-registered once the substrate
+  # returns at Wall 570+. They make NO mass-gap / mu>0 claim;
+  # Surface #1 stays OPEN, YM Status Open.
+  # ============================================================
   # TRI PARALLEL #9 / Batches 169.1, 169.2, 169.3 — first Osterwalder–
   # Schrader axiom (reflection positivity / OS-1) on the YM Measure
   # surface from TRI #8. TimeReflection defines θ on sites/links/
@@ -2458,9 +2471,6 @@ BRICKS=(
   # `Complex.normSq_nonneg`. Real-Haar OS-1 is the deferred form —
   # tripwire documented in `ReflectionPositivity.lean`. Surface #1
   # stays OPEN (mass gap, clustering, full OS not addressed).
-  "Towers.YM.TimeReflection|TheoremaAureum.Towers.YM.LatticeGauge.configRefl_const_one"
-  "Towers.YM.PositiveLattice|TheoremaAureum.Towers.YM.LatticeGauge.positiveTime_zero"
-  "Towers.YM.ReflectionPositivity|TheoremaAureum.Towers.YM.LatticeGauge.reflection_positivity"
   # TRI PARALLEL #10 / Batches 170.1, 170.2, 170.3 — second
   # Osterwalder–Schrader axiom (Euclidean invariance / OS-2,
   # translation part) on the YM Measure surface. LatticeAction
@@ -2478,9 +2488,6 @@ BRICKS=(
   # proofs via theorem-statement pivots. Surface #1 stays OPEN
   # (rotation part of OS-2 deferred; mass gap, clustering, full
   # OS not addressed).
-  "Towers.YM.LatticeAction|TheoremaAureum.Towers.YM.LatticeGauge.translateConfig_const_one"
-  "Towers.YM.ActionInvariance|TheoremaAureum.Towers.YM.LatticeGauge.wilson_translateConfig_const_one"
-  "Towers.YM.MeasureInvariance|TheoremaAureum.Towers.YM.LatticeGauge.gibbs_translation_inv"
   # TRI PARALLEL #11 / Batches 171.1, 171.2, 171.3 — completes
   # OS-2 (Euclidean invariance, rotation part) alongside the
   # translation part from TRI #10. LatticeRotation defines
@@ -2498,9 +2505,6 @@ BRICKS=(
   # deferred (tripwire). With Batch 170.3 (translations), OS-2 is
   # now closed under the Dirac haar stand-in. Surface #1 stays
   # OPEN (OS-3 regularity, OS-4 clustering, mass gap not addressed).
-  "Towers.YM.LatticeRotation|TheoremaAureum.Towers.YM.LatticeGauge.rotateConfig_const_one"
-  "Towers.YM.RotationInvariance|TheoremaAureum.Towers.YM.LatticeGauge.wilson_rotateConfig_const_one"
-  "Towers.YM.MeasureRotation|TheoremaAureum.Towers.YM.LatticeGauge.gibbs_rotation_inv"
   # TRI PARALLEL #12 / Batches 172.1, 172.2, 172.3 — OS-3
   # (Locality) for the Gibbs measure under the Dirac haar
   # stand-in + ℂ-valued observable convention. Support defines
@@ -2518,9 +2522,6 @@ BRICKS=(
   # 171.3), **3 of 4 OS axioms are closed under the Dirac
   # stand-in**. OS-4 clustering and the operator-valued real
   # OS-1..3 still open. Surface #1 stays OPEN.
-  "Towers.YM.Support|TheoremaAureum.Towers.YM.LatticeGauge.support_const"
-  "Towers.YM.DisjointCommute|TheoremaAureum.Towers.YM.LatticeGauge.disjoint_commute"
-  "Towers.YM.LocalityOS3|TheoremaAureum.Towers.YM.LatticeGauge.os3_locality"
   # TRI PARALLEL #13 / Batches 173.1, 173.2, 173.3 — OS-4
   # (Clustering) for the Wilson Gibbs measure under the Dirac
   # haar stand-in. TranslateDistance defines `latticeDist` (L¹
@@ -2541,9 +2542,6 @@ BRICKS=(
   # under the Dirac stand-in.** Mass-gap tripwire: real-Haar
   # `hFact` is false; genuine OS-4 needs `‖T‖ < 1` (Wall 531
   # target) for the transfer operator. Surface #1 stays OPEN.
-  "Towers.YM.TranslateDistance|TheoremaAureum.Towers.YM.LatticeGauge.latticeDist_self"
-  "Towers.YM.ClusterAxiom|TheoremaAureum.Towers.YM.LatticeGauge.clustering_of_factor"
-  "Towers.YM.ClusteringDirac|TheoremaAureum.Towers.YM.LatticeGauge.os4_clustering_dirac"
   # TRI PARALLEL #14 / Batches 174.1, 174.2, 174.3 — OS Hilbert
   # space + transfer operator + spectral-gap quantities, all
   # under the Dirac haar stand-in (Batch 168.3). **Surface #1
@@ -2583,12 +2581,6 @@ BRICKS=(
   # Haar + cluster expansion (Kotecký–Preiss, still a `sorry`
   # in `Towers/Attempts/ClusterExpansion.lean`, invariant-
   # locked) + correlation inequalities — none landed.
-  "Towers.YM.HilbertSpace|TheoremaAureum.Towers.YM.LatticeGauge.mu_plus_eq_gibbs"
-  "Towers.YM.TransferOperatorOS|TheoremaAureum.Towers.YM.LatticeGauge.T_OS_positive"
-  "Towers.YM.TransferOperatorOS|TheoremaAureum.Towers.YM.LatticeGauge.T_OS_selfAdjoint"
-  "Towers.YM.SpectralGapOS|TheoremaAureum.Towers.YM.LatticeGauge.spectral_gap"
-  "Towers.YM.SpectralGapOS|TheoremaAureum.Towers.YM.LatticeGauge.mass_gap_dirac"
-  "Towers.YM.SpectralGapOS|TheoremaAureum.Towers.YM.LatticeGauge.mass_gap_pos"
   # TRI PARALLEL #15 / Batches 175.1, 175.2, 175.3 — cluster
   # expansion + correlation decay + real spectral-gap interface,
   # all under the Dirac stand-in `T_OS = 0` propagated from
@@ -2627,9 +2619,6 @@ BRICKS=(
   # real Haar + Kotecký–Preiss at `μ > 0` + correlation
   # inequalities — none landed.
   "Towers.YM.KoteckyPreiss|TheoremaAureum.Towers.YM.LatticeGauge.kotecky_preiss"
-  "Towers.YM.CorrelationDecay|TheoremaAureum.Towers.YM.LatticeGauge.correlation_decay"
-  "Towers.YM.SpectralGapReal|TheoremaAureum.Towers.YM.LatticeGauge.spectral_gap_real"
-  "Towers.YM.SpectralGapReal|TheoremaAureum.Towers.YM.LatticeGauge.mass_gap_pos_real"
   # TRI PARALLEL #16 / Batches 176.1, 176.2, 176.3 — real polymer
   # model + Kotecký–Preiss with `μ > 0` + spectral-gap interface
   # on a "real" transfer operator, all under stand-ins. Surface
@@ -2679,8 +2668,6 @@ BRICKS=(
   # landed.
   "Towers.YM.PolymerModel|TheoremaAureum.Towers.YM.LatticeGauge.polymerWeightReal_empty"
   "Towers.YM.KoteckyPreissReal|TheoremaAureum.Towers.YM.LatticeGauge.kotecky_preiss_real"
-  "Towers.YM.CorrelationReal|TheoremaAureum.Towers.YM.LatticeGauge.spectral_gap_real_kp"
-  "Towers.YM.CorrelationReal|TheoremaAureum.Towers.YM.LatticeGauge.mass_gap_pos_real_kp"
   # TRI PARALLEL #17 / Batches 177.1, 177.2, 177.3 — real
   # per-plaquette Wilson energy + real-energy K-P + strict
   # spectral-norm bound on `T_real`, all under stand-ins.
@@ -2731,9 +2718,6 @@ BRICKS=(
   # cluster-expansion convergence with the SU(2) energy lower
   # bound `Re tr ≥ -2`, neither landed) + correlation
   # inequalities — none landed.
-  "Towers.YM.PlaquetteEnergy|TheoremaAureum.Towers.YM.LatticeGauge.plaquetteEnergy_const_one"
-  "Towers.YM.KoteckyPreissRealKP|TheoremaAureum.Towers.YM.LatticeGauge.kotecky_preiss_real_kp"
-  "Towers.YM.TransferKernelReal|TheoremaAureum.Towers.YM.LatticeGauge.spectral_gap_real_kernel"
 )
 
 VERIFIER_DIR="$(mktemp -d)"
