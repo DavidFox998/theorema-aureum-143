@@ -588,7 +588,12 @@ Mayer-Montroll series.
 
 The hypothesis here is a *placeholder simplification*: the real
 KP hypothesis is the `∀ γ₀, Σ_{γ overlaps γ₀} ...` quantified
-form, not the unquantified `True` we admit below. The `sorry`
+form. **(Task #212 supersedes the historical `True` hypothesis
+mentioned in the next two paragraphs and in the Task #171/#191
+notes below: the criterion is now conditioned on the genuine
+widened Varadhan β-strip `1/varadhan_t_top ≤ β ≤ 1/varadhan_t_lo`
+— see the "Task #212 update" paragraph at the end for the live
+shape.)** The `sorry`
 flags that the real implication is 40+ pages of Brydges-Federbush
 combinatorics (tree-graph inequality, Ursell coefficient bounds,
 absolute convergence of the cluster expansion), not a tactic
@@ -643,10 +648,40 @@ is untouched and the YM tower stays `Status: Open`. Discharging
 it is the honest KP combinatorial argument cited above
 (Kotecký-Preiss 1986 / Friedli-Velenik 2018 Ch. 5) on top of the
 `Summable` / `HasSum` / `tsum` substrate over weighted polymer
-sets. -/
-theorem kotecky_preiss_criterion (β : ℝ) (N : ℕ) (_γ₀ : Polymer) :
-    True → Converges_Mayer_expansion β N := by
-  intro _
+sets.
+
+**Task #212 update — widened Varadhan β-strip consumed.**
+The hypothesis is no longer the vacuous `True`. It is now the
+genuine widened β-strip
+  `1 / varadhan_t_top ≤ β ≤ 1 / varadhan_t_lo`
+(concretely `[1/100, 100]` after the Task #190 widening of the
+Varadhan strip `[varadhan_t_lo, varadhan_t_top] = [1/100, 100]`,
+previously the hardcoded high-coupling window `[1/2, 1]`). The
+endpoints are referenced **symbolically** as `1 / varadhan_t_top`
+and `1 / varadhan_t_lo` (the algebraic `t = 1/β` images of the
+strip), so any future re-widening of the Varadhan strip flows
+through to this convergence statement automatically.
+
+On this β-strip the per-plaquette / polymer activities are
+already pinned by the Varadhan-shape RHS via
+`plaquette_activity_pw_le_varadhan_strip` /
+`polymer_activity_finite_N_pw_le_varadhan_strip` (below) — that
+uniform small-coupling activity bound is exactly the input the
+Kotecký-Preiss criterion needs. The genuine KP combinatorial
+discharge (tree-graph inequality, Ursell bounds, absolute
+convergence on weighted polymer sums) is still ~40 pages of
+Brydges-Federbush on top of the `Summable` / `HasSum` / `tsum`
+substrate, so the obligation stays a single named, scoped
+`sorry` in `Attempts/` (NOT in BRICKS) — green-wall axiom
+footprint untouched, YM tower stays `Status: Open`. The change
+is honest scope only: a vacuous `True` hypothesis is replaced by
+the real, finite β-strip the widened Varadhan bound supplies. -/
+theorem kotecky_preiss_criterion (β : ℝ) (N : ℕ) (_γ₀ : Polymer)
+    (_hβ_lo :
+      1 / TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_t_top ≤ β)
+    (_hβ_top :
+      β ≤ 1 / TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.varadhan_t_lo) :
+    Converges_Mayer_expansion β N := by
   sorry
 
 /-! ============================================================
