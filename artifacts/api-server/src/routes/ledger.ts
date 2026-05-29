@@ -781,6 +781,77 @@ interface ForgedAckHistoryEntry {
   ackedBy: string | null;
 }
 
+/**
+ * Task #206: summary of a rotated forged-ack archive that the rotator
+ * is about to delete (the oldest file past
+ * `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS`). Captured *before*
+ * the `unlinkSync` so the background monitor can tell operators
+ * exactly which dismissals were discarded — the archive's file mtime,
+ * how many dismissals it held, and the acknowledgedAt span those
+ * dismissals covered — and they can decide whether to bump the
+ * rotation cap or off-box the file before the next rotation.
+ */
+export interface ForgedAckHistoryDropInfo {
+  droppedPath: string;
+  entryCount: number;
+  oldestAcknowledgedAt: string | null;
+  newestAcknowledgedAt: string | null;
+  archiveMtime: string | null;
+}
+
+/**
+ * Task #206: read an about-to-be-deleted forged-ack archive and
+ * extract its dismissal count + acknowledgedAt span and file mtime.
+ * Pure best-effort: a missing / unreadable / malformed archive yields
+ * zero count and null timestamps rather than throwing (the rotation
+ * itself must never be blocked by this bookkeeping).
+ */
+function summarizeForgedAckArchive(
+  archivePath: string,
+): ForgedAckHistoryDropInfo {
+  let entryCount = 0;
+  let oldest: string | null = null;
+  let newest: string | null = null;
+  let archiveMtime: string | null = null;
+  try {
+    archiveMtime = statSync(archivePath).mtime.toISOString();
+  } catch {
+    /* mtime unavailable — leave null */
+  }
+  try {
+    const raw = readFileSync(archivePath, "utf-8");
+    const lines = raw.split("\n").filter((l) => l.length > 0);
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line) as unknown;
+        if (!parsed || typeof parsed !== "object") continue;
+        const ack = (parsed as Record<string, unknown>)["acknowledgedAt"];
+        if (typeof ack !== "string" || Number.isNaN(Date.parse(ack))) continue;
+        entryCount += 1;
+        if (oldest == null || Date.parse(ack) < Date.parse(oldest)) {
+          oldest = ack;
+        }
+        if (newest == null || Date.parse(ack) > Date.parse(newest)) {
+          newest = ack;
+        }
+      } catch {
+        // Malformed line — skip; a single bad write shouldn't blank
+        // the whole summary.
+        continue;
+      }
+    }
+  } catch {
+    /* unreadable archive — report whatever (mtime) we already have */
+  }
+  return {
+    droppedPath: archivePath,
+    entryCount,
+    oldestAcknowledgedAt: oldest,
+    newestAcknowledgedAt: newest,
+    archiveMtime,
+  };
+}
+
 const FORGED_ACK_HISTORY_DEFAULT_MAX_BYTES = 256 * 1024;
 const FORGED_ACK_HISTORY_DEFAULT_MAX_ROTATIONS = 3;
 
@@ -813,15 +884,23 @@ function forgedAckHistoryMaxRotations(): number {
 function rotateForgedAckHistory(
   historyPath: string,
   logger?: { warn: (...args: unknown[]) => void },
-): void {
+): ForgedAckHistoryDropInfo | null {
+  // Task #206: when the oldest archive is actually deleted, report it
+  // back to the caller so a one-shot operator alert can name the
+  // discarded dismissals. Null when no archive was dropped this call.
+  let dropped: ForgedAckHistoryDropInfo | null = null;
   try {
     const maxRotations = forgedAckHistoryMaxRotations();
     // Drop the oldest archive first so the shift below cannot
     // overwrite it.
     const oldest = `${historyPath}.${maxRotations}`;
     if (existsSync(oldest)) {
+      // Summarize the archive *before* unlinking it so the alert can
+      // surface its entry count + acknowledgedAt span + file mtime.
+      const summary = summarizeForgedAckArchive(oldest);
       try {
         unlinkSync(oldest);
+        dropped = summary;
       } catch (err) {
         logger?.warn?.(
           { err, oldest },
@@ -859,13 +938,17 @@ function rotateForgedAckHistory(
       "forged-ack history: rotation failed (best-effort, continuing)",
     );
   }
+  return dropped;
 }
 
 function appendForgedAckHistory(
   historyPath: string,
   entry: ForgedAckHistoryEntry,
   logger?: { warn: (...args: unknown[]) => void },
-): void {
+): ForgedAckHistoryDropInfo | null {
+  // Task #206: forward whatever the rotator dropped (if anything) so
+  // the caller can arm the one-shot archive-full operator alert.
+  let dropped: ForgedAckHistoryDropInfo | null = null;
   try {
     const line = JSON.stringify(entry) + "\n";
     // Use writeFileSync with flag 'a' for atomic appends within a
@@ -879,7 +962,7 @@ function appendForgedAckHistory(
       size = 0;
     }
     if (size > forgedAckHistoryMaxBytes()) {
-      rotateForgedAckHistory(historyPath, logger);
+      dropped = rotateForgedAckHistory(historyPath, logger);
     }
   } catch (err) {
     logger?.warn?.(
@@ -887,6 +970,7 @@ function appendForgedAckHistory(
       "forged-ack history: failed to append entry (best-effort)",
     );
   }
+  return dropped;
 }
 
 /**
@@ -1078,6 +1162,16 @@ export interface LedgerChecker {
    * the first true).
    */
   consumeBootForgedAlert: () => boolean;
+  /**
+   * Task #206: one-shot latch consumed by the background monitor on
+   * its tick. Returns the summary of the FIRST forged-ack dismissal
+   * history archive that the rotator dropped after boot (entry count,
+   * acknowledgedAt span, file mtime), then null on every subsequent
+   * call. The monitor turns this into a single info-level operator
+   * alert so a long-running tamper campaign that quietly rotates away
+   * earlier dismissals is surfaced exactly once.
+   */
+  consumeForgedAckHistoryDropAlert: () => ForgedAckHistoryDropInfo | null;
   /**
    * Task #124: operator-driven acknowledgement of the current
    * forged-sidecar incident. Returns `null` when there is no active
@@ -1387,6 +1481,17 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
   let bootForgedAlertPending: boolean =
     persisted.sidecarStatus === "forged" &&
     (forgedIncident == null || forgedIncident.acknowledgedAt == null);
+
+  // Task #206: one-shot latch for the "dismissal history archive got
+  // full" alert. `forgedAckHistoryDropPending` holds the summary of
+  // the FIRST archive dropped after boot, consumed + cleared by the
+  // monitor on its next tick. `forgedAckHistoryDropSignalUsed` makes
+  // the signal idempotent across the rest of the boot: once the first
+  // drop is latched it is never re-armed, so a long-running tamper
+  // campaign that rotates the archive many times produces exactly one
+  // operator alert (not one per drop).
+  let forgedAckHistoryDropPending: ForgedAckHistoryDropInfo | null = null;
+  let forgedAckHistoryDropSignalUsed = false;
 
   function computeStaleness(checkedAtIso: string): {
     lastOkAgeSeconds: number | null;
@@ -1855,7 +1960,7 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
     // Task #150: append to the rotating history log so the
     // "Recent dismissals" panel survives the single-incident
     // sidecar being replaced by a later forged read.
-    appendForgedAckHistory(
+    const droppedArchive = appendForgedAckHistory(
       FORGED_ACK_HISTORY_PATH,
       {
         payloadSha: forgedIncident.payloadSha,
@@ -1864,6 +1969,24 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
       },
       defaultLogger,
     );
+    // Task #206: if this append rotated the oldest archive off disk,
+    // arm the one-shot operator alert with its summary — but only the
+    // first time this boot, so a sustained tamper campaign that keeps
+    // rotating the archive doesn't re-spam.
+    if (droppedArchive != null && !forgedAckHistoryDropSignalUsed) {
+      forgedAckHistoryDropPending = droppedArchive;
+      forgedAckHistoryDropSignalUsed = true;
+      defaultLogger.warn?.(
+        {
+          droppedPath: droppedArchive.droppedPath,
+          entryCount: droppedArchive.entryCount,
+          oldestAcknowledgedAt: droppedArchive.oldestAcknowledgedAt,
+          newestAcknowledgedAt: droppedArchive.newestAcknowledgedAt,
+          archiveMtime: droppedArchive.archiveMtime,
+        },
+        "forged-ack history: oldest archive dropped (rotation cap hit); arming operator alert",
+      );
+    }
     forgedIncident = {
       payloadSha: forgedIncident.payloadSha,
       acknowledgedAt,
@@ -2075,6 +2198,11 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
       bootForgedAlertPending = false;
       return true;
     },
+    consumeForgedAckHistoryDropAlert() {
+      const pending = forgedAckHistoryDropPending;
+      forgedAckHistoryDropPending = null;
+      return pending;
+    },
     acknowledgeForgedSidecar,
     acknowledgeStaleBinding,
     listForgedAckHistory(limit?: number, rotation?: number) {
@@ -2161,6 +2289,18 @@ export interface LedgerMonitorOptions {
    * lifetime); the monitor does not re-arm it.
    */
   consumeBootForgedAlert?: () => boolean;
+  /**
+   * Task #206: one-shot latch drained once per tick. When it returns a
+   * non-null drop summary, the monitor fires a single info-level
+   * "dismissal history archive got full" alert through `sink`, naming
+   * the dropped archive's entry count, acknowledgedAt span and file
+   * mtime so operators can bump
+   * `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS` or off-box the file.
+   * The implementation is expected to be idempotent across the boot
+   * (return the first drop once, null thereafter); the monitor does
+   * not re-arm it.
+   */
+  consumeForgedAckHistoryDropAlert?: () => ForgedAckHistoryDropInfo | null;
   /** Friendly tag for the boot-forged alert context (defaults to the hits path). */
   sidecarPath?: string;
   /**
@@ -2311,6 +2451,72 @@ export function startLedgerMonitor(
     }
   }
 
+  async function fireForgedAckHistoryDropAlertIfPending(): Promise<void> {
+    if (!opts.consumeForgedAckHistoryDropAlert) return;
+    let info: ForgedAckHistoryDropInfo | null = null;
+    try {
+      info = opts.consumeForgedAckHistoryDropAlert();
+    } catch (err) {
+      log.warn(
+        { err },
+        "ledger monitor: consumeForgedAckHistoryDropAlert threw (treating as no drop)",
+      );
+      return;
+    }
+    if (!info) return;
+    const alertTimestamp = new Date().toISOString();
+    const span =
+      info.oldestAcknowledgedAt != null && info.newestAcknowledgedAt != null
+        ? `${info.oldestAcknowledgedAt} → ${info.newestAcknowledgedAt}`
+        : "an unknown time range";
+    const message =
+      `Forged-ack dismissal history archive dropped (api-server monitor): ` +
+      `the oldest rotated archive (${info.droppedPath}) was deleted when the ` +
+      `dismissal history filled past MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS. ` +
+      `${info.entryCount} dismissal(s) spanning ${span} (archive mtime ` +
+      `${info.archiveMtime ?? "unknown"}) are no longer on disk. If you are ` +
+      `investigating a long-running tamper campaign, bump ` +
+      `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS or off-box archive the ` +
+      `history file before the next rotation to retain older dismissals. ` +
+      `This is an info-level notice and fires once per process lifetime.`;
+    const context: LedgerAlertContext = {
+      failure_mode: "forged_ack_history_archive_dropped",
+      severity: "info",
+      source: "api-server-monitor",
+      hits_path: opts.hitsPath,
+      checkpoint_path: opts.checkpointPath,
+      dropped_path: info.droppedPath,
+      dropped_entry_count: info.entryCount,
+      dropped_oldest_acknowledged_at: info.oldestAcknowledgedAt,
+      dropped_newest_acknowledged_at: info.newestAcknowledgedAt,
+      dropped_archive_mtime: info.archiveMtime,
+      timestamp: alertTimestamp,
+      checked_at: alertTimestamp,
+    };
+    const invocation: LedgerAlertInvocation = {
+      kind: "alert",
+      message,
+      context,
+    };
+    log.info(
+      {
+        droppedPath: info.droppedPath,
+        entryCount: info.entryCount,
+        oldestAcknowledgedAt: info.oldestAcknowledgedAt,
+        newestAcknowledgedAt: info.newestAcknowledgedAt,
+      },
+      "ledger monitor: firing one-shot forged-ack history archive-dropped alert (info-level)",
+    );
+    try {
+      await opts.sink(invocation);
+    } catch (err) {
+      log.warn(
+        { err },
+        "ledger monitor: forged-ack history archive-dropped sink threw (best-effort, swallowed)",
+      );
+    }
+  }
+
   async function tick(): Promise<void> {
     // Task #130: when a tick is already running (e.g. the eager
     // startup tick), join its promise instead of returning a silent
@@ -2332,6 +2538,16 @@ export function startLedgerMonitor(
       // first tick. Runs before buildStatus so a sink that throws
       // can't mask the integrity check itself.
       await fireBootForgedAlertIfPending();
+      // Task #206: drain the one-shot "dismissal history archive got
+      // full" latch alongside the boot-forged one. Runs before
+      // buildStatus so a sink that throws can't mask the integrity
+      // check, and is swallowed internally so it never wedges the tick.
+      // Guarded on the consumer being wired so monitors without it (e.g.
+      // watchdog-only unit tests) don't take an extra microtask hop that
+      // would perturb the eager-startup-tick timing.
+      if (opts.consumeForgedAckHistoryDropAlert) {
+        await fireForgedAckHistoryDropAlertIfPending();
+      }
       let s: LedgerIntegrityStatus;
       try {
         s = opts.buildStatus();
@@ -2715,6 +2931,8 @@ if (monitorIntervalSeconds != null) {
     checkpointPath: defaultChecker.checkpointPath,
     sidecarPath: `${defaultChecker.hitsPath}.lastok`,
     consumeBootForgedAlert: defaultChecker.consumeBootForgedAlert,
+    consumeForgedAckHistoryDropAlert:
+      defaultChecker.consumeForgedAckHistoryDropAlert,
     logger: defaultLogger,
     // Task #98: share dismissal state with the dashboard's
     // `POST /lean/ledger-alerts/ack` sidecar so an acknowledged

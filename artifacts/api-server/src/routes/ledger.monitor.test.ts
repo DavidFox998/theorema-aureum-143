@@ -890,4 +890,131 @@ describe("startLedgerMonitor", () => {
     await new Promise((r) => setTimeout(r, 60));
     expect(calls.length).toBe(after);
   });
+
+  it("fires a one-shot info-level 'forged_ack_history_archive_dropped' alert when a rotation drops the oldest archive (task #206)", async () => {
+    const ENV_BYTES_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES";
+    const ENV_ROTS_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS";
+    const prevBytes = process.env[ENV_BYTES_KEY];
+    const prevRots = process.env[ENV_ROTS_KEY];
+    // ~143 bytes per entry: 300 fits 2; the 3rd append rotates. With a
+    // single rotation slot the SECOND rotation must delete the oldest
+    // archive (.1), which is the drop we expect to alert on.
+    process.env[ENV_BYTES_KEY] = "300";
+    process.env[ENV_ROTS_KEY] = "1";
+
+    const secretPath = `${lastOkPath}.key`;
+    writeFileSync(secretPath, "ab".repeat(32) + "\n");
+    const historyPath = `${lastOkPath}.forged-ack.log.jsonl`;
+    const ackPath = `${lastOkPath}.forged-ack`;
+
+    const sealed = "line1\nline2\nline3\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    function forgedBytes(marker: string): Buffer {
+      return Buffer.from(
+        JSON.stringify({
+          lastOkAt: new Date(Date.now() + 60_000).toISOString(),
+          lastCheckedAt: new Date().toISOString(),
+          marker,
+        }) + "\n",
+      );
+    }
+
+    // Each ack needs a distinct payloadSha (unique marker) so a fresh
+    // checker latches a NEW un-acked forged incident and appends a new
+    // history row, rather than dedup'ing as alreadyAcknowledged.
+    function ackOnce(marker: string, ref: string): ReturnType<
+      typeof createLedgerChecker
+    > {
+      writeFileSync(lastOkPath, forgedBytes(marker));
+      const checker = createLedgerChecker({
+        hitsPath,
+        checkpointPath,
+        lastOkPath,
+        secretPath,
+      });
+      const r = checker.acknowledgeForgedSidecar(ref);
+      if (!r.ok) throw new Error(`ackOnce(${marker}) failed: no_incident`);
+      if (r.alreadyAcknowledged) {
+        throw new Error(`ackOnce(${marker}) unexpectedly alreadyAcknowledged`);
+      }
+      return checker;
+    }
+
+    try {
+      // Acks 1–3: live crosses the cap on ack3 → first rotation. .1 now
+      // holds alice/bob/carol; oldest (.1) did not exist beforehand, so
+      // NO drop yet.
+      ackOnce("v1", "alice");
+      ackOnce("v2", "bob");
+      ackOnce("v3", "carol");
+
+      // Acks 4–5: live recreated then grows back under the cap.
+      ackOnce("v4", "dave");
+      ackOnce("v5", "erin");
+
+      // Ack 6 (frank): live crosses the cap again → SECOND rotation,
+      // which deletes the oldest archive (.1 = alice/bob/carol). This
+      // checker is the one wired to the monitor, so its drop latch is
+      // what the monitor will consume.
+      const dropChecker = ackOnce("v6", "frank");
+
+      const { sink, calls } = makeRecordingSink();
+      monitor = startLedgerMonitor({
+        buildStatus: dropChecker.buildStatus,
+        sink,
+        intervalMs: 60_000,
+        hitsPath: dropChecker.hitsPath,
+        checkpointPath: dropChecker.checkpointPath,
+        sidecarPath: lastOkPath,
+        consumeForgedAckHistoryDropAlert:
+          dropChecker.consumeForgedAckHistoryDropAlert,
+        logger: silentLogger(),
+      });
+
+      await monitor.tick();
+
+      // Exactly one info-level drop alert. The ledger itself is healthy
+      // (the forged sidecar is a sidecar-status concern, not consumed
+      // here), so no integrity alert follows.
+      const drops = calls.filter(
+        (c) => c.context.failure_mode === "forged_ack_history_archive_dropped",
+      );
+      expect(drops).toHaveLength(1);
+      const drop = drops[0];
+      expect(drop.kind).toBe("alert");
+      expect(drop.context.severity).toBe("info");
+      expect(drop.context.source).toBe("api-server-monitor");
+      expect(drop.context.dropped_entry_count).toBe(3);
+      expect(drop.context.dropped_path).toBe(`${historyPath}.1`);
+      expect(typeof drop.context.dropped_oldest_acknowledged_at).toBe("string");
+      expect(typeof drop.context.dropped_newest_acknowledged_at).toBe("string");
+      expect(drop.message).toMatch(/dismissal history archive dropped/i);
+      expect(drop.message).toMatch(/MAX_ROTATIONS/);
+
+      // Idempotent across the rest of the boot: subsequent ticks do not
+      // re-fire even though the latch was consumed.
+      await monitor.tick();
+      await monitor.tick();
+      expect(
+        calls.filter(
+          (c) =>
+            c.context.failure_mode === "forged_ack_history_archive_dropped",
+        ),
+      ).toHaveLength(1);
+    } finally {
+      if (prevBytes === undefined) delete process.env[ENV_BYTES_KEY];
+      else process.env[ENV_BYTES_KEY] = prevBytes;
+      if (prevRots === undefined) delete process.env[ENV_ROTS_KEY];
+      else process.env[ENV_ROTS_KEY] = prevRots;
+      for (const p of [secretPath, ackPath, historyPath, `${historyPath}.1`]) {
+        try {
+          unlinkSync(p);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  });
 });
