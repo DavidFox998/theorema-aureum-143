@@ -2338,6 +2338,37 @@ BRICKS=(
   "Towers.YM.PeterWeylHeatVaradhan|TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.hsNormSq_nonneg"
   "Towers.YM.PeterWeylHeatVaradhan|TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.d_SU3_sq_le_twelve"
   "Towers.YM.PeterWeylHeatVaradhan|TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.Heat_kernel_envelope_real_le_varadhan_geometric_offdiag"
+  # Task #211 — genuine GEODESIC SU(3) distance via the matrix exponential.
+  # Upgrades `Towers/YM/RiemannianGeometry.lean` from the Task #189 chordal
+  # `d_SU3` to a real *geodesic* distance `d_SU3_geodesic g h := sInf {
+  # √(hsNormSq X) : X ∈ 𝔰𝔲(3), exp X = ↑gᴴ↑h }`, built from mathlib's real
+  # matrix exponential `NormedSpace.exp ℂ` (NOT a stand-in). `IsSU3Lie X`
+  # is the Lie-algebra membership (`star X = -X` ∧ `trace X = 0`). Genuine
+  # constructible clauses proved: `d_SU3_geodesic_nonneg` (`Real.sInf_nonneg`),
+  # `d_SU3_geodesic_self` (`X = 0` is a real log: `exp 0 = 1 = ↑gᴴ↑g`),
+  # `d_SU3_geodesic_symm` (the `X ↦ -X` involution: `exp(-X) = (exp X)⁻¹ =
+  # ↑hᴴ↑g` via `Matrix.exp_neg` + `Matrix.inv_eq_right_inv`, length-preserving
+  # by `hsNormSq_neg`, so the length sets are equal), and the infimum property
+  # `d_SU3_geodesic_le_of_mem`. Relating/comparability bricks:
+  # `d_SU3_eq_chordal_id` (`d_SU3 g h = √(hsNormSq (↑gᴴ↑h - 1))`, bi-invariance),
+  # `d_SU3_geodesic_eq_d_SU3_diag` (both distances agree = 0 on the diagonal),
+  # and `d_SU3_le_geodesic_of_contracts` — the genuine *reduction*
+  # `d_SU3 g h ≤ d_SU3_geodesic g h` from the contraction estimate
+  # `ChordalContractsExp` (`‖exp X - 1‖_HS ≤ ‖X‖_HS` on 𝔰𝔲(3)) and the
+  # existence of a Lie-algebra log (`geodesicLengths` nonempty = surjectivity
+  # of `exp` on compact SU(3)), both as honest hypotheses, NO `sorry`. Those
+  # two inputs (spectral theorem + exp surjectivity, absent from mathlib
+  # v4.12.0) plus the cut-locus triangle inequality remain the open tripwire.
+  # All seven bricks `#print axioms` = classical trio. Makes NO mass-gap /
+  # μ>0 / Surface claim; YM stays `Status: Open`, Surface #1 stays OPEN.
+  # Wall 521 → 528 (+7).
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.d_SU3_geodesic_nonneg"
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.d_SU3_geodesic_self"
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.d_SU3_geodesic_symm"
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.d_SU3_geodesic_le_of_mem"
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.d_SU3_eq_chordal_id"
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.d_SU3_geodesic_eq_d_SU3_diag"
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.d_SU3_le_geodesic_of_contracts"
   # Batch 162 / TRI PARALLEL #2 — three honest stand-ins for Yang-Mills
   # Surface #1 (OS reconstruction / mass-gap support). Each is a
   # consistency / inhabitedness brick on its predicate shape; none

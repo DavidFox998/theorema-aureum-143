@@ -6,8 +6,8 @@ sketches, drift footnotes, env var docs, stack, where-things-live,
 user preferences, gotchas, pointers — all rolled into CHANGELOG by
 the Wall-510 / Wall-539 / Wall-542 trims).
 
-- **Wall:** 521 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
-  518 + 3 from **Task #210** below. Was 545 pre-deferral — prior `543`
+- **Wall:** 528 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
+  521 + 7 from **Task #211** below. Was 545 pre-deferral — prior `543`
   headline was stale by 2. See **Task #208** below for the −29-entry /
   24-module deferral.)
   - Rebase note (Task #208): the `LatticeGauge.lean` `G`/`GaugeConfig`
@@ -23,6 +23,70 @@ the Wall-510 / Wall-539 / Wall-542 trims).
   `{propext, Classical.choice, Quot.sound}` · no `sorry` / `admit`
   in any landed brick · YM and NS towers stay `Status: Open` in
   `docs/ROADMAP.md`
+
+## Task #211 — SU(3) distance: chordal → genuine geodesic via matrix exp (2026-05-29)
+
+Upgraded `Towers/YM/RiemannianGeometry.lean` from the Task #189 chordal
+(Hilbert–Schmidt) `d_SU3` to a genuine **geodesic** (Riemannian) distance
+**`d_SU3_geodesic`** built from mathlib's *real* matrix exponential
+`NormedSpace.exp ℂ` (the "minimal exp-map dev" the brief asked for —
+reusing the Banach-algebra exp from
+`Mathlib.Analysis.Normed.Algebra.MatrixExponential` rather than vendoring a
+bespoke one). Definitions added:
+
+- **`IsSU3Lie X`** — membership in 𝔰𝔲(3): `star X = -X` (skew-Hermitian) ∧
+  `Matrix.trace X = 0` (traceless).
+- **`geodesicLengths g h`** — the set `{ √(hsNormSq X) : X ∈ 𝔰𝔲(3),
+  exp X = ↑gᴴ↑h }` of Killing/HS lengths of Lie-algebra logarithms of
+  `g⁻¹h`.
+- **`d_SU3_geodesic g h := sInf (geodesicLengths g h)`** — the bi-invariant
+  geodesic distance `inf { ‖X‖_HS : exp X = g⁻¹h }`.
+
+Genuine (non-vacuous) constructible clauses proved:
+- **`d_SU3_geodesic_nonneg`** (`Real.sInf_nonneg`; every length is a `√`),
+- **`d_SU3_geodesic_self`** (`X = 0` is a real log: `exp 0 = 1 = ↑gᴴ↑g` by
+  unitarity, `√0 = 0`),
+- **`d_SU3_geodesic_symm`** (the genuine involution `X ↦ -X`:
+  `exp(-X) = (exp X)⁻¹ = ↑hᴴ↑g` via `Matrix.exp_neg` +
+  `Matrix.inv_eq_right_inv`, length-preserving by `hsNormSq_neg`, so the
+  length sets are *equal*),
+- **`d_SU3_geodesic_le_of_mem`** (the genuine infimum property).
+
+Relating / comparability bricks:
+- **`d_SU3_eq_chordal_id`** — `d_SU3 g h = √(hsNormSq (↑gᴴ↑h - 1))`
+  (bi-invariance reduction of the chordal distance to the identity),
+- **`d_SU3_geodesic_eq_d_SU3_diag`** — both distances agree (= 0) on the
+  diagonal (unconditional comparability point),
+- **`d_SU3_le_geodesic_of_contracts`** — the genuine comparability **bound**
+  `d_SU3 g h ≤ d_SU3_geodesic g h`, a *reduction* from two explicit honest
+  hypotheses (NOT `sorry`): `ChordalContractsExp` (the contraction estimate
+  `‖exp X - 1‖_HS ≤ ‖X‖_HS` on 𝔰𝔲(3)) and `(geodesicLengths g h).Nonempty`
+  (existence of a Lie-algebra log = surjectivity of `exp` on compact SU(3)).
+
+**Remaining tripwire (locked).** The two hypotheses of the comparability
+bound are exactly the open analytic inputs: the spectral theorem for
+skew-Hermitian matrices (for `ChordalContractsExp`) and surjectivity of
+`exp` on compact connected Lie groups (for nonemptiness) — neither in
+mathlib v4.12.0. Without nonemptiness `sInf ∅ = 0`, so `d_SU3_geodesic` is
+honestly only a pseudo-distance lower scaffold off the diagonal; the
+triangle inequality / cut-locus analysis stays open. `d_SU3` is unchanged
+(still the chordal distance); the geodesic distance is an additive sibling.
+
+- **+7 BRICKS** (521 → 528) registered in `scripts/check-towers.sh`:
+  `d_SU3_geodesic_nonneg`, `d_SU3_geodesic_self`, `d_SU3_geodesic_symm`,
+  `d_SU3_geodesic_le_of_mem`, `d_SU3_eq_chordal_id`,
+  `d_SU3_geodesic_eq_d_SU3_diag`, `d_SU3_le_geodesic_of_contracts`.
+- **Verified:** `#print axioms` on all seven = `[propext,
+  Classical.choice, Quot.sound]` (classical trio) via `lake env lean` on a
+  self-contained copy (mathlib-only); full-file `lake env lean
+  Towers/YM/RiemannianGeometry.lean` exits 0, and the consumer
+  `Towers/YM/PeterWeylHeatVaradhan.lean` still exits 0. The wiping
+  `towers-build` / `check-towers.sh` was NOT run (lake-update re-clone
+  gotcha below). New imports: `Mathlib.Analysis.Normed.Algebra.MatrixExponential`,
+  `Mathlib.LinearAlgebra.Matrix.NonsingularInverse`,
+  `Mathlib.Data.Real.Archimedean`.
+- Makes NO mass-gap / μ>0 / Surface-#1 / Surface-#2 claim — Surface #1
+  and #2 stay OPEN, YM **Status: Open**.
 
 ## Task #210 — genuine off-diagonal SU(3) heat-kernel envelope (strip form) (2026-05-29)
 
