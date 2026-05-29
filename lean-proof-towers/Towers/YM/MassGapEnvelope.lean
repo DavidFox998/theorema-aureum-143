@@ -21,22 +21,29 @@ and extract a *genuine* spectral gap on a *genuine* continuum-YM
 Hamiltonian. **None of those substrate objects exist** in this
 repo today:
 
-  * `IsMassGap` in `Towers/YM/Continuum.lean` is the **placeholder**
-    `def IsMassGap (_T : YM4_Continuum) (Δ : ℝ) : Prop := 0 < Δ`
-    — it references no spectrum, no Hilbert space, no Hamiltonian.
+  * `IsMassGap` in `Towers/YM/Continuum.lean` was, until Task #196,
+    the **placeholder** `0 < Δ`. Task #196 upgraded it to the
+    spectral statement `∃ H op, OS.HasMassGap H op Δ` (real-part
+    inner-product gap on a complex Hilbert-space operator,
+    `Towers/YM/SpectralGapCore.lean`). It now references a real
+    Hilbert space and operator — but the only available witnesses
+    are scalar/zero stand-in operators, NOT a continuum-YM
+    Hamiltonian.
   * `YM4_Continuum` is a structure with two `Nat` fields
     (`gauge_rank`, `spacetime_dim`); no analytic content.
-  * `lattice_to_continuum a A := {}` is the identity-trivial map.
+  * `lattice_to_continuum a A` reads the rank/dimension slots off
+    `(a, A)` but implements no real `a → 0` continuum limit.
   * `varadhan_C` is the strip-form amplitude constant — strictly
     positive but tied to the strip `[varadhan_t_lo, varadhan_t_top]`,
     NOT to any spectral gap.
 
-So the honest brick lands a *positivity* witness on the placeholder
-predicate: the chosen `Δ := mass_gap_envelope_constant > 0`
-satisfies `IsMassGap default Δ` because the predicate IS `0 < Δ`.
-Replacing the placeholder `IsMassGap` with a spectral statement
-will *intentionally* break this brick — that breakage is the
-tripwire for landing a real mass-gap statement.
+After the Task #196 refactor this brick **re-closes** the new
+spectral `IsMassGap` at `Δ := mass_gap_envelope_constant > 0` using
+the honest scalar-of-identity stand-in operator
+`op := ((1 - Δ : ℝ) : ℂ) • 1` on `H := ℂ` (the
+`Towers/YM/NontrivialGap.lean` witness pattern). The gap size still
+carries no spectral content and the operator is not `T`-derived, so
+the upgrade does NOT import a real Yang-Mills mass gap.
 
 ### What this file ships
 
@@ -48,8 +55,10 @@ tripwire for landing a real mass-gap statement.
   * `mass_gap_envelope_constant_pos` — `0 < mass_gap_envelope_constant`.
   * `IsMassGap_mass_gap_envelope_default` —
     `IsMassGap (default : YM4_Continuum) mass_gap_envelope_constant`.
-    The headline brick: with the predicate being `0 < Δ`, the
-    positivity lemma closes it directly.
+    The headline brick: it re-closes the Task #196 spectral
+    `IsMassGap` (`∃ H op, OS.HasMassGap H op Δ`) via the
+    scalar-of-identity stand-in `op := ((1 - Δ : ℝ) : ℂ) • 1` on
+    `H := ℂ`, whose real-part bound holds with equality.
 
 ### What this file does NOT ship
 
@@ -93,8 +102,10 @@ Varadhan-shape RHS at `t = varadhan_t_top` after the exp factor
 Positive because both factors are positive.
 
 This is **not** a mass-gap lower bound for any real Yang-Mills
-theory; it is a positivity slot tied to the placeholder
-`IsMassGap` predicate `0 < Δ` in `Towers/YM/Continuum.lean`. -/
+theory; it is the gap size `Δ` plugged into the (Task #196) spectral
+`IsMassGap` predicate `∃ H op, OS.HasMassGap H op Δ` in
+`Towers/YM/Continuum.lean`, witnessed only by a scalar/zero stand-in
+operator (no spectral content). -/
 noncomputable def mass_gap_envelope_constant : ℝ :=
   varadhan_C / varadhan_t_top ^ 4
 
@@ -105,21 +116,48 @@ theorem mass_gap_envelope_constant_pos :
   have htop4 : 0 < varadhan_t_top ^ 4 := pow_pos varadhan_t_top_pos 4
   exact div_pos varadhan_C_pos htop4
 
-/-- **Final mass-gap envelope brick.** The placeholder `IsMassGap`
-predicate on the default `YM4_Continuum` (which IS `0 < Δ`, see
-`Towers/YM/Continuum.lean`) is satisfied by
-`Δ := mass_gap_envelope_constant`.
+/-- **Final mass-gap envelope brick (re-closed against the spectral
+`IsMassGap`).** Task #196 upgraded `IsMassGap` in
+`Towers/YM/Continuum.lean` from the bare `0 < Δ` placeholder to the
+spectral statement
+
+  `∃ H op, OS.HasMassGap H op Δ`
+
+(real-part inner-product gap on a complex Hilbert-space operator).
+This brick re-closes that new predicate at the default
+`YM4_Continuum` and `Δ := mass_gap_envelope_constant`, using the
+honest scalar-of-identity stand-in operator
+`op := ((1 - Δ : ℝ) : ℂ) • 1` on `H := ℂ`. For that operator the
+real-part bound holds with equality
+(`(⟪x, op x⟫_ℂ).re = (1 - Δ) * ‖x‖^2 ≤ (1 - Δ) * ‖x‖^2`), exactly
+the witness pattern of `Towers/YM/NontrivialGap.lean`.
 
 **Honest scope (locked).** This is NOT a proof that any real 4D
-pure-Yang-Mills theory has a mass gap. The predicate is a
-positivity placeholder; the witness `mass_gap_envelope_constant`
-is the strip-form amplitude `varadhan_C / varadhan_t_top ^ 4`,
-which carries no spectral content. YM tower stays
-`Status: Open`. -/
+pure-Yang-Mills theory has a mass gap. The witnessing operator is a
+scalar multiple of the identity (spectrum `{1 - Δ}`, totally
+degenerate); it is **not** built from any continuum-YM Hamiltonian
+and the schema `T` is ignored. The gap size
+`mass_gap_envelope_constant = varadhan_C / varadhan_t_top ^ 4`
+carries no spectral content. YM tower stays `Status: Open`. -/
 theorem IsMassGap_mass_gap_envelope_default :
     IsMassGap ({} : YM4_Continuum) mass_gap_envelope_constant := by
-  unfold IsMassGap
-  exact mass_gap_envelope_constant_pos
+  refine ⟨ℂ, inferInstance, inferInstance,
+    ((1 - mass_gap_envelope_constant : ℝ) : ℂ) • (1 : ℂ →L[ℂ] ℂ),
+    mass_gap_envelope_constant_pos, ?_⟩
+  intro x
+  have hT :
+      (((1 - mass_gap_envelope_constant : ℝ) : ℂ) • (1 : ℂ →L[ℂ] ℂ)) x
+        = ((1 - mass_gap_envelope_constant : ℝ) : ℂ) • x := by
+    simp [ContinuousLinearMap.smul_apply, ContinuousLinearMap.one_apply]
+  rw [hT, inner_smul_right, Complex.mul_re]
+  have hr : (((1 - mass_gap_envelope_constant : ℝ) : ℂ)).re
+      = 1 - mass_gap_envelope_constant := Complex.ofReal_re _
+  have hi : (((1 - mass_gap_envelope_constant : ℝ) : ℂ)).im = 0 :=
+    Complex.ofReal_im _
+  have hsq : (⟪x, x⟫_ℂ).re = ‖x‖ ^ 2 := inner_self_eq_norm_sq (𝕜 := ℂ) x
+  have him : (⟪x, x⟫_ℂ).im = 0 := inner_self_im (𝕜 := ℂ) x
+  rw [hr, hi, hsq, him]
+  linarith [sq_nonneg ‖x‖]
 
 end MassGapEnvelope
 end YM

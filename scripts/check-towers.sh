@@ -1899,7 +1899,17 @@ BRICKS=(
   # a separate track. Wall: 460 → 464.
   #   1. `YM4_Continuum`        — schema type (structure with
   #                                `gauge_rank = 3`, `spacetime_dim = 4`).
-  #   2. `IsMassGap`            — predicate `0 < Δ` (placeholder shape).
+  #   2. `IsMassGap`            — Task #196 upgraded this from the
+  #                                bare `0 < Δ` placeholder to the
+  #                                spectral statement
+  #                                `∃ H op, OS.HasMassGap H op Δ`
+  #                                (real-part inner-product gap on a
+  #                                complex Hilbert-space operator,
+  #                                `Towers/YM/SpectralGapCore.lean`).
+  #                                References a real Hilbert space /
+  #                                operator; witnesses are scalar/zero
+  #                                stand-ins, NOT a continuum-YM
+  #                                Hamiltonian, so YM stays Open.
   #   3. `lattice_to_continuum` — renormalization map from
   #                                `(a : ℝ, A : SU3Connection)` to a
   #                                `YM4_Continuum` whose fields now
@@ -2400,13 +2410,16 @@ BRICKS=(
   #   * `mass_gap_envelope_constant_pos` — the concrete positive real
   #     `varadhan_C / varadhan_t_top ^ 4` is `> 0`. Built from the
   #     strip-form Varadhan amplitude; carries NO spectral content.
-  #   * `IsMassGap_mass_gap_envelope_default` — the placeholder
-  #     `IsMassGap` predicate from `Towers/YM/Continuum.lean` (which
-  #     IS `0 < Δ`, with no Hilbert space / Hamiltonian) on the
-  #     default `YM4_Continuum` is satisfied by
-  #     `Δ := mass_gap_envelope_constant`. NOT a proof that any real
-  #     4D pure-YM theory has a mass gap; the witness is a strip-form
-  #     positivity, not a spectral gap.
+  #   * `IsMassGap_mass_gap_envelope_default` — Task #196 re-closed
+  #     this against the upgraded spectral `IsMassGap` predicate from
+  #     `Towers/YM/Continuum.lean` (now `∃ H op, OS.HasMassGap H op Δ`,
+  #     a real-part inner-product gap on a complex Hilbert-space
+  #     operator) on the default `YM4_Continuum` at
+  #     `Δ := mass_gap_envelope_constant`, using the scalar-of-identity
+  #     stand-in operator `op := ((1 - Δ : ℝ) : ℂ) • 1` on `H := ℂ`.
+  #     NOT a proof that any real 4D pure-YM theory has a mass gap; the
+  #     witnessing operator is a scalar multiple of the identity
+  #     (totally degenerate spectrum), not a continuum-YM Hamiltonian.
   #
   # Wall: 491 → 497. YM tower stays `Status: Open` in
   # `docs/ROADMAP.md` § 2. Surfaces #1 / #2 / #3 all stay OPEN.

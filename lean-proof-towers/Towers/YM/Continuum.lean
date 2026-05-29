@@ -23,8 +23,12 @@ This file ships:
   * `YM4_Continuum` — a `structure` with two `Nat` fields
     (`gauge_rank = 3`, `spacetime_dim = 4`). Names the slots a real
     continuum theory would carry; carries **no** analytic content.
-  * `IsMassGap T Δ` — the predicate `0 < Δ`. Placeholder; does NOT
-    reference any spectrum, Hilbert space, or Hamiltonian.
+  * `IsMassGap T Δ` — Task #196 upgraded this from the bare `0 < Δ`
+    placeholder to a spectral statement `∃ H op, OS.HasMassGap H op Δ`
+    (real-part inner-product gap on a complex Hilbert-space operator,
+    `Towers/YM/SpectralGapCore.lean`). It now references a real
+    Hilbert space and operator, though the witnessing operator is an
+    honest scalar/zero stand-in, NOT a continuum-YM Hamiltonian.
   * `lattice_to_continuum a A` — returns the default `YM4_Continuum`
     (the renormalization is the identity-like trivial map). Does
     NOT implement a real `a → 0` continuum limit.
@@ -65,6 +69,7 @@ continuum YM. None of them advances the tower.
 -/
 
 import Towers.YM.MassGap
+import Towers.YM.SpectralGapCore
 
 namespace TheoremaAureum
 namespace Towers
@@ -87,13 +92,32 @@ structure YM4_Continuum where
   /-- Spacetime dimension. Default = 4. -/
   spacetime_dim : Nat := 4
 
-/-- **`IsMassGap T Δ`** — mass-gap predicate on a continuum theory.
-Honest placeholder shape: `0 < Δ`. Does NOT reference any spectrum,
-Hilbert space, or Hamiltonian. The placeholder captures the
-*positivity* that a real spectral-gap claim requires; the
-spectral content is the open Clay surface (parked at
+/-- **`IsMassGap T Δ`** — mass-gap predicate on a continuum theory,
+now stated against a genuine **spectral object** rather than the old
+bare `0 < Δ`. It asserts that there exists a complex inner-product
+space `H` and a continuous ℂ-linear operator `op : H →L[ℂ] H`
+carrying a mass gap of size `Δ` in the real-part inner-product sense
+of `Towers/YM/SpectralGapCore.lean`:
+
+  `∃ H op, OS.HasMassGap H op Δ`
+
+where `OS.HasMassGap H op Δ := 0 < Δ ∧ ∀ x, (⟪x, op x⟫_ℂ).re ≤ (1 - Δ) * ‖x‖^2`.
+This references a real Hilbert-space operator and the real-part
+spectral bound, so it is no longer the placeholder `0 < Δ`.
+
+**Honest scope (locked).** This does NOT import a real Yang-Mills
+mass gap. The existential is witnessed in this repo only by
+scalar-of-identity / zero stand-in operators (see
+`Towers/YM/SpectralGapCore.lean`, `Towers/YM/NontrivialGap.lean`,
+`Towers/YM/MassGapReal.lean`), whose spectra are totally degenerate;
+no real continuum-YM Hamiltonian is constructed. The witnessing
+operator is **not** built from the schema `T` (which still carries no
+analytic content), so the YM tower stays `Status: Open`. The genuine
+continuum-YM spectrum is the open Clay surface (parked at
 `Towers/Attempts/Clay.lean :: MassGap_YM4_Clay`). -/
-def IsMassGap (_T : YM4_Continuum) (Δ : ℝ) : Prop := 0 < Δ
+def IsMassGap (_T : YM4_Continuum) (Δ : ℝ) : Prop :=
+  ∃ (H : Type) (_ : NormedAddCommGroup H) (_ : InnerProductSpace ℂ H)
+    (op : H →L[ℂ] H), TheoremaAureum.Towers.YM.OS.HasMassGap H op Δ
 
 /-- **Gauge rank read from a lattice connection.** A `SU3Connection`
 is `Fin 4 → SU(3)`, and its link variables are

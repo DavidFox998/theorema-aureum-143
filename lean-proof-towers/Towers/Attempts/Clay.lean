@@ -35,16 +35,20 @@ no-auto-promotion guarantee.
 
 ### Honest scope
 
-The statement uses the Batch 20.1a placeholder definitions
-(`YM4_Continuum`, `IsMassGap`, `AsymptoticFreedom` from
-`Towers/YM/Continuum.lean`). On those placeholders the conclusion
-`∃ Δ, IsMassGap T Δ` reduces to `∃ Δ : ℝ, 0 < Δ`, which would be
-trivial; the `sorry` is honest because the *real* downstream goal
-is to upgrade `IsMassGap` to the spectral-gap statement on the
-OS-reconstructed continuum Hilbert space (Batches 20.1b → 20.1d),
-at which point this parked obligation becomes the genuine Clay
-target. Keeping the `sorry` in place across the placeholder ⇒
-real-spectrum refactor is the whole point of parking it here.
+The statement uses the schema definitions (`YM4_Continuum`,
+`IsMassGap`, `AsymptoticFreedom` from `Towers/YM/Continuum.lean`).
+Task #196 upgraded `IsMassGap T Δ` from the bare `0 < Δ` placeholder
+to the spectral statement `∃ H op, OS.HasMassGap H op Δ` (real-part
+inner-product gap on a complex Hilbert-space operator). So the
+conclusion `∃ Δ, IsMassGap T Δ` now unfolds to
+`∃ Δ, ∃ H op, OS.HasMassGap H op Δ`, which is still *honestly
+discharge-able only* by a scalar/zero stand-in operator — NOT by any
+operator built from `T`. The `sorry` stays parked because the
+*real* Clay target requires the OS-reconstructed continuum-YM
+Hilbert space and Hamiltonian (Batches 20.1b → 20.1d), wiring the
+gap to a `T`-derived operator rather than a stand-in. Keeping the
+`sorry` in place across the placeholder ⇒ real-spectrum refactor is
+the whole point of parking it here.
 ================================================================
 -/
 
