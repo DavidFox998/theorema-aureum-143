@@ -6,8 +6,8 @@ sketches, drift footnotes, env var docs, stack, where-things-live,
 user preferences, gotchas, pointers — all rolled into CHANGELOG by
 the Wall-510 / Wall-539 / Wall-542 trims).
 
-- **Wall:** 518 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
-  516 + 2 from **Task #209** below. Was 545 pre-deferral — prior `543`
+- **Wall:** 521 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
+  518 + 3 from **Task #210** below. Was 545 pre-deferral — prior `543`
   headline was stale by 2. See **Task #208** below for the −29-entry /
   24-module deferral.)
   - Rebase note (Task #208): the `LatticeGauge.lean` `G`/`GaugeConfig`
@@ -23,6 +23,52 @@ the Wall-510 / Wall-539 / Wall-542 trims).
   `{propext, Classical.choice, Quot.sound}` · no `sorry` / `admit`
   in any landed brick · YM and NS towers stay `Status: Open` in
   `docs/ROADMAP.md`
+
+## Task #210 — genuine off-diagonal SU(3) heat-kernel envelope (strip form) (2026-05-29)
+
+Removed the diagonal gate `hx : d_SU3 x 1 = 0` from the geometric
+Varadhan brick. The original
+`Heat_kernel_envelope_real_le_varadhan_geometric` only bounded the
+heat-kernel envelope on the diagonal locus (where the decay factor
+`exp(-(d_SU3 x 1)²/4t) = 1`). The new headline brick
+**`Heat_kernel_envelope_real_le_varadhan_geometric_offdiag`** holds for
+EVERY `x : SU3` (including the off-diagonal locus `d_SU3 x 1 > 0`),
+carrying the genuine `exp(-(d_SU3 x 1)²/4t)` decay factor. All landed in
+`Towers/YM/PeterWeylHeatVaradhan.lean` (original gated brick kept
+intact). Added:
+
+- **`hsNormSq_nonneg`** — generic `0 ≤ hsNormSq M` for any `M : Matrix
+  (Fin 3) (Fin 3) ℂ` (sum of `Complex.normSq` entries via
+  `trace_fin_three` + `normSq_eq_conj_mul_self`; finished with
+  `linarith` over the 9 `normSq_nonneg` facts since `positivity` lacks a
+  `normSq` extension).
+- **`d_SU3_sq_le_twelve`** — `(d_SU3 x 1)² ≤ 12` for all `x : SU3`. Key
+  bound: from `hsNormSq (↑x - 1) = 6 - 2·Re(tr ↑x)` and
+  `hsNormSq (↑x + 1) = 6 + 2·Re(tr ↑x) ≥ 0` (via `hsNormSq_nonneg`),
+  so `Re(tr ↑x) ≥ -3`, hence `(d_SU3 x 1)² = 6 - 2·Re(tr ↑x) ≤ 12`.
+  Helper rewrites `hsNormSq_sub_one_eq`, `hsNormSq_add_one_eq` use the
+  unitary relation `star ↑x * ↑x = 1` and manual ring expansion
+  (`sub_mul`/`mul_sub` + `abel`; `noncomm_ring` not imported).
+- **`varadhan_C_offdiag`** / **`varadhan_C_offdiag_pos`** — recalibrated
+  amplitude carrying `exp(12/(4·t_lo))` (vs the original `varadhan_C`'s
+  `exp(1/t_lo)`), the constant needed to absorb the now-genuine decay
+  factor uniformly on the strip.
+
+The bound is the STRIP form only (`t ∈ [t_lo, t_top]`) — NOT the
+small-`t` Varadhan / Molchanov asymptotic (false in the literal
+unrestricted shape as `t → 0⁺`), and `d_SU3` remains the chordal
+pseudo-distance, NOT the geodesic distance.
+
+- **+3 BRICKS** (518 → 521) registered in `scripts/check-towers.sh`:
+  `hsNormSq_nonneg`, `d_SU3_sq_le_twelve`,
+  `Heat_kernel_envelope_real_le_varadhan_geometric_offdiag`.
+- **Verified:** `#print axioms` on all three = `[propext,
+  Classical.choice, Quot.sound]` (classical trio) via `lake env lean`
+  on the live file (warm oleans, lake-free of the wiping `towers-build`
+  / `check-towers.sh` per the gotcha). Full-file `lake env lean
+  Towers/YM/PeterWeylHeatVaradhan.lean` exits 0.
+- Makes NO mass-gap / μ>0 / Surface-#1 / Surface-#2 claim — Surface #1
+  and #2 stay OPEN, YM **Status: Open**.
 
 ## Task #209 — SU(3) distance: pseudo-distance → metric predicate + tripwire (2026-05-29)
 

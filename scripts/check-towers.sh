@@ -2316,6 +2316,28 @@ BRICKS=(
   "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.cWit_ne_one"
   "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.not_IsMetricOnSU3_const_zero"
   "Towers.YM.PeterWeylHeatVaradhan|TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.Heat_kernel_envelope_real_le_varadhan_geometric"
+  # Task #210 — genuine OFF-DIAGONAL SU(3) heat-kernel envelope (strip
+  # form). Removes the `hx : d_SU3 x 1 = 0` diagonal gate of
+  # `Heat_kernel_envelope_real_le_varadhan_geometric`: the new brick
+  # `Heat_kernel_envelope_real_le_varadhan_geometric_offdiag` holds for
+  # EVERY `x : SU3` (including the off-diagonal locus `d_SU3 x 1 > 0`),
+  # carrying the genuine `exp(-(d_SU3 x 1)²/4t)` decay factor. The proof
+  # uses the boundedness of the chordal distance on SU(3):
+  # `d_SU3_sq_le_twelve` proves `(d_SU3 x 1)² ≤ 12` from
+  # `hsNormSq (↑x - 1) = 6 - 2·Re(tr ↑x)` and
+  # `hsNormSq (↑x + 1) = 6 + 2·Re(tr ↑x) ≥ 0` (so `Re(tr ↑x) ≥ -3`),
+  # via the generic `hsNormSq_nonneg`. On the strip the decay factor is
+  # bounded below, so the bound holds for all `x` once the amplitude is
+  # recalibrated to `varadhan_C_offdiag` (carries `exp(12/(4·t_lo))`).
+  # STRIP form only — NOT the small-`t` Varadhan / Molchanov asymptotic
+  # (false in the literal unrestricted shape as `t → 0⁺`) and NOT the
+  # geodesic distance (chordal `d_SU3` is a pseudo-distance). All three
+  # bricks `#print axioms` = classical trio. Makes NO mass-gap / μ>0 /
+  # Surface claim; YM stays `Status: Open`, Surface #2 stays OPEN.
+  # Wall 518 → 521 (+3).
+  "Towers.YM.PeterWeylHeatVaradhan|TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.hsNormSq_nonneg"
+  "Towers.YM.PeterWeylHeatVaradhan|TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.d_SU3_sq_le_twelve"
+  "Towers.YM.PeterWeylHeatVaradhan|TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.Heat_kernel_envelope_real_le_varadhan_geometric_offdiag"
   # Batch 162 / TRI PARALLEL #2 — three honest stand-ins for Yang-Mills
   # Surface #1 (OS reconstruction / mass-gap support). Each is a
   # consistency / inhabitedness brick on its predicate shape; none

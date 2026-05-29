@@ -386,6 +386,223 @@ theorem Heat_kernel_envelope_real_le_varadhan_geometric
     nlinarith [hnum, ht4_pos]
   exact le_trans hstrip hstrip_le
 
+/-! ## Genuine off-diagonal envelope — Task #210
+
+The geometric brick above is gated behind the diagonal hypothesis
+`hx : d_SU3 x 1 = 0`. The genuine off-diagonal case (`d_SU3 x 1 > 0`)
+is the open Varadhan / Molchanov small-`t` asymptotic. This section
+discharges the **strip-form** off-diagonal bound for *every* `x : SU3`
+(hypothesis `hx` removed), using the fact that the chordal `d_SU3`
+is **bounded** on SU(3): for `x ∈ SU(3)`,
+  `(d_SU3 x 1)² = hsNormSq (↑x - 1) = 6 - 2·Re(tr ↑x) ≤ 12`,
+because `hsNormSq (↑x + 1) = 6 + 2·Re(tr ↑x) ≥ 0` forces
+`Re(tr ↑x) ≥ -3`. On the strip `[t_lo, t_top]` the decay factor
+`exp(-(d_SU3 x 1)² / (4t))` is therefore bounded below by the
+positive constant `exp(-12 / (4·t_lo))`, so the bound holds for all
+`x` once the amplitude is recalibrated from `varadhan_C` to
+`varadhan_C_offdiag` (which carries `exp(12 / (4·t_lo))` in place of
+`exp(varadhan_c / t_lo)`).
+
+**Honest scope (locked).** This is the genuine off-diagonal *strip*
+bound — it carries the real `exp(-d(x,1)²/4t)` decay factor for every
+`x` including the off-diagonal locus `d_SU3 x 1 > 0`, with constants
+traceable to `Heat_kernel_envelope_real varadhan_t_lo`. It is NOT the
+small-`t` Varadhan / Molchanov asymptotic (still open — the literal
+unrestricted shape is false as `t → 0⁺`, see the file preamble), and
+it does NOT use the *geodesic* distance (the chordal `d_SU3` is only a
+pseudo-distance, see `RiemannianGeometry.lean`). YM tower stays
+`Status: Open`; Surface #2 stays OPEN. No mass-gap / μ>0 / Surface
+claim. -/
+
+/-- **`hsNormSq` is nonnegative.** `hsNormSq M = (tr(Mᴴ M)).re`
+expands to `∑_{i,j} |M i j|² ≥ 0`. Proved by the explicit `Fin 3`
+trace/matrix-product expansion. -/
+theorem hsNormSq_nonneg (M : Matrix (Fin 3) (Fin 3) ℂ) :
+    0 ≤ RiemannianGeometry.hsNormSq M := by
+  unfold RiemannianGeometry.hsNormSq
+  rw [Matrix.trace_fin_three]
+  simp only [Matrix.mul_apply, Matrix.star_apply, Fin.sum_univ_three,
+    Complex.star_def, ← Complex.normSq_eq_conj_mul_self,
+    Complex.add_re, Complex.ofReal_re]
+  linarith [Complex.normSq_nonneg (M 0 0), Complex.normSq_nonneg (M 1 0),
+    Complex.normSq_nonneg (M 2 0), Complex.normSq_nonneg (M 0 1),
+    Complex.normSq_nonneg (M 1 1), Complex.normSq_nonneg (M 2 1),
+    Complex.normSq_nonneg (M 0 2), Complex.normSq_nonneg (M 1 2),
+    Complex.normSq_nonneg (M 2 2)]
+
+/-- **Diagonal-shifted Hilbert–Schmidt norm of a unitary.** For
+`A` with `star A * A = 1`,
+  `hsNormSq (A - 1) = 6 - 2·(tr A).re`.
+Proof: expand `(Aᴴ - 1)(A - 1) = Aᴴ A - Aᴴ - A + 1`, use
+`Aᴴ A = 1`, `tr 1 = 3`, `tr Aᴴ = conj (tr A)`. -/
+theorem hsNormSq_sub_one_eq (A : Matrix (Fin 3) (Fin 3) ℂ)
+    (hA : star A * A = 1) :
+    RiemannianGeometry.hsNormSq (A - 1) = 6 - 2 * (Matrix.trace A).re := by
+  unfold RiemannianGeometry.hsNormSq
+  have hstar : star (A - 1) = star A - 1 := by rw [star_sub, star_one]
+  have he : star (A - 1) * (A - 1) = star A * A - star A - A + 1 := by
+    rw [hstar, sub_mul, mul_sub, mul_sub, mul_one, one_mul, mul_one]
+    abel
+  rw [he, hA]
+  simp only [Matrix.trace_add, Matrix.trace_sub, Matrix.trace_one,
+    Matrix.star_eq_conjTranspose, Matrix.trace_conjTranspose,
+    Fintype.card_fin, Complex.add_re, Complex.sub_re, Complex.star_def,
+    Complex.conj_re, Complex.natCast_re]
+  push_cast
+  ring
+
+/-- **Anti-diagonal-shifted Hilbert–Schmidt norm of a unitary.** For
+`A` with `star A * A = 1`,
+  `hsNormSq (A + 1) = 6 + 2·(tr A).re`. -/
+theorem hsNormSq_add_one_eq (A : Matrix (Fin 3) (Fin 3) ℂ)
+    (hA : star A * A = 1) :
+    RiemannianGeometry.hsNormSq (A + 1) = 6 + 2 * (Matrix.trace A).re := by
+  unfold RiemannianGeometry.hsNormSq
+  have hstar : star (A + 1) = star A + 1 := by rw [star_add, star_one]
+  have he : star (A + 1) * (A + 1) = star A * A + star A + A + 1 := by
+    rw [hstar, add_mul, mul_add, mul_add, mul_one, one_mul, mul_one]
+    abel
+  rw [he, hA]
+  simp only [Matrix.trace_add, Matrix.trace_one,
+    Matrix.star_eq_conjTranspose, Matrix.trace_conjTranspose,
+    Fintype.card_fin, Complex.add_re, Complex.star_def,
+    Complex.conj_re, Complex.natCast_re]
+  push_cast
+  ring
+
+/-- **The chordal SU(3) distance to the identity is bounded:**
+`(d_SU3 x 1)² ≤ 12` for every `x : SU3`. The bound `12 = (2√3)²` is
+the squared HS-diameter of SU(3). Proof: `(d_SU3 x 1)² =
+hsNormSq (↑x - 1) = 6 - 2·Re(tr ↑x)` while `hsNormSq (↑x + 1) =
+6 + 2·Re(tr ↑x) ≥ 0` forces `Re(tr ↑x) ≥ -3`. -/
+theorem d_SU3_sq_le_twelve (x : RiemannianGeometry.SU3) :
+    (RiemannianGeometry.d_SU3 x (1 : RiemannianGeometry.SU3)) ^ 2 ≤ 12 := by
+  have hone : ((1 : RiemannianGeometry.SU3) : Matrix (Fin 3) (Fin 3) ℂ)
+      = 1 := OneMemClass.coe_one _
+  have hxU : star (x : Matrix (Fin 3) (Fin 3) ℂ) *
+      (x : Matrix (Fin 3) (Fin 3) ℂ) = 1 :=
+    Matrix.mem_unitaryGroup_iff'.mp
+      (Matrix.mem_specialUnitaryGroup_iff.mp x.2).1
+  have hsq : (RiemannianGeometry.d_SU3 x (1 : RiemannianGeometry.SU3)) ^ 2
+      = RiemannianGeometry.hsNormSq ((x : Matrix (Fin 3) (Fin 3) ℂ) - 1) := by
+    unfold RiemannianGeometry.d_SU3
+    rw [hone, Real.sq_sqrt (hsNormSq_nonneg _)]
+  rw [hsq, hsNormSq_sub_one_eq _ hxU]
+  have hpos : 0 ≤ RiemannianGeometry.hsNormSq
+      ((x : Matrix (Fin 3) (Fin 3) ℂ) + 1) := hsNormSq_nonneg _
+  rw [hsNormSq_add_one_eq _ hxU] at hpos
+  linarith
+
+/-- Amplitude constant for the off-diagonal strip bound. Mirrors
+`varadhan_C` but carries `exp(12 / (4·t_lo))` — large enough to
+absorb the bounded decay factor `exp(-(d_SU3 x 1)² / (4t)) ≥
+exp(-12/(4·t_lo))` uniformly over the strip and over all `x`. -/
+noncomputable def varadhan_C_offdiag : ℝ :=
+  Heat_kernel_envelope_real varadhan_t_lo *
+    varadhan_t_top ^ 4 * Real.exp (12 / (4 * varadhan_t_lo))
+
+theorem varadhan_C_offdiag_pos : 0 < varadhan_C_offdiag := by
+  unfold varadhan_C_offdiag
+  have he : (1 : ℝ) ≤ Heat_kernel_envelope_real varadhan_t_lo :=
+    Heat_kernel_envelope_real_ge_one_of_pos varadhan_t_lo_pos
+  have hep : (0 : ℝ) < Heat_kernel_envelope_real varadhan_t_lo := by linarith
+  have htop4 : (0 : ℝ) < varadhan_t_top ^ 4 := pow_pos varadhan_t_top_pos 4
+  exact mul_pos (mul_pos hep htop4) (Real.exp_pos _)
+
+/-- **Genuine off-diagonal Varadhan-shape upper bound on the SU(3)
+Peter-Weyl heat-kernel envelope, strip form (Task #210).** For every
+`t : ℝ` with `varadhan_t_lo ≤ t ≤ varadhan_t_top` and **every**
+`x : SU3` (no diagonal hypothesis),
+  `Heat_kernel_envelope_real t ≤`
+      `varadhan_C_offdiag · exp(-(d_SU3 x 1)² / (4·t)) / t^4`.
+
+This removes the `hx : d_SU3 x 1 = 0` gate of
+`Heat_kernel_envelope_real_le_varadhan_geometric`: the bound now
+carries the genuine `exp(-d(x,1)²/4t)` decay factor for *every* `x`,
+including the off-diagonal locus `d_SU3 x 1 > 0`.
+
+Proof.
+  - Antitonicity: `env(t) ≤ env(t_lo)`.
+  - The chordal distance is bounded: `(d_SU3 x 1)² ≤ 12`
+    (`d_SU3_sq_le_twelve`), so on the strip
+      `(d_SU3 x 1)²/(4t) ≤ 12/(4t) ≤ 12/(4·t_lo)`,
+    hence `exp(12/(4·t_lo)) · exp(-(d_SU3 x 1)²/(4t)) ≥ 1`.
+  - With `t^4 ≤ t_top^4` and `env(t_lo) ≥ 1`:
+      `env(t_lo) ≤ env(t_lo)·t_top^4·exp(12/(4·t_lo))·exp(-(…)²/4t)/t^4`
+              `= varadhan_C_offdiag · exp(-(…)²/4t) / t^4`.
+
+**Honest scope (locked).** Strip-form only; NOT the small-`t`
+asymptotic (false in the literal unrestricted shape, see preamble),
+NOT the geodesic distance (chordal `d_SU3` is a pseudo-distance).
+Makes NO mass-gap / μ>0 / Surface claim — YM tower stays
+`Status: Open`, Surface #2 stays OPEN. -/
+theorem Heat_kernel_envelope_real_le_varadhan_geometric_offdiag
+    {t : ℝ} (ht_lo : varadhan_t_lo ≤ t) (ht_top : t ≤ varadhan_t_top)
+    (x : RiemannianGeometry.SU3) :
+    Heat_kernel_envelope_real t ≤
+      varadhan_C_offdiag *
+        Real.exp (-((RiemannianGeometry.d_SU3 x (1 : RiemannianGeometry.SU3)) ^ 2
+          / (4 * t))) / t ^ 4 := by
+  have htpos : 0 < t := lt_of_lt_of_le varadhan_t_lo_pos ht_lo
+  have ht4_pos : 0 < t ^ 4 := pow_pos htpos 4
+  set dsq : ℝ := (RiemannianGeometry.d_SU3 x (1 : RiemannianGeometry.SU3)) ^ 2
+  have hdsq_nonneg : 0 ≤ dsq := sq_nonneg _
+  have hdsq_le : dsq ≤ 12 := d_SU3_sq_le_twelve x
+  -- Step 1: antitonicity.
+  have hmono :
+      Heat_kernel_envelope_real t ≤ Heat_kernel_envelope_real varadhan_t_lo :=
+    Heat_kernel_envelope_real_antitone varadhan_t_lo_pos ht_lo
+  have he : (1 : ℝ) ≤ Heat_kernel_envelope_real varadhan_t_lo :=
+    Heat_kernel_envelope_real_ge_one_of_pos varadhan_t_lo_pos
+  have hep_nonneg : 0 ≤ Heat_kernel_envelope_real varadhan_t_lo := by linarith
+  have htop4_pos : 0 < varadhan_t_top ^ 4 := pow_pos varadhan_t_top_pos 4
+  -- Step 2: the geometric exp argument is bounded below.
+  have h4t : (0 : ℝ) < 4 * t := by linarith
+  have h4lo : (0 : ℝ) < 4 * varadhan_t_lo := by
+    have := varadhan_t_lo_pos; linarith
+  have harg : dsq / (4 * t) ≤ 12 / (4 * varadhan_t_lo) := by
+    rw [div_le_div_iff h4t h4lo]
+    nlinarith [mul_le_mul_of_nonneg_right hdsq_le h4lo.le,
+      mul_le_mul_of_nonneg_left ht_lo (by norm_num : (0 : ℝ) ≤ 48),
+      hdsq_nonneg, varadhan_t_lo_pos, htpos]
+  -- Step 3: `exp(12/(4 t_lo)) · exp(-(dsq/(4t))) ≥ 1`.
+  have hexp_ge1 :
+      1 ≤ Real.exp (12 / (4 * varadhan_t_lo)) *
+            Real.exp (-(dsq / (4 * t))) := by
+    rw [← Real.exp_add]
+    have h0 : (0 : ℝ) ≤ 12 / (4 * varadhan_t_lo) + -(dsq / (4 * t)) := by
+      linarith
+    calc (1 : ℝ) = Real.exp 0 := Real.exp_zero.symm
+      _ ≤ Real.exp (12 / (4 * varadhan_t_lo) + -(dsq / (4 * t))) :=
+            Real.exp_le_exp.mpr h0
+  -- Step 4: `t^4 ≤ t_top^4`.
+  have ht4_le : t ^ 4 ≤ varadhan_t_top ^ 4 :=
+    pow_le_pow_left htpos.le ht_top 4
+  -- Combine.
+  have hrhs :
+      Heat_kernel_envelope_real varadhan_t_lo ≤
+        varadhan_C_offdiag * Real.exp (-(dsq / (4 * t))) / t ^ 4 := by
+    rw [le_div_iff₀ ht4_pos]
+    have hC_eq :
+        varadhan_C_offdiag * Real.exp (-(dsq / (4 * t))) =
+          Heat_kernel_envelope_real varadhan_t_lo *
+            varadhan_t_top ^ 4 *
+              (Real.exp (12 / (4 * varadhan_t_lo)) *
+                Real.exp (-(dsq / (4 * t)))) := by
+      unfold varadhan_C_offdiag; ring
+    rw [hC_eq]
+    calc Heat_kernel_envelope_real varadhan_t_lo * t ^ 4
+        ≤ Heat_kernel_envelope_real varadhan_t_lo * varadhan_t_top ^ 4 :=
+            mul_le_mul_of_nonneg_left ht4_le hep_nonneg
+      _ = Heat_kernel_envelope_real varadhan_t_lo * varadhan_t_top ^ 4 * 1 := by
+            ring
+      _ ≤ Heat_kernel_envelope_real varadhan_t_lo * varadhan_t_top ^ 4 *
+            (Real.exp (12 / (4 * varadhan_t_lo)) *
+              Real.exp (-(dsq / (4 * t)))) :=
+            mul_le_mul_of_nonneg_left hexp_ge1
+              (mul_nonneg hep_nonneg htop4_pos.le)
+  exact le_trans hmono hrhs
+
 /-! ## Half-cubic antidiagonal envelope summand bound — Task #193 -/
 
 /-- **Half-cubic sharpening of the SU(3) heat-kernel envelope
