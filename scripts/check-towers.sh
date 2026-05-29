@@ -2297,6 +2297,24 @@ BRICKS=(
   # construct the real Killing-form distance; YM stays
   # `Status: Open`. Wall 531 → 532.
   "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.d_SU3_isBiInvariant"
+  # Task #209 — strengthen the SU(3) distance predicate from a
+  # pseudo-distance to a real *metric*. Adds a new `IsMetricOnSU3 d`
+  # predicate (pseudo-dist ∧ separation `d g h = 0 → g = h` ∧ triangle
+  # inequality) WITHOUT constructing the real geodesic distance, plus a
+  # concrete non-identity SU(3) witness `cWit = diag(-1,-1,1)` (built via
+  # the proven `diagNegOneOneMat` idiom from `MassGap.lean`) and an
+  # honest tripwire:
+  #   * `cWit_ne_one` — `cWit ≠ (1 : SU3)` (SU(3) is non-trivial),
+  #     proved from the `(0,0)` entry `-1 ≠ 1`.
+  #   * `not_IsMetricOnSU3_const_zero` — the `d ≡ 0` stand-in
+  #     (`fun _ _ => 0`) FAILS `IsMetricOnSU3`: its separation clause
+  #     would force `cWit = 1`, contradicting `cWit_ne_one`. This shows
+  #     the Task #189 chordal `d_SU3` (and the older `d_SU3 ≡ 0`
+  #     stand-in) is only a pseudo-distance, NOT a metric. Constructs
+  #     NO real distance, makes NO mass-gap / μ>0 / Surface-#1 claim;
+  #     YM stays `Status: Open`. Wall 516 → 518.
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.cWit_ne_one"
+  "Towers.YM.RiemannianGeometry|TheoremaAureum.Towers.YM.RiemannianGeometry.not_IsMetricOnSU3_const_zero"
   "Towers.YM.PeterWeylHeatVaradhan|TheoremaAureum.Towers.YM.PeterWeylHeatVaradhan.Heat_kernel_envelope_real_le_varadhan_geometric"
   # Batch 162 / TRI PARALLEL #2 — three honest stand-ins for Yang-Mills
   # Surface #1 (OS reconstruction / mass-gap support). Each is a

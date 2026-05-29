@@ -99,6 +99,8 @@ Depends only on the classical trio
 
 import Mathlib.LinearAlgebra.UnitaryGroup
 import Mathlib.LinearAlgebra.Matrix.Trace
+import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
+import Mathlib.Data.Matrix.Notation
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Complex.Basic
@@ -262,6 +264,101 @@ theorem d_SU3_isBiInvariant : IsBiInvariantOnSU3 d_SU3 := by
     have hK : (k : Matrix (Fin 3) (Fin 3) ℂ) * star (k : Matrix (Fin 3) (Fin 3) ℂ) = 1 :=
       Matrix.mem_unitaryGroup_iff.mp (Matrix.mem_specialUnitaryGroup_iff.mp k.2).1
     rw [hcoe, hsNormSq_right _ _ hK]
+
+/-! ## Metric predicate — separation + triangle (Task #209) -/
+
+/-- **`IsMetricOnSU3 d`** — the full *metric* predicate on SU(3),
+strengthening `IsPseudoDistOnSU3` with the two clauses a genuine
+distance has that a mere pseudo-distance lacks:
+
+  6. **separation:**  `d g h = 0 → g = h`   (points at distance `0` coincide)
+  7. **triangle:**    `d g h ≤ d g k + d k h`
+
+Together with the three pseudo-distance clauses (symmetry,
+nonnegativity, zero-on-diagonal) repackaged via `IsPseudoDistOnSU3`,
+this is exactly the predicate signature of the real Killing-form
+geodesic distance on SU(3) — so the interface now matches the genuine
+metric shape end-to-end.
+
+**Honest scope (Task #209).** This task adds the predicate *clauses*;
+it does NOT prove that the (chordal) `d_SU3` of Task #189 satisfies
+them, and in particular constructs no real *geodesic* distance. What
+it does pin down is the tripwire: the Task #170 stand-in `d_SU3 ≡ 0`
+(here `fun _ _ => 0`) satisfies `IsPseudoDistOnSU3` *vacuously* but
+provably FAILS the separation clause, because SU(3) is non-trivial —
+see `not_IsMetricOnSU3_const_zero`. A distance that genuinely
+separates points is a prerequisite before the off-diagonal Varadhan
+brick can be promoted from synthetic to honest; the geodesic distance
+and the triangle inequality for the real distance remain the open
+tripwire (see the file docstring). -/
+def IsMetricOnSU3 (d : SU3 → SU3 → ℝ) : Prop :=
+  IsPseudoDistOnSU3 d ∧
+  (∀ g h : SU3, d g h = 0 → g = h) ∧
+  (∀ g h k : SU3, d g h ≤ d g k + d k h)
+
+/-! ## Nontriviality witness for SU(3) -/
+
+/-- **`cWit`** — a concrete non-identity element of SU(3): the real
+diagonal matrix `diag(-1, -1, 1)`. It is special-unitary (real
+diagonal of unit-modulus entries ⇒ `M * Mᴴ = 1`; determinant
+`(-1)·(-1)·1 = 1`) and differs from `1`. This witnesses that SU(3)
+is non-trivial — exactly the fact the separation clause of
+`IsMetricOnSU3` needs to rule out the `d ≡ 0` stand-in. Built with the
+`!![…]` + `mem_specialUnitaryGroup_iff` + `fin_cases`/`simp`
+matrix-literal idiom already used for `diagNegOneOneMat` in
+`Towers/YM/MassGap.lean`. -/
+noncomputable def cWit : SU3 :=
+  ⟨!![(-1 : ℂ), 0, 0; 0, -1, 0; 0, 0, 1], by
+    rw [Matrix.mem_specialUnitaryGroup_iff]
+    refine ⟨?_, ?_⟩
+    · rw [Matrix.mem_unitaryGroup_iff]
+      ext i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply,
+              Fin.sum_univ_three, Matrix.cons_val', Matrix.cons_val_zero,
+              Matrix.cons_val_one, Matrix.head_cons, Matrix.head_fin_const,
+              Matrix.empty_val', Matrix.cons_val_fin_one,
+              Matrix.of_apply, star_neg, star_one, star_zero]
+    · rw [Matrix.det_fin_three]
+      simp [Matrix.cons_val', Matrix.cons_val_zero, Matrix.cons_val_one,
+            Matrix.head_cons, Matrix.head_fin_const, Matrix.empty_val',
+            Matrix.cons_val_fin_one, Matrix.of_apply]⟩
+
+/-- The witness `cWit = diag(-1, -1, 1)` is not the identity of SU(3):
+its `(0,0)` entry is `-1 ≠ 1`. -/
+theorem cWit_ne_one : cWit ≠ (1 : SU3) := by
+  intro h
+  have h00 : (cWit : Matrix (Fin 3) (Fin 3) ℂ) 0 0
+      = ((1 : SU3) : Matrix (Fin 3) (Fin 3) ℂ) 0 0 :=
+    congrArg (fun g : SU3 => (g : Matrix (Fin 3) (Fin 3) ℂ) 0 0) h
+  have hL : (cWit : Matrix (Fin 3) (Fin 3) ℂ) 0 0 = -1 := by
+    simp [cWit, Matrix.cons_val', Matrix.cons_val_zero, Matrix.cons_val_one,
+      Matrix.head_cons, Matrix.head_fin_const, Matrix.empty_val',
+      Matrix.cons_val_fin_one, Matrix.of_apply]
+  have hR : ((1 : SU3) : Matrix (Fin 3) (Fin 3) ℂ) 0 0 = 1 := by simp
+  rw [hL, hR] at h00
+  exact (by norm_num : (-1 : ℂ) ≠ 1) h00
+
+/-! ## Tripwire brick -/
+
+/-- **Brick 5 / Tripwire (`not_IsMetricOnSU3_const_zero`).** The
+constant-zero stand-in distance `fun _ _ => 0` — the Task #170
+placeholder `d_SU3 ≡ 0` — is NOT a metric on SU(3): it fails the
+separation clause of `IsMetricOnSU3`. Indeed `cWit ≠ 1` (SU(3) is
+non-trivial) yet the zero distance gives `(fun _ _ => 0) cWit 1 = 0`,
+so the separation clause would force `cWit = 1`, a contradiction.
+
+This is the honest tripwire the task describes: the pseudo-distance
+predicate is satisfied vacuously by `d ≡ 0`, but the strengthened
+metric predicate is NOT — any distance that genuinely separates points
+(such as the real Killing-form distance) is required before the
+off-diagonal Varadhan brick can be promoted from synthetic to honest.
+Makes NO mass-gap / μ>0 / Surface-#1 claim; YM tower stays
+`Status: Open`. -/
+theorem not_IsMetricOnSU3_const_zero :
+    ¬ IsMetricOnSU3 (fun _ _ : SU3 => (0 : ℝ)) := by
+  rintro ⟨_, hsep, _⟩
+  exact cWit_ne_one (hsep cWit 1 rfl)
 
 end RiemannianGeometry
 end YM

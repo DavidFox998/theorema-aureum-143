@@ -117,6 +117,21 @@ Status legend:
   elementary monoid/unitarity facts about the trivial-bundle
   constant-coefficient SU(3) connection on the way there, not
   spectral lower bounds on any Yang-Mills Hamiltonian.
+- Distance-predicate tripwire (Task #209,
+  `Towers/YM/RiemannianGeometry.lean`): the SU(3) distance used by
+  the heat-kernel envelope is only a *pseudo-distance*, never a real
+  metric. A new `IsMetricOnSU3 d` predicate (pseudo-dist ∧ separation
+  `d g h = 0 → g = h` ∧ triangle inequality) makes the missing
+  separation axiom explicit, and the brick
+  `not_IsMetricOnSU3_const_zero` PROVES that the `d ≡ 0` stand-in
+  (`fun _ _ => 0`) FAILS `IsMetricOnSU3` — witnessed by the concrete
+  non-identity element `cWit = diag(-1,-1,1) ∈ SU(3)` (`cWit_ne_one`),
+  on which any zero distance would falsely force `cWit = 1`. This
+  constructs NO real geodesic/Killing-form distance and makes NO
+  mass-gap, μ>0, or Surface-#1 claim; it only records honestly that
+  the current stand-in is not a metric. Axiom footprint of both bricks
+  = `{propext, Classical.choice, Quot.sound}`. YM stays
+  **Status: Open**.
 
 ## 3. Navier-Stokes global regularity
 

@@ -6,9 +6,10 @@ sketches, drift footnotes, env var docs, stack, where-things-live,
 user preferences, gotchas, pointers — all rolled into CHANGELOG by
 the Wall-510 / Wall-539 / Wall-542 trims).
 
-- **Wall:** 516 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
-  was 545 pre-deferral — prior `543` headline was stale by 2. See
-  **Task #208** below for the −29-entry / 24-module deferral.)
+- **Wall:** 518 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`;
+  516 + 2 from **Task #209** below. Was 545 pre-deferral — prior `543`
+  headline was stale by 2. See **Task #208** below for the −29-entry /
+  24-module deferral.)
   - Rebase note (Task #208): the `LatticeGauge.lean` `G`/`GaugeConfig`
     substrate was kept RESTORED (mathlib imports + defs) rather than
     left trimmed — additive, wall unchanged at 516; the deferred
@@ -22,6 +23,54 @@ the Wall-510 / Wall-539 / Wall-542 trims).
   `{propext, Classical.choice, Quot.sound}` · no `sorry` / `admit`
   in any landed brick · YM and NS towers stay `Status: Open` in
   `docs/ROADMAP.md`
+
+## Task #209 — SU(3) distance: pseudo-distance → metric predicate + tripwire (2026-05-29)
+
+Strengthened the SU(3) distance machinery in
+`Towers/YM/RiemannianGeometry.lean` from a pseudo-distance to a real
+*metric* **predicate** (no real geodesic distance constructed). Added:
+
+- **`IsMetricOnSU3 d`** — `IsPseudoDistOnSU3 d ∧ separation
+  (`d g h = 0 → g = h`) ∧ triangle inequality`. Makes the two axioms a
+  pseudo-distance is missing (separation, triangle) explicit.
+- **`cWit`** — concrete non-identity SU(3) element `diag(-1,-1,1)`,
+  built via the proven `diagNegOneOneMat` `!![…]` +
+  `mem_specialUnitaryGroup_iff` + `fin_cases`/`simp` idiom from
+  `MassGap.lean`. Brick **`cWit_ne_one`** : `cWit ≠ (1 : SU3)` (from the
+  `(0,0)` entry `-1 ≠ 1`).
+- **Tripwire `not_IsMetricOnSU3_const_zero`** — PROVES the `d ≡ 0`
+  stand-in (`fun _ _ => 0`) FAILS `IsMetricOnSU3`: its separation clause
+  applied to `cWit, 1` would force `cWit = 1`, contradicting
+  `cWit_ne_one`. Honestly records that the current Task #189 chordal
+  `d_SU3` (and the older `d_SU3 ≡ 0` stand-in) is only a
+  pseudo-distance, NOT a metric.
+
+Imports added: `Mathlib.LinearAlgebra.Matrix.Determinant.Basic`,
+`Mathlib.Data.Matrix.Notation`. **+2 BRICKS** (516 → 518) registered in
+`scripts/check-towers.sh`. Constructs NO real distance, makes NO
+mass-gap / μ>0 / Surface-#1 claim — Surface #1 stays OPEN, YM
+**Status: Open**.
+
+- **Drift note:** the task brief referenced the stale `d_SU3 ≡ 0`
+  stand-in; the live `d_SU3` is now the Task #189 chordal distance, so
+  the tripwire targets the explicit `fun _ _ => 0` (documented in the
+  file docstring) rather than `d_SU3` itself.
+- **Verified:** `#print axioms` on BOTH `cWit_ne_one` and
+  `not_IsMetricOnSU3_const_zero` = `[propext, Classical.choice,
+  Quot.sound]` (classical trio), via `lake env lean` on a self-contained
+  copy of the file (mathlib-only imports, no Towers deps). The wiping
+  `towers-build` / `check-towers.sh` was NOT run (lake-update re-clone
+  gotcha below).
+- **Env-recovery note:** an earlier verify attempt that ran
+  `lake env lean` from a *workflow* (after an environment reset had left
+  `.lake/packages/mathlib/.git` corrupt) triggered a mathlib re-fetch
+  that wiped the vendored worktree + build oleans. Recovered with
+  `scripts/restore-lake-git.sh` → `git checkout -f <pinned-rev>` (to
+  repopulate the mathlib worktree, which the restore script's
+  wrong-rev branch does NOT do on its own) → `lake exe cache get`. The
+  warm cache is back. Lesson reinforced: do NOT drive `lake` from a
+  fresh workflow when the vendored `.git` may be corrupt — restore
+  first.
 
 ## Task #208 — Mathlib build unblock + OS-surface deferral (2026-05-29)
 
