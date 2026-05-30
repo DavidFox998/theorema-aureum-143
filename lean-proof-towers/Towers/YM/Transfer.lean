@@ -283,27 +283,121 @@ noncomputable def T_L (L : ℕ) (β : ℝ) (f : Lp ℝ 2 (haarN (4 * L ^ 4))) :
     Lp ℝ 2 (haarN (4 * L ^ 4)) :=
   Memℒp.toLp _ (memℒp_intOp L β f)
 
-/-- **Kotecký–Preiss criterion — disclaimed placeholder, single `sorry`.**
+/-- **Operator-norm bound for `T_L` (`transfer_operator_norm_le`).** `sorry`-free,
+classical-trio only.
 
-This is NOT a proof. It is a named, single-`sorry` placeholder for the
-Kotecký–Preiss polymer/cluster-expansion convergence criterion
-specialised to the transfer operator `T_L`, asserting an exponential-in-β
-operator-norm control. It is **not proven**, asserts **no** mass gap,
-**no** spectral gap, **no** `m > 0`, and does **not** close Surface #1.
+`∃ a > 0, ∀ β > 0, ∀ f, ‖T_L L β f‖ ≤ exp(a·β)·‖f‖` — the integral operator `T_L`
+is a **bounded** operator, with an exponential-in-β control of its operator norm.
+The proof is pure soft analysis: the heat kernel `K(U,V) = exp(-β·actL(V⁻¹·U))` is
+continuous on the **compact** configuration space, so `actL` attains a finite
+minimum `m₀` (`IsCompact.exists_isMinOn`); hence `K ≤ exp((|m₀|+1)·β)`, and
+`L¹ ≤ L²` (`eLpNorm_le_eLpNorm_of_exponent_le`) on the probability space `haarN`
+plus the a.e. bound (`Lp.norm_le_of_ae_bound`) give the result with `a := |m₀|+1`
+(which absorbs the sign of `m₀`).
 
-It deliberately lives in a **distinct namespace** (`…YM.Transfer`) from
-the invariant-locked `kotecky_preiss_criterion` `sorry` in
-`Towers/Attempts/ClusterExpansion.lean` and does **not** touch it. This
-placeholder is NOT a registered brick and is NOT in `BRICKS`. -/
-theorem kotecky_preiss_criterion (L : ℕ) :
+**Honesty (locked invariants).** This is *mere boundedness*. It does **NOT** use
+the deferred `Re tr P ≤ 3` analytic input; it does **NOT** assert `‖T_L‖ ≤ 1` (a
+contraction); it does **NOT** assert any decay/`exp(-β·S_min)` bound — that would
+be *false*, since the constant function is an eigenvector with eigenvalue
+`Z(β) = ∫ exp(-β·S)`, so `‖T_L‖ = Z(β)` (which does not decay exponentially), and
+`S_min := inf_{U ≠ 1} wilsonAction U = 0` (the action is continuous and vanishes
+at `1`). It makes **NO** spectral / mass-gap / `m > 0` claim. Surface #1 stays
+OPEN; YM stays `Status: Open`. -/
+theorem transfer_operator_norm_le (L : ℕ) :
     ∃ a : ℝ, 0 < a ∧ ∀ β : ℝ, 0 < β →
       ∀ f : Lp ℝ 2 (haarN (4 * L ^ 4)),
         ‖T_L L β f‖ ≤ Real.exp (a * β) * ‖f‖ := by
+  haveI : CompactSpace (Fin (4 * L ^ 4) → SU3Instances.SU3) := Pi.compactSpace
+  haveI : Nonempty (Fin (4 * L ^ 4) → SU3Instances.SU3) := inferInstance
+  obtain ⟨w₀, -, hw₀⟩ :=
+    isCompact_univ.exists_isMinOn Set.univ_nonempty (continuous_actL L).continuousOn
+  set m₀ : ℝ := actL L w₀ with hm₀
+  have hmin : ∀ w, m₀ ≤ actL L w := by
+    intro w; rw [hm₀]; exact isMinOn_iff.mp hw₀ w (Set.mem_univ w)
+  refine ⟨|m₀| + 1, by positivity, ?_⟩
+  intro β hβ f
+  set M : ℝ := Real.exp ((|m₀| + 1) * β) with hMdef
+  have hM_nonneg : 0 ≤ M := Real.exp_nonneg _
+  have hker : ∀ U V, kernel L β U V ≤ M := by
+    intro U V
+    rw [hMdef]
+    unfold kernel
+    apply Real.exp_le_exp.mpr
+    have h2 : -actL L (groupDiff L U V) ≤ |m₀| + 1 := by
+      have hge : m₀ ≤ actL L (groupDiff L U V) := hmin _
+      have : -|m₀| ≤ m₀ := neg_abs_le m₀
+      linarith
+    nlinarith [mul_le_mul_of_nonneg_left h2 hβ.le, hβ]
+  have hf_int : Integrable (fun V => ‖f V‖) (haarN (4 * L ^ 4)) :=
+    ((Lp.memℒp f).integrable one_le_two).norm
+  have hMf_int : Integrable (fun V => M * ‖f V‖) (haarN (4 * L ^ 4)) :=
+    hf_int.const_mul M
+  have hL1L2 : ∫ V, ‖f V‖ ∂(haarN (4 * L ^ 4)) ≤ ‖f‖ := by
+    rw [integral_norm_eq_lintegral_nnnorm (Lp.aestronglyMeasurable f), Lp.norm_def]
+    refine ENNReal.toReal_mono (Lp.eLpNorm_ne_top f) ?_
+    calc (∫⁻ V, ‖f V‖₊ ∂(haarN (4 * L ^ 4)))
+        = eLpNorm f 1 (haarN (4 * L ^ 4)) :=
+          eLpNorm_one_eq_lintegral_nnnorm.symm
+      _ ≤ eLpNorm f 2 (haarN (4 * L ^ 4)) :=
+          eLpNorm_le_eLpNorm_of_exponent_le (by norm_num) (Lp.aestronglyMeasurable f)
+  have hbound : ∀ U,
+      ‖∫ V, kernel L β U V * f V ∂(haarN (4 * L ^ 4))‖ ≤ M * ‖f‖ := by
+    intro U
+    calc ‖∫ V, kernel L β U V * f V ∂(haarN (4 * L ^ 4))‖
+        ≤ ∫ V, ‖kernel L β U V * f V‖ ∂(haarN (4 * L ^ 4)) :=
+          norm_integral_le_integral_norm _
+      _ = ∫ V, kernel L β U V * ‖f V‖ ∂(haarN (4 * L ^ 4)) := by
+          refine integral_congr_ae (ae_of_all _ fun V => ?_)
+          simp only [norm_mul, Real.norm_eq_abs, abs_of_nonneg (kernel_nonneg L β U V)]
+      _ ≤ ∫ V, M * ‖f V‖ ∂(haarN (4 * L ^ 4)) := by
+          refine integral_mono_of_nonneg (ae_of_all _ fun V => ?_) hMf_int
+            (ae_of_all _ fun V => ?_)
+          · exact mul_nonneg (kernel_nonneg L β U V) (norm_nonneg _)
+          · exact mul_le_mul_of_nonneg_right (hker U V) (norm_nonneg _)
+      _ = M * ∫ V, ‖f V‖ ∂(haarN (4 * L ^ 4)) := integral_mul_left M _
+      _ ≤ M * ‖f‖ := mul_le_mul_of_nonneg_left hL1L2 hM_nonneg
+  have hae : ∀ᵐ U ∂(haarN (4 * L ^ 4)), ‖(T_L L β f) U‖ ≤ M * ‖f‖ := by
+    have hcoe := Memℒp.coeFn_toLp (memℒp_intOp L β f)
+    filter_upwards [hcoe] with U hU
+    have hval : (T_L L β f) U = ∫ V, kernel L β U V * f V ∂(haarN (4 * L ^ 4)) := hU
+    rw [hval]; exact hbound U
+  have hnorm := Lp.norm_le_of_ae_bound (f := T_L L β f)
+    (mul_nonneg hM_nonneg (norm_nonneg f)) hae
+  have hμ1 : measureUnivNNReal (haarN (4 * L ^ 4)) = 1 := by
+    simp [measureUnivNNReal, measure_univ]
+  rw [hμ1] at hnorm
+  simpa only [NNReal.coe_one, NNReal.one_rpow, Real.one_rpow, one_mul] using hnorm
+
+/-- **Kotecký–Preiss criterion (genuine mass gap) — disclaimed placeholder,
+single `sorry`. OPEN.**
+
+This is NOT a proof. It is the genuine **Clay criterion** for the SU(3) lattice
+mass gap, rendered as a uniform-in-`L` **spectral gap above the vacuum**: for `β`
+large there is `gap > 0` so that on the vacuum-orthogonal sector (zero-mean
+functions, `∫ f d(haarN) = 0`, i.e. `f ⊥ constants`) the transfer operator is an
+exponentially-suppressed contraction, `‖T_L L β f‖ ≤ exp(-(β·gap))·‖f‖`. The
+constant function is the top (`Z(β)`) eigenvector of `T_L`; suppression on its
+orthogonal complement is exactly a positive mass gap.
+
+**Honesty (locked invariants).** This is **OPEN** and carries a `sorry`. It is
+the *hard* direction and is **NOT** implied by `transfer_operator_norm_le` (a mere
+upper bound). It asserts **no** proven mass gap, **no** proven `m > 0`, and does
+**NOT** close Surface #1 — it merely *names* the open problem. It deliberately
+lives in a **distinct namespace** (`…YM.Transfer`) from the invariant-locked
+`kotecky_preiss_criterion` `sorry` in `Towers/Attempts/ClusterExpansion.lean` and
+does **not** touch it. NOT a registered brick, NOT in `BRICKS`. -/
+theorem kotecky_preiss_criterion :
+    ∃ β₀ : ℝ, 0 < β₀ ∧ ∀ β : ℝ, β₀ < β → ∃ gap : ℝ, 0 < gap ∧
+      ∀ (L : ℕ) (f : Lp ℝ 2 (haarN (4 * L ^ 4))),
+        (∫ U, f U ∂(haarN (4 * L ^ 4)) = 0) →
+          ‖T_L L β f‖ ≤ Real.exp (-(β * gap)) * ‖f‖ := by
   sorry
 
--- Axiom audit (informational): `T_L` is classical-trio only; the
--- placeholder criterion additionally reports `sorryAx`, as intended.
+-- Axiom audit (informational): `T_L` and the proven `transfer_operator_norm_le`
+-- are classical-trio only; the OPEN `kotecky_preiss_criterion` additionally
+-- reports `sorryAx`, as intended.
 #print axioms T_L
+#print axioms transfer_operator_norm_le
 #print axioms kotecky_preiss_criterion
 
 end Transfer

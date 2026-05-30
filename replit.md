@@ -46,9 +46,19 @@ history. Roadmap → `docs/ROADMAP.md`.
   Wilson action (via `linkEquiv`/`toGauge`, continuity + `Memℒp` proofs). `#print
   axioms T_L` = classical trio (no `sorryAx`), verified live. Makes **no**
   spectral / mass-gap / `m > 0` claim; Surface #1 stays OPEN; YM stays
-  `Status: Open`. The companion `Transfer.kotecky_preiss_criterion` is a
-  **disclaimed single-`sorry` placeholder** (own namespace `…YM.Transfer`,
-  reports `sorryAx`, NOT a brick) — it does NOT touch the invariant-locked
+  `Status: Open`. The companion `Transfer.transfer_operator_norm_le` is now a
+  **`sorry`-free, classical-trio-only** theorem (`#print axioms` = trio,
+  verified live): `∃ a > 0, ∀ β > 0, ‖T_L L β f‖ ≤ exp(a·β)·‖f‖` — an
+  operator-norm UPPER (growth) bound only, proved via compactness + `actL`
+  minimum + `L¹ ≤ L²` on the probability measure. It is explicitly **NOT** a
+  contraction (`‖T_L‖ ≤ 1`), decay, spectral-gap, or mass-gap claim, and its
+  docstring disclaims the false `exp(-β·S_min)` reading. The genuine mass gap
+  lives in the NEW `Transfer.kotecky_preiss_criterion` — a **disclaimed
+  single-`sorry` placeholder** (own namespace `…YM.Transfer`, reports `sorryAx`,
+  NOT a brick): `∃ β₀ > 0, ∀ β > β₀, ∃ gap > 0, ∀ L f, (∫ f d(haarN) = 0) →
+  ‖T_L L β f‖ ≤ exp(-(β·gap))·‖f‖` (contraction on the zero-mean / vacuum-
+  orthogonal sector, uniform in `L`). OPEN — it does NOT close Surface #1, does
+  NOT prove the mass gap, and does NOT touch the invariant-locked
   `kotecky_preiss_criterion` `sorry` in `Towers/Attempts/ClusterExpansion.lean`.
 
 ## Locked invariants (every batch must hold these)
