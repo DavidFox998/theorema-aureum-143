@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync, unlinkSync, utimesSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, unlinkSync, utimesSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -1008,6 +1008,132 @@ describe("startLedgerMonitor", () => {
       else process.env[ENV_BYTES_KEY] = prevBytes;
       if (prevRots === undefined) delete process.env[ENV_ROTS_KEY];
       else process.env[ENV_ROTS_KEY] = prevRots;
+      for (const p of [secretPath, ackPath, historyPath, `${historyPath}.1`]) {
+        try {
+          unlinkSync(p);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  });
+
+  it("fires a one-shot info-level 'forged_ack_history_nearly_full' pre-rotation warning when an append crosses the high-water mark without rotating (task #236)", async () => {
+    const ENV_BYTES_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES";
+    const ENV_ROTS_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS";
+    const ENV_RATIO_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_FULLNESS_RATIO";
+    const prevBytes = process.env[ENV_BYTES_KEY];
+    const prevRots = process.env[ENV_ROTS_KEY];
+    const prevRatio = process.env[ENV_RATIO_KEY];
+    // ~143 bytes per entry. Cap 1000, threshold ratio 0.5 → 500 B mark.
+    // Three pre-seeded entries (~429 B) sit under the mark; the ack's
+    // append (~143 B) tips the live file to ~572 B — past 500 B but
+    // under the 1000 B cap, so it arms the warning WITHOUT rotating.
+    process.env[ENV_BYTES_KEY] = "1000";
+    process.env[ENV_ROTS_KEY] = "2";
+    process.env[ENV_RATIO_KEY] = "0.5";
+
+    const secretPath = `${lastOkPath}.key`;
+    writeFileSync(secretPath, "cd".repeat(32) + "\n");
+    const historyPath = `${lastOkPath}.forged-ack.log.jsonl`;
+    const ackPath = `${lastOkPath}.forged-ack`;
+
+    const sealed = "line1\nline2\nline3\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    // Pre-seed the live log just under the threshold.
+    const seedEntry = (marker: string, ref: string) =>
+      JSON.stringify({
+        payloadSha: "11".repeat(32),
+        acknowledgedAt: new Date().toISOString(),
+        ackedBy: ref,
+        marker,
+      }) + "\n";
+    writeFileSync(
+      historyPath,
+      seedEntry("seed-1", "anne") +
+        seedEntry("seed-2", "beth") +
+        seedEntry("seed-3", "cara"),
+    );
+
+    function forgedBytes(marker: string): Buffer {
+      return Buffer.from(
+        JSON.stringify({
+          lastOkAt: new Date(Date.now() + 60_000).toISOString(),
+          lastCheckedAt: new Date().toISOString(),
+          marker,
+        }) + "\n",
+      );
+    }
+
+    try {
+      // One ack via the checker we wire to the monitor: its append
+      // crosses the fullness mark and arms the latch this checker holds.
+      writeFileSync(lastOkPath, forgedBytes("v1"));
+      const fullChecker = createLedgerChecker({
+        hitsPath,
+        checkpointPath,
+        lastOkPath,
+        secretPath,
+      });
+      const r = fullChecker.acknowledgeForgedSidecar("alice");
+      if (!r.ok) throw new Error("ack failed: no_incident");
+      if (r.alreadyAcknowledged) {
+        throw new Error("ack unexpectedly alreadyAcknowledged");
+      }
+      // No rotation ran.
+      expect(existsSync(`${historyPath}.1`)).toBe(false);
+
+      const { sink, calls } = makeRecordingSink();
+      monitor = startLedgerMonitor({
+        buildStatus: fullChecker.buildStatus,
+        sink,
+        intervalMs: 60_000,
+        hitsPath: fullChecker.hitsPath,
+        checkpointPath: fullChecker.checkpointPath,
+        sidecarPath: lastOkPath,
+        consumeForgedAckHistoryFullnessAlert:
+          fullChecker.consumeForgedAckHistoryFullnessAlert,
+        logger: silentLogger(),
+      });
+
+      await monitor.tick();
+
+      const fulls = calls.filter(
+        (c) => c.context.failure_mode === "forged_ack_history_nearly_full",
+      );
+      expect(fulls).toHaveLength(1);
+      const full = fulls[0];
+      expect(full.kind).toBe("alert");
+      expect(full.context.severity).toBe("info");
+      expect(full.context.source).toBe("api-server-monitor");
+      expect(full.context.max_bytes).toBe(1000);
+      expect(full.context.threshold_bytes).toBe(500);
+      expect(full.context.threshold_ratio).toBe(0.5);
+      expect(full.context.max_rotations).toBe(2);
+      expect(full.context.next_drop_path).toBe(`${historyPath}.2`);
+      expect(typeof full.context.live_size).toBe("number");
+      expect(full.context.live_size as number).toBeGreaterThanOrEqual(500);
+      expect(full.message).toMatch(/nearly full/i);
+      expect(full.message).toMatch(/MAX_ROTATIONS/);
+
+      // Idempotent across the rest of the boot: subsequent ticks do not
+      // re-fire (the latch stays set; only a rotation re-arms it).
+      await monitor.tick();
+      await monitor.tick();
+      expect(
+        calls.filter(
+          (c) => c.context.failure_mode === "forged_ack_history_nearly_full",
+        ),
+      ).toHaveLength(1);
+    } finally {
+      if (prevBytes === undefined) delete process.env[ENV_BYTES_KEY];
+      else process.env[ENV_BYTES_KEY] = prevBytes;
+      if (prevRots === undefined) delete process.env[ENV_ROTS_KEY];
+      else process.env[ENV_ROTS_KEY] = prevRots;
+      if (prevRatio === undefined) delete process.env[ENV_RATIO_KEY];
+      else process.env[ENV_RATIO_KEY] = prevRatio;
       for (const p of [secretPath, ackPath, historyPath, `${historyPath}.1`]) {
         try {
           unlinkSync(p);

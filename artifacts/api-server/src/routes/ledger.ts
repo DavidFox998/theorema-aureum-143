@@ -821,6 +821,48 @@ export interface ForgedAckHistoryDropInfo {
 }
 
 /**
+ * Task #236: summary of the live forged-ack dismissal-history file the
+ * moment it first crosses the configurable high-water mark (default
+ * ~90% of `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES`) on an append.
+ * Captured so the background monitor can warn operators *before* the
+ * next rotation silently drops the oldest archive — naming the current
+ * live size, the byte cap, the threshold it crossed, and which archive
+ * index (`maxRotations`) would be aged out on the next rotation. Unlike
+ * the #206 archive-DROPPED alert (which fires after the loss), this is
+ * a proactive heads-up that lets operators off-box the oldest archive
+ * or bump the rotation cap while the evidence is still on disk.
+ */
+export interface ForgedAckHistoryFullnessInfo {
+  liveSize: number;
+  maxBytes: number;
+  thresholdBytes: number;
+  thresholdRatio: number;
+  maxRotations: number;
+  /**
+   * Path of the archive that the NEXT rotation would delete (the oldest
+   * rotation slot, `${historyPath}.${maxRotations}`). Surfaced so the
+   * alert names exactly which file is at risk.
+   */
+  nextDropPath: string;
+}
+
+/**
+ * Task #236: result of an `appendForgedAckHistory` call. `dropped` is the
+ * #206 archive-drop summary (non-null only when a rotation aged out the
+ * oldest archive). `rotated` is true whenever the append tipped the live
+ * file past the byte cap and a rotation ran (regardless of whether an
+ * archive was actually deleted). `sizeAfterAppend` is the live file size
+ * recorded right after the write, *before* any rotation — the value the
+ * caller compares against the high-water mark to arm the pre-rotation
+ * fullness warning.
+ */
+interface AppendForgedAckHistoryResult {
+  dropped: ForgedAckHistoryDropInfo | null;
+  rotated: boolean;
+  sizeAfterAppend: number;
+}
+
+/**
  * Task #206: read an about-to-be-deleted forged-ack archive and
  * extract its dismissal count + acknowledgedAt span and file mtime.
  * Pure best-effort: a missing / unreadable / malformed archive yields
@@ -902,6 +944,37 @@ function forgedAckHistoryMaxRotations(): number {
   );
 }
 
+// Task #236: fraction of the byte cap at which the live forged-ack
+// history file is considered "nearly full" and a one-shot pre-rotation
+// warning is armed. Default 0.9 (90%). Tunable via
+// `MORNINGSTAR_FORGED_ACK_HISTORY_FULLNESS_RATIO`. Clamped to the open
+// interval (0, 1): a value <= 0 or >= 1 (or unparseable) falls back to
+// the default, since a ratio of 0 would fire on every append and a
+// ratio of 1 would never fire before the rotation already happened.
+const FORGED_ACK_HISTORY_DEFAULT_FULLNESS_RATIO = 0.9;
+
+function forgedAckHistoryFullnessRatio(): number {
+  const raw = process.env.MORNINGSTAR_FORGED_ACK_HISTORY_FULLNESS_RATIO;
+  if (raw == null) return FORGED_ACK_HISTORY_DEFAULT_FULLNESS_RATIO;
+  const trimmed = raw.trim();
+  if (trimmed === "") return FORGED_ACK_HISTORY_DEFAULT_FULLNESS_RATIO;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 1) {
+    return FORGED_ACK_HISTORY_DEFAULT_FULLNESS_RATIO;
+  }
+  return parsed;
+}
+
+/**
+ * Task #236: byte threshold at which the live forged-ack history file is
+ * considered nearly full. `floor(maxBytes * ratio)`, with both inputs
+ * resolved from the env at call time so a runtime tweak of either var is
+ * honored without a restart.
+ */
+function forgedAckHistoryFullnessThresholdBytes(): number {
+  return Math.floor(forgedAckHistoryMaxBytes() * forgedAckHistoryFullnessRatio());
+}
+
 function rotateForgedAckHistory(
   historyPath: string,
   logger?: { warn: (...args: unknown[]) => void },
@@ -966,10 +1039,15 @@ function appendForgedAckHistory(
   historyPath: string,
   entry: ForgedAckHistoryEntry,
   logger?: { warn: (...args: unknown[]) => void },
-): ForgedAckHistoryDropInfo | null {
+): AppendForgedAckHistoryResult {
   // Task #206: forward whatever the rotator dropped (if anything) so
   // the caller can arm the one-shot archive-full operator alert.
+  // Task #236: also report the post-append live size and whether this
+  // append triggered a rotation, so the caller can manage the
+  // pre-rotation high-water-mark warning latch.
   let dropped: ForgedAckHistoryDropInfo | null = null;
+  let rotated = false;
+  let sizeAfterAppend = 0;
   try {
     const line = JSON.stringify(entry) + "\n";
     // Use writeFileSync with flag 'a' for atomic appends within a
@@ -982,7 +1060,9 @@ function appendForgedAckHistory(
     } catch {
       size = 0;
     }
+    sizeAfterAppend = size;
     if (size > forgedAckHistoryMaxBytes()) {
+      rotated = true;
       dropped = rotateForgedAckHistory(historyPath, logger);
     }
   } catch (err) {
@@ -991,7 +1071,7 @@ function appendForgedAckHistory(
       "forged-ack history: failed to append entry (best-effort)",
     );
   }
-  return dropped;
+  return { dropped, rotated, sizeAfterAppend };
 }
 
 /**
@@ -1433,6 +1513,18 @@ export interface LedgerChecker {
    */
   consumeForgedAckHistoryDropAlert: () => ForgedAckHistoryDropInfo | null;
   /**
+   * Task #236: latch drained by the background monitor on its tick.
+   * Returns the summary captured the moment the live forged-ack
+   * dismissal-history file FIRST crosses the configurable high-water
+   * mark (default ~90% of `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES`),
+   * then null until the next near-full episode. Re-arms after a rotation
+   * resets the live file, so a server that fills, rotates, and refills
+   * warns once per fill — letting operators off-box the oldest archive
+   * before the next rotation drops it. Distinct from
+   * `consumeForgedAckHistoryDropAlert`, which fires AFTER the loss.
+   */
+  consumeForgedAckHistoryFullnessAlert: () => ForgedAckHistoryFullnessInfo | null;
+  /**
    * Task #124: operator-driven acknowledgement of the current
    * forged-sidecar incident. Returns `null` when there is no active
    * forged incident to acknowledge (e.g. the boot read was `ok` /
@@ -1808,6 +1900,20 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
   // operator alert (not one per drop).
   let forgedAckHistoryDropPending: ForgedAckHistoryDropInfo | null = null;
   let forgedAckHistoryDropSignalUsed = false;
+
+  // Task #236: latch for the pre-rotation "dismissal history nearly
+  // full" warning. `forgedAckHistoryFullnessPending` holds the summary
+  // captured the moment the live file first crosses the high-water mark
+  // (default 90% of the byte cap), drained + cleared by the monitor on
+  // its next tick. `forgedAckHistoryFullnessLatched` tracks the current
+  // "near-full episode" so we warn exactly ONCE per episode rather than
+  // on every append while still above the threshold. Unlike the #206
+  // drop latch (one-shot per process), this one re-arms after a rotation
+  // resets the live file: when an append rotates, the latch is cleared so
+  // the next climb back up to the threshold warns again.
+  let forgedAckHistoryFullnessPending: ForgedAckHistoryFullnessInfo | null =
+    null;
+  let forgedAckHistoryFullnessLatched = false;
 
   // Task #234: cumulative (boot-scoped) tallies of how many dismissal
   // archives — and how many individual dismissal entries within them —
@@ -2297,7 +2403,7 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
     // Task #150: append to the rotating history log so the
     // "Recent dismissals" panel survives the single-incident
     // sidecar being replaced by a later forged read.
-    const droppedArchive = appendForgedAckHistory(
+    const appendResult = appendForgedAckHistory(
       FORGED_ACK_HISTORY_PATH,
       {
         payloadSha: forgedIncident.payloadSha,
@@ -2306,6 +2412,7 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
       },
       defaultLogger,
     );
+    const droppedArchive = appendResult.dropped;
     // Task #234: advance the cumulative boot-scoped tallies on EVERY
     // rotation drop, before the one-shot latch below. This is what lets
     // the dashboard report the running "N dismissals aged out since
@@ -2331,6 +2438,47 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
         },
         "forged-ack history: oldest archive dropped (rotation cap hit); arming operator alert",
       );
+    }
+    // Task #236: manage the pre-rotation high-water-mark warning. A
+    // rotation resets the live file, so it clears the fullness latch —
+    // the next climb back to the threshold re-arms a fresh warning — and
+    // discards any still-pending (un-fired) warning, which is now moot.
+    // Otherwise, if the post-append live size first crosses the
+    // threshold this episode, arm a single warning so operators can
+    // off-box the oldest archive (or bump the rotation cap) BEFORE the
+    // next rotation silently drops it.
+    if (appendResult.rotated) {
+      forgedAckHistoryFullnessLatched = false;
+      forgedAckHistoryFullnessPending = null;
+    } else {
+      const maxBytes = forgedAckHistoryMaxBytes();
+      const ratio = forgedAckHistoryFullnessRatio();
+      const thresholdBytes = Math.floor(maxBytes * ratio);
+      if (
+        !forgedAckHistoryFullnessLatched &&
+        appendResult.sizeAfterAppend >= thresholdBytes
+      ) {
+        const maxRotations = forgedAckHistoryMaxRotations();
+        const info: ForgedAckHistoryFullnessInfo = {
+          liveSize: appendResult.sizeAfterAppend,
+          maxBytes,
+          thresholdBytes,
+          thresholdRatio: ratio,
+          maxRotations,
+          nextDropPath: `${FORGED_ACK_HISTORY_PATH}.${maxRotations}`,
+        };
+        forgedAckHistoryFullnessPending = info;
+        forgedAckHistoryFullnessLatched = true;
+        defaultLogger.warn?.(
+          {
+            liveSize: info.liveSize,
+            maxBytes: info.maxBytes,
+            thresholdBytes: info.thresholdBytes,
+            nextDropPath: info.nextDropPath,
+          },
+          "forged-ack history: live file crossed the fullness high-water mark; arming pre-rotation operator warning",
+        );
+      }
     }
     forgedIncident = {
       payloadSha: forgedIncident.payloadSha,
@@ -2564,6 +2712,15 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
       forgedAckHistoryDropPending = null;
       return pending;
     },
+    consumeForgedAckHistoryFullnessAlert() {
+      // Drain the pending warning but DELIBERATELY leave
+      // `forgedAckHistoryFullnessLatched` set: the live file is still
+      // near-full, so we must not re-arm until a rotation resets it
+      // (which clears the latch in `acknowledgeForgedSidecar`).
+      const pending = forgedAckHistoryFullnessPending;
+      forgedAckHistoryFullnessPending = null;
+      return pending;
+    },
     acknowledgeForgedSidecar,
     acknowledgeStaleBinding,
     listForgedAckHistory(limit?: number, rotation?: number) {
@@ -2719,6 +2876,18 @@ export interface LedgerMonitorOptions {
    * not re-arm it.
    */
   consumeForgedAckHistoryDropAlert?: () => ForgedAckHistoryDropInfo | null;
+  /**
+   * Task #236: latch drained once per tick. When it returns a non-null
+   * fullness summary, the monitor fires a single info-level "dismissal
+   * history nearly full" warning through `sink`, naming the current live
+   * size, the byte cap, the threshold crossed and which archive index
+   * would be dropped on the next rotation — so operators can off-box the
+   * oldest archive or bump the rotation cap BEFORE the loss. The
+   * implementation re-arms after a rotation, so this warns once per
+   * near-full episode (not once per process). Distinct from
+   * `consumeForgedAckHistoryDropAlert`, which fires AFTER the drop.
+   */
+  consumeForgedAckHistoryFullnessAlert?: () => ForgedAckHistoryFullnessInfo | null;
   /** Friendly tag for the boot-forged alert context (defaults to the hits path). */
   sidecarPath?: string;
   /**
@@ -2935,6 +3104,70 @@ export function startLedgerMonitor(
     }
   }
 
+  async function fireForgedAckHistoryFullnessAlertIfPending(): Promise<void> {
+    if (!opts.consumeForgedAckHistoryFullnessAlert) return;
+    let info: ForgedAckHistoryFullnessInfo | null = null;
+    try {
+      info = opts.consumeForgedAckHistoryFullnessAlert();
+    } catch (err) {
+      log.warn(
+        { err },
+        "ledger monitor: consumeForgedAckHistoryFullnessAlert threw (treating as not full)",
+      );
+      return;
+    }
+    if (!info) return;
+    const alertTimestamp = new Date().toISOString();
+    const pct = Math.round((info.liveSize / info.maxBytes) * 100);
+    const message =
+      `Forged-ack dismissal history nearly full (api-server monitor): the live ` +
+      `dismissal log is ${info.liveSize} of ${info.maxBytes} bytes (${pct}%, past ` +
+      `the ${Math.round(info.thresholdRatio * 100)}% high-water mark of ` +
+      `${info.thresholdBytes} bytes). On the next rotation the oldest archive ` +
+      `(${info.nextDropPath}, rotation slot ${info.maxRotations}) will be ` +
+      `dropped and its dismissals lost. Off-box that archive or bump ` +
+      `MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS now to retain the evidence. ` +
+      `This is an info-level pre-rotation warning and fires once per near-full ` +
+      `episode (it re-arms after the next rotation).`;
+    const context: LedgerAlertContext = {
+      failure_mode: "forged_ack_history_nearly_full",
+      severity: "info",
+      source: "api-server-monitor",
+      hits_path: opts.hitsPath,
+      checkpoint_path: opts.checkpointPath,
+      live_size: info.liveSize,
+      max_bytes: info.maxBytes,
+      threshold_bytes: info.thresholdBytes,
+      threshold_ratio: info.thresholdRatio,
+      max_rotations: info.maxRotations,
+      next_drop_path: info.nextDropPath,
+      timestamp: alertTimestamp,
+      checked_at: alertTimestamp,
+    };
+    const invocation: LedgerAlertInvocation = {
+      kind: "alert",
+      message,
+      context,
+    };
+    log.info(
+      {
+        liveSize: info.liveSize,
+        maxBytes: info.maxBytes,
+        thresholdBytes: info.thresholdBytes,
+        nextDropPath: info.nextDropPath,
+      },
+      "ledger monitor: firing pre-rotation forged-ack history nearly-full warning (info-level)",
+    );
+    try {
+      await opts.sink(invocation);
+    } catch (err) {
+      log.warn(
+        { err },
+        "ledger monitor: forged-ack history nearly-full sink threw (best-effort, swallowed)",
+      );
+    }
+  }
+
   async function tick(): Promise<void> {
     // Task #130: when a tick is already running (e.g. the eager
     // startup tick), join its promise instead of returning a silent
@@ -2965,6 +3198,13 @@ export function startLedgerMonitor(
       // would perturb the eager-startup-tick timing.
       if (opts.consumeForgedAckHistoryDropAlert) {
         await fireForgedAckHistoryDropAlertIfPending();
+      }
+      // Task #236: drain the pre-rotation "dismissal history nearly
+      // full" latch alongside the drop one. Same guard + best-effort
+      // semantics so it never wedges the tick or perturbs watchdog-only
+      // unit tests that don't wire the consumer.
+      if (opts.consumeForgedAckHistoryFullnessAlert) {
+        await fireForgedAckHistoryFullnessAlertIfPending();
       }
       let s: LedgerIntegrityStatus;
       try {
@@ -3351,6 +3591,8 @@ if (monitorIntervalSeconds != null) {
     consumeBootForgedAlert: defaultChecker.consumeBootForgedAlert,
     consumeForgedAckHistoryDropAlert:
       defaultChecker.consumeForgedAckHistoryDropAlert,
+    consumeForgedAckHistoryFullnessAlert:
+      defaultChecker.consumeForgedAckHistoryFullnessAlert,
     logger: defaultLogger,
     // Task #98: share dismissal state with the dashboard's
     // `POST /lean/ledger-alerts/ack` sidecar so an acknowledged

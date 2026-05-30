@@ -831,6 +831,214 @@ describe("GET /api/ledger/integrity", () => {
     }
   });
 
+  it("arms a one-shot pre-rotation fullness warning when an append crosses the high-water mark without rotating (task #236)", async () => {
+    // Task #236: when acknowledging a forged incident appends to the
+    // dismissal-history log and that append tips the LIVE file past the
+    // configurable fullness high-water mark — but stays under the byte
+    // cap, so NO rotation runs — the checker arms a single pre-rotation
+    // operator warning naming the live size, cap and the archive index
+    // that the next rotation would drop. Consuming it is idempotent and
+    // does NOT re-arm (the live file is still near-full).
+    const sealed = "line1\nline2\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const lastOkPath = path.join(tmpDir, "hits.txt.fullness-arm.lastok");
+    const secretPath = `${lastOkPath}.key`;
+    const historyPath = `${lastOkPath}.forged-ack.log.jsonl`;
+    const cleanupPaths = [
+      lastOkPath,
+      secretPath,
+      `${lastOkPath}.forged-ack`,
+      historyPath,
+      `${historyPath}.1`,
+      `${historyPath}.2`,
+    ];
+    for (const p of cleanupPaths) {
+      try { unlinkSync(p); } catch { /* ignore */ }
+    }
+    const secretHex = "cd".repeat(32);
+    writeFileSync(secretPath, secretHex + "\n", { mode: 0o600 });
+
+    // Pre-seed the live log just UNDER the threshold so the single ack's
+    // append crosses it. Each entry is ~143 bytes; three seeds (~429 B)
+    // sit under the 500 B threshold and the ack's append (~143 B) tips
+    // the live file to ~572 B — past 500 B but well under the 1000 B
+    // cap, so no rotation runs and the warning arms.
+    const seedEntry = (marker: string, ref: string) =>
+      JSON.stringify({
+        payloadSha: "11".repeat(32),
+        acknowledgedAt: new Date().toISOString(),
+        ackedBy: ref,
+        marker,
+      }) + "\n";
+    writeFileSync(
+      historyPath,
+      seedEntry("seed-1", "anne") +
+        seedEntry("seed-2", "beth") +
+        seedEntry("seed-3", "cara"),
+    );
+
+    const ENV_BYTES_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES";
+    const ENV_ROTS_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS";
+    const ENV_RATIO_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_FULLNESS_RATIO";
+    const prevBytes = process.env[ENV_BYTES_KEY];
+    const prevRots = process.env[ENV_ROTS_KEY];
+    const prevRatio = process.env[ENV_RATIO_KEY];
+    process.env[ENV_BYTES_KEY] = "1000";
+    process.env[ENV_ROTS_KEY] = "2";
+    process.env[ENV_RATIO_KEY] = "0.5";
+
+    try {
+      const { createLedgerChecker } = await import("./ledger.js");
+      writeFileSync(
+        lastOkPath,
+        JSON.stringify({
+          lastOkAt: new Date().toISOString(),
+          lastCheckedAt: new Date().toISOString(),
+          boundCheckpointSize: size,
+          boundCheckpointSha: sha,
+          marker: "forged",
+        }) + "\n",
+      );
+      const checker = createLedgerChecker({
+        hitsPath,
+        checkpointPath,
+        lastOkPath,
+        secretPath,
+      });
+
+      // Nothing armed before the ack.
+      expect(checker.consumeForgedAckHistoryFullnessAlert()).toBeNull();
+
+      const r = checker.acknowledgeForgedSidecar("dave");
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.alreadyAcknowledged).toBe(false);
+
+      // No rotation ran: the live log still exists and holds all entries.
+      expect(existsSync(`${historyPath}.1`)).toBe(false);
+      const liveBytes = statSync(historyPath).size;
+
+      const info = checker.consumeForgedAckHistoryFullnessAlert();
+      expect(info).not.toBeNull();
+      if (!info) throw new Error("expected fullness info");
+      expect(info.liveSize).toBe(liveBytes);
+      expect(info.liveSize).toBeGreaterThanOrEqual(500);
+      expect(info.maxBytes).toBe(1000);
+      expect(info.thresholdBytes).toBe(500);
+      expect(info.thresholdRatio).toBe(0.5);
+      expect(info.maxRotations).toBe(2);
+      expect(info.nextDropPath).toBe(`${historyPath}.2`);
+
+      // Idempotent + does NOT re-arm: the live file is still near-full,
+      // so a second consume returns null (only a rotation re-arms).
+      expect(checker.consumeForgedAckHistoryFullnessAlert()).toBeNull();
+    } finally {
+      if (prevBytes === undefined) delete process.env[ENV_BYTES_KEY];
+      else process.env[ENV_BYTES_KEY] = prevBytes;
+      if (prevRots === undefined) delete process.env[ENV_ROTS_KEY];
+      else process.env[ENV_ROTS_KEY] = prevRots;
+      if (prevRatio === undefined) delete process.env[ENV_RATIO_KEY];
+      else process.env[ENV_RATIO_KEY] = prevRatio;
+      for (const p of cleanupPaths) {
+        try { unlinkSync(p); } catch { /* ignore */ }
+      }
+    }
+  });
+
+  it("does NOT leave a stale fullness warning when the append rotates (latch clears and re-arms) (task #236)", async () => {
+    // Task #236: a rotation clears the pre-rotation fullness latch (and
+    // any still-pending warning) so the alert re-arms for the NEXT
+    // near-full episode rather than firing about a file that just got
+    // emptied. Here a single ack's append crosses the byte cap and
+    // rotates, so even though the pre-rotation size was past the
+    // threshold, no fullness warning is left pending.
+    const sealed = "line1\nline2\n";
+    const { size, sha } = writeHits(sealed);
+    writeCheckpoint(size, sha);
+
+    const lastOkPath = path.join(tmpDir, "hits.txt.fullness-rot.lastok");
+    const secretPath = `${lastOkPath}.key`;
+    const historyPath = `${lastOkPath}.forged-ack.log.jsonl`;
+    const cleanupPaths = [
+      lastOkPath,
+      secretPath,
+      `${lastOkPath}.forged-ack`,
+      historyPath,
+      `${historyPath}.1`,
+    ];
+    for (const p of cleanupPaths) {
+      try { unlinkSync(p); } catch { /* ignore */ }
+    }
+    const secretHex = "ef".repeat(32);
+    writeFileSync(secretPath, secretHex + "\n", { mode: 0o600 });
+
+    // Pre-seed a live log already past a tiny byte cap so the ack's
+    // append immediately tips it over and rotates the live file to `.1`.
+    const seedEntry = (marker: string, ref: string) =>
+      JSON.stringify({
+        payloadSha: "22".repeat(32),
+        acknowledgedAt: new Date().toISOString(),
+        ackedBy: ref,
+        marker,
+      }) + "\n";
+    writeFileSync(historyPath, seedEntry("live-1", "carol"));
+
+    const ENV_BYTES_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_MAX_BYTES";
+    const ENV_ROTS_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_MAX_ROTATIONS";
+    const ENV_RATIO_KEY = "MORNINGSTAR_FORGED_ACK_HISTORY_FULLNESS_RATIO";
+    const prevBytes = process.env[ENV_BYTES_KEY];
+    const prevRots = process.env[ENV_ROTS_KEY];
+    const prevRatio = process.env[ENV_RATIO_KEY];
+    // Tiny cap so the ack's append rotates; a low ratio means the
+    // pre-rotation size is comfortably past the threshold — proving the
+    // rotation branch (not a missed threshold) is what suppresses the
+    // warning.
+    process.env[ENV_BYTES_KEY] = "50";
+    process.env[ENV_ROTS_KEY] = "1";
+    process.env[ENV_RATIO_KEY] = "0.5";
+
+    try {
+      const { createLedgerChecker } = await import("./ledger.js");
+      writeFileSync(
+        lastOkPath,
+        JSON.stringify({
+          lastOkAt: new Date().toISOString(),
+          lastCheckedAt: new Date().toISOString(),
+          boundCheckpointSize: size,
+          boundCheckpointSha: sha,
+          marker: "forged",
+        }) + "\n",
+      );
+      const checker = createLedgerChecker({
+        hitsPath,
+        checkpointPath,
+        lastOkPath,
+        secretPath,
+      });
+
+      const r = checker.acknowledgeForgedSidecar("dave");
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.alreadyAcknowledged).toBe(false);
+
+      // The append rotated the live log to `.1`.
+      expect(existsSync(`${historyPath}.1`)).toBe(true);
+
+      // Rotation cleared the latch: no stale fullness warning is pending.
+      expect(checker.consumeForgedAckHistoryFullnessAlert()).toBeNull();
+    } finally {
+      if (prevBytes === undefined) delete process.env[ENV_BYTES_KEY];
+      else process.env[ENV_BYTES_KEY] = prevBytes;
+      if (prevRots === undefined) delete process.env[ENV_ROTS_KEY];
+      else process.env[ENV_ROTS_KEY] = prevRots;
+      if (prevRatio === undefined) delete process.env[ENV_RATIO_KEY];
+      else process.env[ENV_RATIO_KEY] = prevRatio;
+      for (const p of cleanupPaths) {
+        try { unlinkSync(p); } catch { /* ignore */ }
+      }
+    }
+  });
+
   it("rejects a forged sidecar with a fake future lastOkAt (HMAC mismatch ⇒ discarded as null)", async () => {
     // Healthy ledger so the integrity check itself succeeds. We're
     // testing that a hand-edited sidecar — written by an attacker who
