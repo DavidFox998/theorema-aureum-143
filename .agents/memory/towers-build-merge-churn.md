@@ -16,11 +16,20 @@ leave the towers mathlib oleans wiped (count → 1) even when the tag survives.
 **Why this matters (two symptoms, one cause):**
 1. The mathlib `v4.12.0` pin / oleans I keep having to restore are wiped by
    *this* workflow's `lake update`, not by anything I did.
-2. The theorema-certs Playwright e2e fails *en masse* (uniform 5s
-   "element not found" across unrelated specs) when a merge runs the suite
-   while towers-build is doing its 5224-module `lake build` — pure CPU
-   contention, NOT a real regression. Confirm by screenshotting the live
-   dashboard: if it renders fine, the e2e failures are contention.
+2. The theorema-certs Playwright e2e fails *en masse* (uniform "element not
+   found" across unrelated specs) when a merge runs the suite while
+   towers-build is doing its full `lake build` — pure CPU contention, NOT a real
+   regression. Confirm by screenshotting the live dashboard: if it renders fine,
+   the e2e failures are contention.
+
+**Diagnostic — `.git` wipe looks like an outer-repo HEAD.** When the churn wipes
+the *whole* mathlib `.git` (not just the tag), `git -C
+lean-proof-towers/.lake/packages/mathlib rev-parse HEAD` silently walks up to
+the **outer** workspace repo and returns *its* HEAD (you'll see the outer repo's
+commit message + `main` branch, a SHA that isn't a mathlib commit). The mathlib
+worktree files and oleans can still be present. That mismatch (HEAD ≠ manifest
+`rev`) is the tell — restore from the vendored tar, don't trust the reported
+HEAD.
 
 **How to apply:**
 - Don't run `towers-build` casually; it is the churn engine.

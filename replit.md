@@ -77,6 +77,22 @@ history. Roadmap → `docs/ROADMAP.md`.
   `wilsonAction_nonneg` through `toGauge`. All classical-trio, verified live;
   every lemma is *necessary-not-sufficient* — pointwise positivity is NOT a
   uniform spectral gap, since the off-vacuum infimum of `wilsonAction` is `0`.
+- **Polymer-activity scaffolding (NOT bricks, not in BRICKS):**
+  `Towers/YM/Transfer.lean` adds the cluster-expansion *activity* functional
+  `polymerActivity L β γ := ∫ w, exp(-β·polymerEnergy (toGauge w) γ) d(haarN)`
+  (real `polymerEnergy`, real product Haar `haarN`), with `sorry`-free,
+  classical-trio (`#print axioms` = trio, verified live) companions:
+  `polymerActivity_nonneg` (`integral_nonneg`), `integrable_polymerWeight`
+  (continuity on the compact config space ⇒ bounded ⇒ `L¹`), `polymerActivity_empty`
+  (`= 1` for `γ = ∅`, the one *proven* value), and `polymerActivity_antitone_in_beta`
+  (`β₁ ≤ β₂ ⟹ activity β₂ ≤ activity β₁`, from `polymerEnergy ≥ 0`). HONEST
+  scope: nonneg + antitone are *necessary-not-sufficient* — NO convergence,
+  decay, spectral gap, or `m > 0`. The `β → ∞` limit is `haarN {polymerEnergy =
+  0}`; this file asserts **neither** that it is `0` nor that it is positive (for
+  non-empty `γ` the trivial-plaquette set is a positive-codimension, plausibly
+  Haar-null subvariety). KP convergence needs a uniform SUM over *connected /
+  truncated* weights — the OPEN content of `Transfer.kotecky_preiss_criterion`,
+  which stays a disclaimed `sorry` (UNTOUCHED). Surface #1 stays OPEN.
 
 ## Locked invariants (every batch must hold these)
 

@@ -389,11 +389,131 @@ theorem kotecky_preiss_criterion :
           ‖T_L L β f‖ ≤ Real.exp (-(β * gap)) * ‖f‖ := by
   sorry
 
--- Axiom audit (informational): `T_L` and the proven `transfer_operator_norm_le`
--- are classical-trio only; the OPEN `kotecky_preiss_criterion` additionally
--- reports `sorryAx`, as intended.
+/-! ## Honest polymer-activity scaffolding toward the integral / cluster route
+
+`sorry`-free, classical-trio facts about the genuine cluster-expansion
+*activity* functional
+
+  `polymerActivity L β γ = ∫ w, exp(-β · polymerEnergy (toGauge w) γ) d(haarN)`
+
+— the real Haar integral of the heat weight of a polymer `γ` (a finite set of
+oriented plaquettes), built on the *real* SU(3) Wilson `polymerEnergy`
+(`WilsonPositivity`) and the *real* product Haar measure `haarN` (NOT the Dirac
+stand-in). These are the honest building blocks the integral route to
+Kotecký–Preiss rests on.
+
+**Honesty (locked invariants).** `polymerActivity ≥ 0` and antitonicity in `β`
+are TRUE but **necessary, NOT sufficient**: they give NO polymer convergence,
+decay, spectral gap, or `m > 0`. This file makes **no** claim about the `β → ∞`
+limit: `exp(-β·polymerEnergy) → 𝟙[polymerEnergy = 0]` pointwise, so (dominated
+convergence) `polymerActivity L β γ → haarN {w | polymerEnergy = 0} =
+haarN {w | every plaquette of γ is trivial}` — but whether that limit is `0` or
+positive is a separate measure-theoretic question NOT settled here. For the
+empty polymer `γ = ∅` the constraint is vacuous and the limit is `1` for every
+`β` (`polymerActivity_empty`, no decay); for a non-empty `γ` the trivial-plaquette
+set is a positive-codimension subvariety that is plausibly Haar-**null** (so the
+bare single-polymer activity may well decay to `0`) — we assert **neither**
+direction. Crucially, KP convergence is NOT about a single polymer's activity:
+it needs a uniform convergent SUM `∑_{γ ∋ 0} |z(γ)| e^{|γ|}` over *connected /
+truncated* weights, which is the OPEN content of `kotecky_preiss_criterion`
+above. Surface #1 stays OPEN; YM stays `Status: Open`. NOT bricks, NOT in
+`BRICKS`. -/
+
+/-- **Polymer activity functional.** The real Haar integral of the heat weight
+`exp(-β·polymerEnergy)` of a polymer `γ` — the genuine cluster-expansion
+*activity* object (real `polymerEnergy`, real `haarN`). NOT a convergence/decay
+claim. -/
+noncomputable def polymerActivity (L : ℕ) [NeZero L] (β : ℝ)
+    (γ : Finset (Lattice 4 L × Fin 4 × Fin 4)) : ℝ :=
+  ∫ w, Real.exp (-β * polymerEnergy (toGauge L w) γ) ∂(haarN (4 * L ^ 4))
+
+/-- `polymerActivity ≥ 0`: the integrand `exp(-β·polymerEnergy) ≥ 0`
+(`integral_nonneg`). Necessary, NOT a convergence/decay claim. -/
+theorem polymerActivity_nonneg (L : ℕ) [NeZero L] (β : ℝ)
+    (γ : Finset (Lattice 4 L × Fin 4 × Fin 4)) :
+    0 ≤ polymerActivity L β γ :=
+  integral_nonneg (fun _ => Real.exp_nonneg _)
+
+/-- **Empty-polymer normalisation.** `polymerActivity L β ∅ = 1` for every `β`:
+the empty polymer has `polymerEnergy = 0`, so the integrand is the constant `1`
+and `haarN` is a probability measure. The one concrete, *proven* value — and the
+only honest non-decay example (the limit claim for non-empty `γ` is deliberately
+left unproven). -/
+theorem polymerActivity_empty (L : ℕ) [NeZero L] (β : ℝ) :
+    polymerActivity L β (∅ : Finset (Lattice 4 L × Fin 4 × Fin 4)) = 1 := by
+  unfold polymerActivity
+  have h0 : ∀ w, Real.exp (-β *
+      polymerEnergy (toGauge L w) (∅ : Finset (Lattice 4 L × Fin 4 × Fin 4))) = 1 := by
+    intro _w; simp [polymerEnergy]
+  simp only [h0, integral_const, measure_univ, ENNReal.one_toReal, smul_eq_mul, mul_one]
+
+/-- The polymer heat weight `w ↦ exp(-β·polymerEnergy (toGauge w) γ)` is
+integrable against `haarN`: it is continuous (a finite sum of continuous
+per-plaquette energies — each a polynomial-with-conjugate in the continuous
+SU(3) matrix entries — post-composed with `exp`) and bounded on the compact
+configuration space, hence in `L¹` of the probability measure. Integrability
+input to `polymerActivity_antitone_in_beta`. -/
+theorem integrable_polymerWeight (L : ℕ) [NeZero L] (β : ℝ)
+    (γ : Finset (Lattice 4 L × Fin 4 × Fin 4)) :
+    Integrable (fun w => Real.exp (-β * polymerEnergy (toGauge L w) γ))
+      (haarN (4 * L ^ 4)) := by
+  haveI : CompactSpace (Fin (4 * L ^ 4) → SU3Instances.SU3) := Pi.compactSpace
+  haveI : SecondCountableTopology (Matrix (Fin 3) (Fin 3) ℂ) := by
+    unfold Matrix; infer_instance
+  haveI : SecondCountableTopology (↥SU3Instances.SU3) :=
+    TopologicalSpace.Subtype.secondCountableTopology
+      (SU3Instances.SU3 : Set (Matrix (Fin 3) (Fin 3) ℂ))
+  haveI : SecondCountableTopology (Fin (4 * L ^ 4) → ↥SU3Instances.SU3) := inferInstance
+  haveI : BorelSpace (Fin (4 * L ^ 4) → ↥SU3Instances.SU3) := inferInstance
+  have hcontE : Continuous (fun w : Fin (4 * L ^ 4) → SU3Instances.SU3 =>
+      polymerEnergy (toGauge L w) γ) := by
+    unfold polymerEnergy
+    refine continuous_finset_sum _ (fun p _ => ?_)
+    unfold plaquetteEnergy
+    apply Continuous.div_const
+    refine Continuous.sub continuous_const ?_
+    refine Complex.continuous_re.comp ?_
+    refine Continuous.matrix_trace ?_
+    unfold wilsonPlaquette
+    simp only [Matrix.star_eq_conjTranspose, toGauge]
+    exact
+      ((((continuous_subtype_val.comp (continuous_apply _)).matrix_mul
+          (continuous_subtype_val.comp (continuous_apply _))).matrix_mul
+          (continuous_subtype_val.comp (continuous_apply _)).matrix_conjTranspose).matrix_mul
+        (continuous_subtype_val.comp (continuous_apply _)).matrix_conjTranspose)
+  have hcont : Continuous (fun w : Fin (4 * L ^ 4) → SU3Instances.SU3 =>
+      Real.exp (-β * polymerEnergy (toGauge L w) γ)) :=
+    Real.continuous_exp.comp (continuous_const.mul hcontE)
+  obtain ⟨C, hC⟩ := (isCompact_range (continuous_norm.comp hcont)).bddAbove
+  exact (Memℒp.of_bound hcont.aestronglyMeasurable C
+    (ae_of_all _ (fun w => hC (Set.mem_range_self w)))).integrable one_le_two
+
+/-- **Antitone in `β`.** For `β₁ ≤ β₂`, `polymerActivity L β₂ γ ≤
+polymerActivity L β₁ γ`: since `polymerEnergy ≥ 0`, `exp(-β·polymerEnergy)` is
+antitone in `β` pointwise (`integral_mono` + `integrable_polymerWeight`).
+
+HONESTY: monotonicity only — NOT a decay/smallness bound, and NOT a claim about
+the `β → ∞` limit (that limit is `haarN {polymerEnergy = 0}`, of unproven size
+for non-empty `γ`; see the section note). No gap is implied;
+`kotecky_preiss_criterion` stays OPEN. -/
+theorem polymerActivity_antitone_in_beta (L : ℕ) [NeZero L]
+    (γ : Finset (Lattice 4 L × Fin 4 × Fin 4)) {β₁ β₂ : ℝ} (h : β₁ ≤ β₂) :
+    polymerActivity L β₂ γ ≤ polymerActivity L β₁ γ := by
+  unfold polymerActivity
+  refine integral_mono (integrable_polymerWeight L β₂ γ)
+    (integrable_polymerWeight L β₁ γ) ?_
+  intro w
+  refine Real.exp_le_exp.mpr ?_
+  nlinarith [mul_nonneg (sub_nonneg.mpr h) (polymerEnergy_nonneg (toGauge L w) γ)]
+
+-- Axiom audit (informational): `T_L`, `transfer_operator_norm_le`, and the new
+-- polymer-activity scaffolding are classical-trio only; the OPEN
+-- `kotecky_preiss_criterion` additionally reports `sorryAx`, as intended.
 #print axioms T_L
 #print axioms transfer_operator_norm_le
+#print axioms polymerActivity_nonneg
+#print axioms polymerActivity_empty
+#print axioms polymerActivity_antitone_in_beta
 #print axioms kotecky_preiss_criterion
 
 end Transfer

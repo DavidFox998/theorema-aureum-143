@@ -6,6 +6,62 @@ this file is the version history.
 
 ---
 
+## Polymer-activity scaffolding toward the integral / cluster route (2026-05-30)
+
+**What landed (NO wall change; nothing registered in `scripts/check-towers.sh`
+BRICKS or as a `lakefile.lean` root):**
+
+- **`Towers/YM/Transfer.lean` — NEW honest cluster-expansion *activity*
+  scaffolding**, inserted after the deliberately-OPEN `kotecky_preiss_criterion`
+  (which is UNTOUCHED):
+  - `polymerActivity L β γ := ∫ w, exp(-β·polymerEnergy (toGauge L w) γ) d(haarN (4·L⁴))`
+    — the real Haar integral of the heat weight of a polymer `γ` (a finite set
+    of oriented plaquettes), built on the *real* SU(3) Wilson `polymerEnergy`
+    (`WilsonPositivity`) and the *real* product Haar measure `haarN` (NOT the
+    Dirac stand-in).
+  - `polymerActivity_nonneg` — `0 ≤ polymerActivity` (`integral_nonneg` +
+    `Real.exp_nonneg`).
+  - `integrable_polymerWeight` — the weight `w ↦ exp(-β·polymerEnergy)` is `L¹`
+    against `haarN`: continuity (finite sum of per-plaquette energies, each a
+    polynomial-with-conjugate in the continuous SU(3) entries, mirroring
+    `continuous_wilsonAction_toGauge`) ⇒ bounded on the compact config space ⇒
+    `Memℒp.of_bound` ⇒ `Integrable`.
+  - `polymerActivity_empty` — `polymerActivity L β ∅ = 1` for every `β` (the
+    empty polymer has `polymerEnergy = 0`; `haarN` is a probability measure).
+    The one concrete *proven* value, and the only honest non-decay example.
+  - `polymerActivity_antitone_in_beta` — `β₁ ≤ β₂ ⟹ polymerActivity β₂ ≤
+    polymerActivity β₁` (`integral_mono` + pointwise `exp` antitonicity, since
+    `polymerEnergy ≥ 0`).
+
+- **Axiom audit (verified live, `lake env lean` + `#print axioms`,
+  2026-05-30):** `polymerActivity_nonneg`, `polymerActivity_empty`,
+  `polymerActivity_antitone_in_beta` (and the pre-existing `T_L`,
+  `transfer_operator_norm_le`) all = `[propext, Classical.choice, Quot.sound]`
+  (classical trio, NO `sorryAx`). `kotecky_preiss_criterion` still =
+  `[propext, sorryAx, Classical.choice, Quot.sound]` — UNTOUCHED,
+  INVARIANT-LOCKED.
+
+**Honesty (no overclaim).** `nonneg` + `antitone` are *necessary, NOT
+sufficient* — they give NO polymer convergence, decay, spectral gap, or
+`m > 0`. The `β → ∞` limit is `haarN {polymerEnergy = 0}`; this batch asserts
+**neither** that it is `0` nor that it is positive — for a non-empty `γ` the
+trivial-plaquette set is a positive-codimension, plausibly Haar-null subvariety
+(an earlier draft wrongly claimed it is "generally positive / does not decay";
+corrected after architect review). A genuine Kotecký–Preiss estimate needs a
+uniform convergent SUM `∑_{γ ∋ 0} |z(γ)| e^{|γ|}` over *connected / truncated*
+weights — NOT a single polymer's activity — which stays the OPEN content of
+`kotecky_preiss_criterion`. Surface #1 stays OPEN; YM stays `Status: Open`.
+
+**Infra footnote.** `towers-build` churn again wiped the vendored mathlib
+`.git` mid-session (so `git rev-parse` in the mathlib dir fell through to the
+outer repo, reporting the outer `main` HEAD); the `lake env` guard short-circuited
+before any destructive re-resolve. Recovered with `scripts/restore-lake-git.sh`
+(restored `.git` at manifest rev `809c3fb…` from the vendored tar) + manual
+`git tag -f v4.12.0 809c3fb…` (the tag is not persisted in the tar); oleans
+(4850) were untouched throughout.
+
+---
+
 ## Transfer-operator contraction: tighten `transfer_operator_norm_le` to `‖T_L‖ ≤ 1` + honest positivity scaffolding (2026-05-30)
 
 **What landed (NO wall change; nothing registered in `scripts/check-towers.sh`
