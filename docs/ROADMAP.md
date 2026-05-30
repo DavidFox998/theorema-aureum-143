@@ -175,6 +175,36 @@ Status legend:
   about a minimal fderiv-based divergence operator on the way
   there, not energy or blow-up estimates for the Navier-Stokes
   operator.
+- Function-space scaffolding (NOT bricks, not in BRICKS, not lakefile
+  roots; each compiles `sorry`-free except a single documented `sorry`):
+  - **Phase 1** `Towers/NS/FunctionSpaces.lean` — the divergence-free
+    Sobolev space `Hdiv_free s` as the weighted-`L²` Fourier model
+    (genuine Hilbert space; closedness of the div-free subspace and the
+    bounded Sobolev inclusion `embed` are PROVED `sorry`-free, classical
+    trio).
+  - **Phase 2A** `Towers/NS/Leray.lean` — the Leray/Helmholtz orthogonal
+    projection `leray_proj : Hˢ →L Hdiv_free s` with `P² = P`,
+    `‖Pu‖ ≤ ‖u‖`, and `ker P` (PROVED, classical trio). The single
+    documented `sorry` is `leray_proj_ker_eq_grad` (the Helmholtz
+    identification `(divFree)ᗮ = grad`).
+  - **Phase 2B** `Towers/NS/Stokes.lean` — the Stokes operator
+    `stokes_op = -PΔ : Hdiv_free (s+2) →L Hdiv_free s`, the `‖ξ‖²`
+    Fourier multiplier. PROVED `sorry`-free + classical trio
+    (independent of the deferred lift): the `-Δ` symbol estimate
+    `‖ξ‖⁴⟨ξ⟩^{2s} ≤ ⟨ξ⟩^{2(s+2)}`, symbol positivity, symbol
+    continuity, and a.e.-strong-measurability. The single documented
+    `sorry` (`stokes_eLpNorm_le`) is only the lift of that proved
+    pointwise estimate through the `withDensity`/`eLpNorm` integrals.
+    The operator-level declarations (`stokes_op`, linearity, div-free
+    preservation, the `‖A u‖ ≤ ‖u‖` bound) are written as the genuine
+    operator but inherit `sorryAx` transitively from
+    `stokes_eLpNorm_le` — PROVISIONAL, NOT trio-clean, until that lemma
+    is discharged. NO self-adjointness / sectoriality /
+    analytic-semigroup claim (absent from mathlib v4.12.0). Stokes does
+    NOT import Leray.
+  - HONEST scope: these build spaces and name/bound operators; they prove
+    NO NS existence/uniqueness/regularity result. NS stays `Status:
+    Open`; Surface #2 stays OPEN.
 
 ## 4. 280-curve cohort (M9 Weil-transfer discharge) — and BSD
 

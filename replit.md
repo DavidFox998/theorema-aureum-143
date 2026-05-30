@@ -184,6 +184,39 @@ history. Roadmap → `docs/ROADMAP.md`.
   Still NOT a brick / not in BRICKS / not a lakefile root; makes **no** NS
   existence/uniqueness/regularity claim; NS tower stays `Status: Open`, Surface
   #2 stays OPEN.
+- **NS Tower 540, Phase 2: Leray projection + Stokes operator (NOT bricks, not
+  in BRICKS, not lakefile roots; two INDEPENDENT files — Stokes does NOT import
+  Leray, each imports only Phase-1 `FunctionSpaces`):**
+  - `Towers/NS/Leray.lean` — the Leray/Helmholtz orthogonal projection
+    `leray_proj : Hˢ →L[ℂ] Hdiv_free s` (mathlib `orthogonalProjection` onto the
+    PROVED-closed `divFreeSubmodule`). `sorry`-free + classical-trio (verified
+    live): `leray_projE_idempotent` (`P² = P`), `leray_proj_norm_le`
+    (`‖Pu‖ ≤ ‖u‖`), `leray_proj_apply_eq_self_of_mem`, `leray_proj_ker`,
+    `gradSubmodule`. Exactly ONE documented `sorry` = `leray_proj_ker_eq_grad`
+    (the Helmholtz identification `(divFreeSubmodule)ᗮ = gradSubmodule`); NOT a
+    brick.
+  - `Towers/NS/Stokes.lean` — the Stokes operator `stokes_op = -PΔ :
+    Hdiv_free (s+2) →L[ℂ] Hdiv_free s` as the `‖ξ‖²` Fourier multiplier.
+    Exactly ONE documented `sorry` = `stokes_eLpNorm_le` (lifts the PROVED
+    pointwise `symbol_pow_weight_le` through the `withDensity`/`eLpNorm`
+    integrals); NOT a brick.
+    - **Genuinely `sorry`-free + classical-trio (verified live, independent of
+      the deferred lift):** `symbol_pow_weight_le` (the `-Δ` symbol/weight
+      estimate `‖ξ‖⁴·⟨ξ⟩^{2s} ≤ ⟨ξ⟩^{2(s+2)}`), `stokesSymbol_re_nonneg`,
+      `continuous_stokesSymbol`, `stokes_aestronglyMeasurable`.
+    - **Downstream operator declarations are NOT trio-clean — they inherit
+      `sorryAx` transitively from `stokes_eLpNorm_le`** (their `#print axioms`
+      reports `sorryAx`): `stokesMemℒp`, `stokesₗ`, `stokes_mult`, `stokes_op`,
+      `stokes_preserves_divFree`, `stokes_mult_norm_le`, `stokes_op_norm_le`
+      (the `‖A u‖ ≤ ‖u‖` bound). They are written as the genuine operator
+      (linear, div-free-preserving, contractive) but stay PROVISIONAL until
+      `stokes_eLpNorm_le` is discharged.
+    HONEST scope: it NAMES and BOUNDS the operator —
+    NO self-adjointness / sectoriality / analytic-semigroup claim (that theory
+    is absent from mathlib v4.12.0; deliberately NOT fabricated as sorries).
+  - Both compile `lake env lean` exit 0. These build spaces and name/bound
+    operators; they prove **no** NS existence/uniqueness/regularity result. NS
+    tower stays `Status: Open`; Surface #2 stays OPEN.
 
 ## Locked invariants (every batch must hold these)
 
