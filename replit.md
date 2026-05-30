@@ -60,8 +60,22 @@ history. Roadmap → `docs/ROADMAP.md`.
     inputs; they prove NO NS existence/uniqueness/regularity result. NS stays
     `Status: Open`; Surface #1/#2 stay OPEN; YM untouched.
 
-- **Wall:** 550 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`). The
+- **Wall:** 551 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`). The
   source of truth for the count is the script, not this file.
+- **YM 249 → 250 — polymer entropy bound landed (brick, in BRICKS):**
+  `Towers/YM/EntropyBound.lean` lands `polymer_entropy_bound` — an HONEST
+  CONDITIONAL COMBINATOR for the missing combinatorial input to KP convergence.
+  It states `#{size-n Connected polymers through the origin link} ≤
+  polymer_const ^ n` with `polymer_const := 7` (= `2d − 1`, `d = 4`), routed
+  through the SINGLE NAMED SURFACE `h_entropy` (the lattice-animal /
+  self-avoiding-walk connective-constant bound `μ(ℤ⁴) ≤ 7`, absent from mathlib
+  v4.12.0) — a hypothesis, NOT `by sorry`, so NO `sorryAx`. `Connected` is left
+  abstract (modeled): without connectivity the count is infinite-in-`L`, so the
+  `7^n` bound is FALSE; connectivity is what makes the surface dischargeable.
+  `#print axioms polymer_entropy_bound` = classical trio (verified by hand:
+  `lake env lean Towers/YM/EntropyBound.lean`, EXIT=0). HONEST: makes NO
+  mass-gap / `μ>0` / Surface-#1 claim and does NOT discharge the
+  invariant-locked `kotecky_preiss_criterion` sorry; YM stays `Status: Open`.
 - **Real SU(3) chordal distance is a genuine metric (brick, in BRICKS):**
   `Towers/YM/RiemannianGeometry.lean` lands `d_SU3_isMetric : IsMetricOnSU3
   d_SU3` — the chordal distance `d_SU3 g h = ‖↑g - ↑h‖_HS` PROVES the full metric

@@ -2928,6 +2928,17 @@ BRICKS=(
   # correlation inequalities (FKG / Brascamp–Lieb) — none
   # landed.
   "Towers.YM.PolymerModel|TheoremaAureum.Towers.YM.LatticeGauge.polymerWeightReal_empty"
+  # EntropyBound: honest conditional combinator for the polymer entropy /
+  # counting bound (the missing combinatorial input for KP convergence).
+  # `polymer_entropy_bound` states #{size-n Connected polymers through the
+  # origin link} ≤ polymer_const^n (polymer_const = 7 = 2d−1, d=4), routed
+  # through the SINGLE NAMED SURFACE `h_entropy` (the lattice-animal / SAW
+  # connective-constant bound μ(ℤ⁴) ≤ 7, absent from mathlib v4.12.0) — a
+  # hypothesis, NOT `by sorry`, so NO sorryAx. Axioms = classical trio
+  # (verified by hand: lake env lean Towers/YM/EntropyBound.lean +
+  # #print axioms). Makes NO mass-gap / μ>0 / Surface-#1 claim; does NOT
+  # discharge the invariant-locked `kotecky_preiss_criterion` sorry.
+  "Towers.YM.EntropyBound|TheoremaAureum.Towers.YM.EntropyBound.polymer_entropy_bound"
   "Towers.YM.KoteckyPreissReal|TheoremaAureum.Towers.YM.LatticeGauge.kotecky_preiss_real"
   # TRI PARALLEL #17 / Batches 177.1, 177.2, 177.3 — real
   # per-plaquette Wilson energy + real-energy K-P + strict

@@ -9,8 +9,8 @@ Any declaration proved (even partially) with `by sorry` will make
 avoids the axiom, and relabeling the comment does nothing.
 
 **Why this matters here:** the Morning Star repo is axiom-locked to the
-classical trio `[propext, Classical.choice, Quot.sound]` only (Shawlock Rule
-#1). A reviewer running `#print axioms` will REJECT any decl showing `sorryAx`,
+classical trio `[propext, Classical.choice, Quot.sound]` only (a locked project
+invariant). A reviewer running `#print axioms` will REJECT any decl showing `sorryAx`,
 even one you intended as an "accepted named sorry". "Max N sorries" and "0
 axioms / no sorryAx" are contradictory demands for a *theorem* — you cannot
 satisfy both with a sorry-backed proof.

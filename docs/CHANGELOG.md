@@ -6,6 +6,32 @@ this file is the version history.
 
 ---
 
+## YM 249 → 250 — polymer entropy bound (KP combinatorial input) (2026-05-30)
+
+`Towers/YM/EntropyBound.lean` lands `polymer_entropy_bound` (added to `BRICKS`;
+lakefile root `Towers.YM.EntropyBound`). It is an HONEST CONDITIONAL COMBINATOR
+for the missing combinatorial input to Kotecký–Preiss convergence, NOT a proof
+of the mass gap. Statement: for the 4d periodic cubic lattice,
+`#{size-n Connected polymers through the origin link} ≤ polymer_const ^ n` with
+`polymer_const := 7` (= `2d − 1`, `d = 4`; `polymer_const_le_seven` brick), the
+count formalised via `Nat.card` over the qualifying-polymer subtype. The bound
+is routed through the SINGLE NAMED SURFACE `h_entropy` — the lattice-animal /
+self-avoiding-walk connective-constant bound `μ(ℤ⁴) ≤ 7`, for which mathlib
+v4.12.0 has no API — a hypothesis, NOT `by sorry`, so the elaborated term
+carries NO `sorryAx`. `Connected` is kept abstract (modeled): without a
+connectivity constraint the count is infinite-in-`L`, so the `7^n` bound would
+be FALSE; connectivity is exactly what makes `h_entropy` dischargeable in
+principle. `(0,0,0,0)` is realised as the origin link `((fun _ => 0), 0)` since
+a polymer's support is its underlying `Finset (Link 4 L)` of links. Verified by
+hand (the file is a lakefile root but checked directly): `lake env lean
+Towers/YM/EntropyBound.lean` EXIT=0; `#print axioms polymer_entropy_bound =
+[propext, Classical.choice, Quot.sound]`. HONEST SCOPE (locked): proves NO
+Yang–Mills statement, closes NO surface, makes NO mass-gap / `μ>0` / Surface-#1
+claim, and does NOT discharge the invariant-locked
+`Transfer.kotecky_preiss_criterion` sorry. YM stays `Status: Open`. Imports the
+YM polymer model only; imports nothing from the NS tower (NS stays FROZEN,
+untouched).
+
 ## NS Tower 540 FROZEN at the Clay boundary (2026-05-30)
 
 Milestone `NS-540-phase6-clay-boundary` @ checkpoint
