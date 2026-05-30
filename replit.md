@@ -136,6 +136,47 @@ the Wall-510 / Wall-539 / Wall-542 trims).
   Quot.sound]`, `MassGap574.lean:65 … uses 'sorry'` (the retained `YM_mass_gap`),
   exit 0. Temp script + workflow removed afterward.
 
+## SU(3) Haar instance stack — `Towers/YM/SU3Instances.lean` (COMPLETE — 2026-05-30)
+
+- NEW file `Towers/YM/SU3Instances.lean` (namespace
+  `TheoremaAureum.Towers.YM.SU3Instances`, `import Mathlib`). Equips
+  `SU(3) = Matrix.specialUnitaryGroup (Fin 3) ℂ` (a
+  `Submonoid (Matrix (Fin 3) (Fin 3) ℂ)`) with the FULL instance stack
+  `MeasureTheory.Measure.haarMeasure` requires, so `haarMeasure ⊤` elaborates:
+  - `instGroupSU3 : Group SU3` — inverse = `star` (conjugate transpose);
+    `star_mem_SU3` proves closure (unitary stays unitary via `unitary.star_mem`,
+    `det (star A) = star (det A) = star 1 = 1`). Built `{ Monoid with … }` so
+    `Group.toMonoid` IS the inherited Submonoid monoid (no diamond).
+  - `instTopologicalGroupSU3 : TopologicalGroup SU3` — `Continuous.subtype_mk`
+    over ambient `ContinuousMul` (`instContinuousMulMatrixOfContinuousAdd`) and
+    `continuous_star` (`instContinuousStarMatrix`).
+  - `instCompactSpaceSU3 : CompactSpace SU3` — `SU(3)` is CLOSED
+    (`isClosed_eq` on `A * star A = 1` and `det A = 1`, `Continuous.matrix_det`)
+    inside the COMPACT poly-disc `∏ᵢⱼ closedBall 0 1` (`isCompact_univ_pi` +
+    `isCompact_closedBall`; entries bounded by 1 via `norm_entry_le_one`:
+    `∑ₖ ‖A k j‖² = (star A * A) j j = 1`). Then `isCompact_iff_compactSpace`.
+  - `instMeasurableSpaceSU3 := borel _`, `instBorelSpaceSU3 := ⟨rfl⟩`,
+    `instNonemptySU3 := ⟨1⟩`.
+  - `haarSU3 : Measure SU3 := haarMeasure ⊤` (the payload).
+- **Axioms (verified live, `lake env lean Towers/YM/SU3Instances.lean` +
+  `#print axioms`):** `haarSU3` depends on `[propext, Classical.choice,
+  Quot.sound]` (classical trio, NO `sorryAx`). Axioms are transitive, so the
+  whole stack is trio-clean. No `sorry` / `admit` / `sorryAx` anywhere.
+- **Machine-truth API note (v4.12.0):** `haarMeasure`'s REAL instance
+  requirement is only `{Group, TopologicalSpace, TopologicalGroup,
+  MeasurableSpace, BorelSpace}` + a `PositiveCompacts` arg (NO
+  LocallyCompact / T2 / SecondCountable for the *definition*).
+  `specialUnitaryGroup = unitaryGroup ⊓ mker detMonoidHom` shipped with
+  TopologicalSpace only (not even `Group`); `unitaryGroup` had auto `Group`
+  but no `TopologicalGroup`/`CompactSpace`/`MeasurableSpace`.
+  `Matrix (Fin 3) (Fin 3) ℂ` has NO canonical metric/norm, so compactness is via
+  the PRODUCT-topology box, NOT metric Heine-Borel.
+- Registered as a `lakefile.lean` root (clean, elaborates green). NOT in
+  `scripts/check-towers.sh` BRICKS → script-reported wall UNCHANGED at 539.
+- INVARIANT-LOCKED: genuine Haar-measure infrastructure on the compact group
+  `SU(3)`. Makes NO Yang–Mills mass-gap / μ>0 / spectral claim and does NOT
+  touch Surface #1 (stays OPEN), YM **Status: Open**.
+
 ## Task #220 — feed the lattice→continuum map into the mass-gap envelope (2026-05-29)
 
 Routed the headline envelope brick through Task #195's non-trivial
