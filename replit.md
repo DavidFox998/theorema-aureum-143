@@ -60,8 +60,60 @@ history. Roadmap → `docs/ROADMAP.md`.
     inputs; they prove NO NS existence/uniqueness/regularity result. NS stays
     `Status: Open`; Surface #1/#2 stay OPEN; YM untouched.
 
-- **Wall:** 595 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`). The
+- **Wall:** 614 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`). The
   source of truth for the count is the script, not this file.
+- **Wall256_RateFunction — HONEST CONDITIONAL large-deviation RATE FUNCTION
+  criterion (bricks, in BRICKS):** `Towers/YM/Wall256_RateFunction.lean` is the
+  sequel to `Wall255_JensenObstruction` (mean no-go) + `Wall255_KP_Entropy`
+  (q<1/7). Program **S4 → 7 → rate `I(x) > log 7`**: a large-deviation rate `I`
+  makes the per-polymer activity decay like `exp(−I·n)`, and the entropy-weighted
+  sum `∑ₙ 7ⁿ·exp(−I·n)` converges **iff** `7·exp(−I)<1` **iff** `exp(−I)<1/7`
+  **iff** `log 7 < I` — i.e. Wall255's `q<1/7` under the dictionary `q=exp(−I)`.
+  **(1) GENUINE/UNCONDITIONAL:** `exp_neg_lt_inv_seven_iff`
+  (`exp(−I)<1/7 ↔ log 7<I`), `seven_exp_neg_lt_one_iff` (`7·exp(−I)<1 ↔ log 7<I`),
+  `rate_beats_entropy` / `rate_tsum` (for `log 7<I`, `∑ₙ 7ⁿ·exp(−I)ⁿ` is
+  `Summable` `= (1−7·exp(−I))⁻¹`, entropy KEPT), `rateFn` + `le_rateFn` (the rate
+  as the Legendre transform of an ABSTRACT cgf `Λ`, with the variational lower
+  bound `t·x−Λ t ≤ rateFn`), `entropy_threshold_eq` (`log polymer_const = log 7`,
+  the "→ 7" link), `log_seven_pos`, `mean_rate_fails_criterion` (`¬ log 7<0`: the
+  rate VANISHES at the mean `I(e_bar)=0`, so the mean can NEVER meet the
+  criterion — restates the Jensen no-go in rate language). **(2) CONDITIONAL:**
+  `kp_rate_summable` and `kp_polymer_rate_summable` route the genuine
+  `EntropyBound` polymer count weighted by `exp(−I)ⁿ` through the named OPEN
+  surfaces `h_entropy` (connective-constant count) and `h_rate : log 7<I` (the
+  genuine SU(3) large-deviation rate bound, absent from mathlib v4.12.0; a
+  HYPOTHESIS, NOT `by sorry`, so NO `sorryAx`). 10 public theorems; all
+  `sorry`-free, `#print axioms` = classical trio (verified live, raw `lean`
+  v4.12.0, EXIT=0). HONEST: the rate bound `log 7<I` is the ENTIRE open content
+  (needs Cramér/Varadhan + the SU(3) log-MGF, none in mathlib); `rateFn` is the
+  Legendre transform of an ABSTRACT `Λ`, NOT the SU(3) cgf. Establishes NO KP
+  convergence, makes NO mass-gap / μ>0 / Surface-#1 claim, does NOT give
+  `ρ(T)<1`, and does NOT discharge `kotecky_preiss_criterion`. YM stays
+  `Status: Open`.
+- **Wall255_JensenObstruction — HONEST mean-energy NO-GO (bricks, in BRICKS):**
+  `Towers/YM/Wall255_JensenObstruction.lean` is the DUAL of Wall257's
+  `vacuum_breaks_energy_lb`: via Jensen's inequality the MEAN plaquette energy
+  can NEVER deliver the KP per-polymer smallness `polymerActivity ≤ (1/8)^|γ|`.
+  **(1) GENUINE/UNCONDITIONAL:** `plaquetteEnergy_le_two` (closes the deferred
+  `Re tr P ≥ -3` endpoint noted in `WilsonAction.plaquetteEnergy`, via
+  `traceRe_le_three (-P)` — `-P` is unitary too), `polymerEnergy_le_two_card`,
+  `meanEnergy_nonneg`, `meanEnergy_le_two_card`, `e_bar_le_two`
+  (`e_bar := meanEnergy/|γ| ≤ 2`), `inv8_pow_eq_exp_neg`, and the heart
+  `jensen_obstruction` — for EVERY `β`, `exp(−(β·meanEnergy)) ≤ polymerActivity`,
+  via `ConvexOn.map_integral_le` (Jensen for the convex `exp` against the
+  probability measure `haarN`). This is a LOWER bound — the WRONG direction for
+  KP smallness. **(2) CONDITIONAL:** `e_bar_pos_of_meanEnergy_pos` and
+  `mean_threshold_fails` (at the mean threshold `β₀ := log 8 / e_bar`,
+  `(1/8)^|γ| ≤ polymerActivity L β₀ γ`) take the named TRUE input
+  `hpos : 0 < meanEnergy` — TRUE but unprovable in mathlib v4.12.0 (needs
+  `∫ tr = 0` character orthogonality / `haarN` non-atomicity, the same measure
+  surface `Transfer.trivial_polymer_set_null` treats as OPEN; a HYPOTHESIS, NOT
+  `by sorry`, so NO `sorryAx`). 9 public theorems; all `sorry`-free, `#print
+  axioms` = classical trio (verified live, raw `lean` v4.12.0, EXIT=0). HONEST:
+  isolates the genuine open problem as the large-deviation RATE function, NOT the
+  mean. Makes NO mass-gap / μ>0 / Surface-#1 claim, establishes NO KP
+  convergence, does NOT beat the `7ⁿ` entropy, does NOT give `ρ(T)<1`, and does
+  NOT discharge `kotecky_preiss_criterion`. YM stays `Status: Open`.
 - **Wall257_StrongCoupling — HONEST CONDITIONAL strong-coupling polymer-activity
   bound (bricks, in BRICKS):** `Towers/YM/Wall257_StrongCoupling.lean` lands the
   requested `polymerActivity L β γ ≤ (1/8)^|γ|` as an HONEST CONDITIONAL

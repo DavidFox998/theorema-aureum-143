@@ -3158,6 +3158,70 @@ BRICKS=(
   "Towers.YM.Wall257_StrongCoupling|TheoremaAureum.Towers.YM.Wall257.vacuum_breaks_energy_lb"
   "Towers.YM.Wall257_StrongCoupling|TheoremaAureum.Towers.YM.Wall257.polymerActivity_le_inv8_of_energy_lb"
   "Towers.YM.Wall257_StrongCoupling|TheoremaAureum.Towers.YM.Wall257.polymerActivity_le_inv7_of_energy_lb"
+
+  # Wall255_JensenObstruction: HONEST mean-energy NO-GO (the dual of Wall257's
+  # vacuum_breaks_energy_lb). Via Jensen's inequality, the MEAN plaquette energy
+  # can NEVER deliver the KP per-polymer smallness polymerActivity ≤ (1/8)^|γ|.
+  # GENUINE/UNCONDITIONAL: plaquetteEnergy_le_two (closes the deferred Re tr ≥ -3
+  # endpoint via traceRe_le_three (-P)), polymerEnergy_le_two_card, meanEnergy_nonneg,
+  # meanEnergy_le_two_card, e_bar_le_two (e_bar := meanEnergy/|γ| ≤ 2),
+  # inv8_pow_eq_exp_neg, and the heart jensen_obstruction (for EVERY β,
+  # exp(-(β·meanEnergy)) ≤ polymerActivity, via ConvexOn.map_integral_le for the
+  # convex exp against the probability measure haarN — a LOWER bound, the WRONG
+  # direction for KP). CONDITIONAL: e_bar_pos_of_meanEnergy_pos and
+  # mean_threshold_fails (at β₀ := log8/e_bar, (1/8)^|γ| ≤ polymerActivity) take
+  # the named TRUE input hpos : 0 < meanEnergy (unprovable in mathlib v4.12.0 —
+  # needs ∫tr=0 character orthogonality / Haar non-atomicity; a HYPOTHESIS, NOT
+  # by sorry, so NO sorryAx). All sorry-free, #print axioms = classical trio
+  # (verified by hand: raw lean Towers/YM/Wall255_JensenObstruction.lean + #print
+  # axioms, EXIT=0). HONEST: isolates the genuine open problem as the
+  # large-deviation RATE function, not the mean. Makes NO mass-gap / μ>0 /
+  # Surface-#1 claim, establishes NO KP convergence, does NOT beat the 7^n
+  # entropy, does NOT give ρ(T)<1, and does NOT discharge kotecky_preiss_criterion.
+  # YM stays Status: Open.
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.plaquetteEnergy_le_two"
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.polymerEnergy_le_two_card"
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.meanEnergy_nonneg"
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.meanEnergy_le_two_card"
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.e_bar_le_two"
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.e_bar_pos_of_meanEnergy_pos"
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.inv8_pow_eq_exp_neg"
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.jensen_obstruction"
+  "Towers.YM.Wall255_JensenObstruction|TheoremaAureum.Towers.YM.Wall255Jensen.mean_threshold_fails"
+
+  # Wall256_RateFunction: the large-deviation RATE FUNCTION criterion. HONEST
+  # CONDITIONAL combinator. Program S4 → 7 → rate I(x) > log 7: per-polymer
+  # activity exp(-I·n) beats the 7^n entropy iff 7·exp(-I)<1 iff exp(-I)<1/7 iff
+  # log 7 < I — i.e. Wall255_KP_Entropy's q<1/7 under the dictionary q=exp(-I).
+  # GENUINE/UNCONDITIONAL: exp_neg_lt_inv_seven_iff (exp(-I)<1/7 ↔ log7<I),
+  # seven_exp_neg_lt_one_iff (7·exp(-I)<1 ↔ log7<I), rate_beats_entropy /
+  # rate_tsum (for log7<I, ∑ₙ 7^n·exp(-I)^n Summable = (1-7·exp(-I))⁻¹, entropy
+  # KEPT), rateFn + le_rateFn (Legendre transform of an ABSTRACT cgf Λ with the
+  # variational lower bound), entropy_threshold_eq (log polymer_const = log 7,
+  # the "→ 7" link), log_seven_pos, mean_rate_fails_criterion (¬ log7<0: the rate
+  # VANISHES at the mean so the mean can NEVER meet the criterion — restates the
+  # Wall255_JensenObstruction no-go). CONDITIONAL: kp_rate_summable and
+  # kp_polymer_rate_summable route the genuine EntropyBound polymer count weighted
+  # by exp(-I)^n through the named OPEN surfaces h_entropy (connective-constant
+  # count) and h_rate : log7<I (the genuine SU(3) large-deviation rate bound,
+  # absent from mathlib v4.12.0; a HYPOTHESIS, NOT by sorry, so NO sorryAx). All
+  # sorry-free, #print axioms = classical trio (verified by hand: raw lean
+  # Towers/YM/Wall256_RateFunction.lean + #print axioms, EXIT=0). HONEST: the rate
+  # bound log7<I is the ENTIRE open content (needs Cramér/Varadhan + the SU(3)
+  # log-MGF, none in mathlib); rateFn is the Legendre transform of an ABSTRACT Λ,
+  # NOT the SU(3) cgf. Establishes NO KP convergence, makes NO mass-gap / μ>0 /
+  # Surface-#1 claim, does NOT give ρ(T)<1, and does NOT discharge
+  # kotecky_preiss_criterion. YM stays Status: Open.
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.exp_neg_lt_inv_seven_iff"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.seven_exp_neg_lt_one_iff"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.rate_beats_entropy"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.rate_tsum"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.le_rateFn"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.entropy_threshold_eq"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.log_seven_pos"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.mean_rate_fails_criterion"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.kp_rate_summable"
+  "Towers.YM.Wall256_RateFunction|TheoremaAureum.Towers.YM.Wall256Rate.kp_polymer_rate_summable"
 )
 
 VERIFIER_DIR="$(mktemp -d)"

@@ -58,6 +58,8 @@ namespace Wall255Jensen
 open Real MeasureTheory
 open Wilson LatticeGauge SU3Instances Transfer
 
+set_option synthInstance.maxHeartbeats 400000
+
 /-! ### `plaquetteEnergy ≤ 2` — closing the deferred `Re tr ≥ -3` direction -/
 
 /-- **Brick (`plaquetteEnergy_le_two`).** The per-plaquette Wilson energy
@@ -74,7 +76,7 @@ theorem plaquetteEnergy_le_two {d L : ℕ} [NeZero L]
   have hb := traceRe_le_three (-(wilsonPlaquette U x μ ν)) hunit
   rw [Matrix.trace_neg, Complex.neg_re] at hb
   unfold plaquetteEnergy
-  rw [div_le_iff (by norm_num : (0 : ℝ) < 3)]
+  rw [div_le_iff₀ (by norm_num : (0 : ℝ) < 3)]
   linarith
 
 /-- The polymer energy is at most `2·|γ|` (a finite sum of `≤ 2` terms). -/
@@ -150,7 +152,7 @@ theorem e_bar_le_two (L : ℕ) [NeZero L]
     (γ : Finset (Lattice 4 L × Fin 4 × Fin 4)) (hγ : γ.Nonempty) :
     e_bar L γ ≤ 2 := by
   unfold e_bar
-  rw [div_le_iff (by exact_mod_cast Finset.card_pos.mpr hγ)]
+  rw [div_le_iff₀ (by exact_mod_cast Finset.card_pos.mpr hγ)]
   exact meanEnergy_le_two_card L γ
 
 /-- `0 < e_bar L γ` **CONDITIONAL** on the named TRUE input `0 < meanEnergy L γ`
@@ -190,7 +192,7 @@ theorem jensen_obstruction (L : ℕ) [NeZero L]
         (-β * polymerEnergy (toGauge L w) γ))) hfi hgi
   have hmean : (∫ w, (-β * polymerEnergy (toGauge L w) γ) ∂(haarN (4 * L ^ 4)))
       = -(β * meanEnergy L γ) := by
-    rw [integral_const_mul, neg_mul]; rfl
+    rw [integral_mul_left, neg_mul]; rfl
   rw [hmean] at hjen
   exact hjen
 
@@ -203,17 +205,15 @@ mean-energy threshold — the mean cannot drive KP smallness.
 
 CONDITIONAL on `hpos : 0 < meanEnergy L γ` (a named TRUE input; see header). -/
 theorem mean_threshold_fails (L : ℕ) [NeZero L]
-    (γ : Finset (Lattice 4 L × Fin 4 × Fin 4)) (hγ : γ.Nonempty)
+    (γ : Finset (Lattice 4 L × Fin 4 × Fin 4)) (_hγ : γ.Nonempty)
     (hpos : 0 < meanEnergy L γ) :
     ((1 : ℝ) / 8) ^ γ.card ≤ polymerActivity L (Real.log 8 / e_bar L γ) γ := by
   have hm : meanEnergy L γ ≠ 0 := ne_of_gt hpos
-  have hc : (γ.card : ℝ) ≠ 0 := by exact_mod_cast Finset.card_ne_zero.mpr hγ
   rw [inv8_pow_eq_exp_neg]
   refine le_trans (le_of_eq ?_) (jensen_obstruction L γ (Real.log 8 / e_bar L γ))
   congr 1
   unfold e_bar
   field_simp
-  ring
 
 end Wall255Jensen
 end YM
