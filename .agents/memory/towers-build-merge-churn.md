@@ -33,7 +33,12 @@ HEAD.
 
 **How to apply:**
 - Don't run `towers-build` casually; it is the churn engine.
-- Recovery after a wipe: `restore-lake-git.sh` (×2) → recreate tag
+- Triage first: if `git -C …/mathlib rev-parse v4.12.0` still resolves but the
+  olean count under `…/mathlib/.lake/build/lib` is 0, ONLY the oleans were wiped
+  (a failed/interrupted towers-build run does this) — recovery is just the
+  `fetch-oleans` workflow (`scripts/fetch-mathlib-oleans.sh`, ~1 min, ~4850
+  oleans). No `restore-lake-git` needed when the `.git`/tag survives.
+- Recovery after a full wipe (tag gone too): `restore-lake-git.sh` (×2) → recreate tag
   (`git -C lean-proof-towers/.lake/packages/mathlib tag -f v4.12.0
   809c3fb3b5c8f5d7dace56e200b426187516535a`) → `scripts/fetch-mathlib-oleans.sh`.
 - post-merge.sh runs the strict e2e in the **background** (mirrors the

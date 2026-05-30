@@ -2677,6 +2677,12 @@ BRICKS=(
   "Towers.YM.WilsonPositivity|TheoremaAureum.Towers.YM.LatticeGauge.plaquetteEnergy_nonneg"
   "Towers.YM.WilsonPositivity|TheoremaAureum.Towers.YM.LatticeGauge.plaquetteEnergy_pos_iff"
   "Towers.YM.WilsonPositivity|TheoremaAureum.Towers.YM.LatticeGauge.wilsonAction_pos_of_nontrivial"
+  "Towers.YM.WilsonPositivitySU2|TheoremaAureum.Towers.YM.LatticeGauge.hsNormSq2_eq_zero_iff"
+  "Towers.YM.WilsonPositivitySU2|TheoremaAureum.Towers.YM.LatticeGauge.hsNormSq2_sub_one_eq"
+  "Towers.YM.WilsonPositivitySU2|TheoremaAureum.Towers.YM.LatticeGauge.traceRe_le_two"
+  "Towers.YM.WilsonPositivitySU2|TheoremaAureum.Towers.YM.LatticeGauge.traceRe_eq_two_iff"
+  "Towers.YM.WilsonPositivitySU2|TheoremaAureum.Towers.YM.LatticeGauge.plaquetteEnergy2_nonneg"
+  "Towers.YM.WilsonPositivitySU2|TheoremaAureum.Towers.YM.LatticeGauge.plaquetteEnergy2_pos_iff"
   "Towers.YM.GibbsMeasure|TheoremaAureum.Towers.YM.LatticeGauge.partitionFn_zero_beta_eq_one"
   # ============================================================
   # REGISTERED lake-gated YM1 walls — [YM1-*] (Task #248 + earlier).

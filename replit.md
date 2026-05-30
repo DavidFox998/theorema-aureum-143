@@ -60,8 +60,20 @@ history. Roadmap → `docs/ROADMAP.md`.
     inputs; they prove NO NS existence/uniqueness/regularity result. NS stays
     `Status: Open`; Surface #1/#2 stay OPEN; YM untouched.
 
-- **Wall:** 551 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`). The
+- **Wall:** 557 BRICKS (`${#BRICKS[@]}` in `scripts/check-towers.sh`). The
   source of truth for the count is the script, not this file.
+- **SU(2) Wilson-positivity companion (brick, in BRICKS):**
+  `Towers/YM/WilsonPositivitySU2.lean` lands the verbatim N = 2 instances of the
+  SU(3) positivity bricks — `traceRe_le_two` (`Re tr A ≤ 2`),
+  `traceRe_eq_two_iff` (`Re tr A = 2 ↔ A = 1`), `plaquetteEnergy2_nonneg/_pos_iff`,
+  plus `hsNormSq2_nonneg/_eq_zero_iff/_sub_one_eq` (identity `= 4 − 2·Re tr A`).
+  6 registered; all `sorry`-free, `#print axioms` = classical trio (verified live
+  `lake env lean`, EXIT=0). HONEST: this content uses ONLY unitarity
+  (`star A * A = 1`), never `det = 1` — it is N-generic linear algebra, NOT
+  SU(2)/SU(3)-specific and NOT a mass-gap claim. The fact that the SU(3) proof
+  ports unchanged to N = 2 is the point: it bears on NO group-specific structure.
+  Surface #1 stays OPEN; the genuine gap remains the disclaimed
+  `Transfer.kotecky_preiss_criterion` `sorry`, untouched.
 - **YM 249 → 250 — polymer entropy bound landed (brick, in BRICKS):**
   `Towers/YM/EntropyBound.lean` lands `polymer_entropy_bound` — an HONEST
   CONDITIONAL COMBINATOR for the missing combinatorial input to KP convergence.
