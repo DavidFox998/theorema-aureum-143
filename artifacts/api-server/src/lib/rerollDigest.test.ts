@@ -3,6 +3,7 @@ import {
   buildRerollDigest,
   hasAlertSinkConfigured,
   resolveRerollDigestIntervalSeconds,
+  resolveRerollDigestStatus,
   runRerollDigestOnce,
   type RerollDigestRow,
 } from "./rerollDigest.js";
@@ -222,5 +223,60 @@ describe("resolveRerollDigestIntervalSeconds", () => {
   it("accepts positive numeric values", () => {
     expect(resolveRerollDigestIntervalSeconds("3600")).toBe(3600);
     expect(resolveRerollDigestIntervalSeconds("43200.7")).toBe(43200);
+  });
+});
+
+describe("resolveRerollDigestStatus", () => {
+  it("is enabled with cadence + window when interval is live and a sink exists", () => {
+    expect(resolveRerollDigestStatus(undefined, true)).toEqual({
+      state: "enabled",
+      intervalSeconds: 86400,
+      windowHours: 24,
+    });
+    expect(resolveRerollDigestStatus("43200", true)).toEqual({
+      state: "enabled",
+      intervalSeconds: 43200,
+      windowHours: 12,
+    });
+  });
+
+  it("floors the window at 1h for sub-hour intervals", () => {
+    expect(resolveRerollDigestStatus("60", true)).toEqual({
+      state: "enabled",
+      intervalSeconds: 60,
+      windowHours: 1,
+    });
+  });
+
+  it("is disabled_interval_off when the interval is off (regardless of sink)", () => {
+    expect(resolveRerollDigestStatus("off", true)).toEqual({
+      state: "disabled_interval_off",
+      intervalSeconds: null,
+      windowHours: null,
+    });
+    expect(resolveRerollDigestStatus("0", false)).toEqual({
+      state: "disabled_interval_off",
+      intervalSeconds: null,
+      windowHours: null,
+    });
+  });
+
+  it("is disabled_no_sink when the interval is live but no sink is configured", () => {
+    expect(resolveRerollDigestStatus(undefined, false)).toEqual({
+      state: "disabled_no_sink",
+      intervalSeconds: null,
+      windowHours: null,
+    });
+    expect(resolveRerollDigestStatus("3600", false)).toEqual({
+      state: "disabled_no_sink",
+      intervalSeconds: null,
+      windowHours: null,
+    });
+  });
+
+  it("interval-off wins over a missing sink (deliberate opt-out, not a misconfig)", () => {
+    expect(resolveRerollDigestStatus("none", false).state).toBe(
+      "disabled_interval_off",
+    );
   });
 });

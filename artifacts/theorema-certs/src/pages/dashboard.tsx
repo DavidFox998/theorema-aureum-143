@@ -3711,6 +3711,90 @@ export default function DashboardPage() {
           })()}
 
           {(() => {
+            // Task #223: surface the daily re-roll digest's effective
+            // state. Task #198 made the digest short-circuit (logging
+            // a line nobody watching the dashboard can see) when no
+            // alert sink is configured. Without this panel a
+            // misconfigured deployment (interval live, no sink) looks
+            // identical to a healthy quiet one or a deliberate
+            // interval=off opt-out. Three distinct renderings:
+            //  - enabled  → muted "running every Nh, window Nh"
+            //  - off      → muted "disabled (interval=off)" — on purpose
+            //  - no sink  → amber "disabled (no alert sink)" — fixable
+            if (!ledgerIntegrity) return null;
+            const d = ledgerIntegrity.rerollDigest;
+            if (!d) return null;
+            const fmt = (sec: number | null): string | null => {
+              if (sec == null) return null;
+              if (sec >= 86400) return `${Math.round(sec / 86400)}d`;
+              if (sec >= 3600) return `${Math.round(sec / 3600)}h`;
+              if (sec >= 60) return `${Math.round(sec / 60)}m`;
+              return `${sec}s`;
+            };
+            if (d.state === "disabled_no_sink") {
+              return (
+                <p
+                  className="text-xs font-mono border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 px-3 py-2"
+                  data-testid="text-reroll-digest"
+                  data-digest-state="disabled_no_sink"
+                >
+                  re-roll digest:{" "}
+                  <span className="font-bold uppercase tracking-wider">
+                    disabled
+                  </span>
+                  <span className="ml-2 text-muted-foreground">
+                    (no alert sink — set MORNINGSTAR_ALERT_WEBHOOK_URL or
+                    MORNINGSTAR_ALERT_EMAIL_TO to start the digest)
+                  </span>
+                </p>
+              );
+            }
+            if (d.state === "disabled_interval_off") {
+              return (
+                <p
+                  className="text-xs font-mono text-muted-foreground"
+                  data-testid="text-reroll-digest"
+                  data-digest-state="disabled_interval_off"
+                >
+                  re-roll digest:{" "}
+                  <span className="uppercase tracking-wider">disabled</span>
+                  <span className="ml-2">
+                    (MORNINGSTAR_REROLL_DIGEST_INTERVAL_SECONDS=off)
+                  </span>
+                </p>
+              );
+            }
+            const cadence = fmt(d.intervalSeconds);
+            return (
+              <p
+                className="text-xs font-mono text-muted-foreground"
+                data-testid="text-reroll-digest"
+                data-digest-state="enabled"
+              >
+                re-roll digest:{" "}
+                <span className="text-foreground">enabled</span>
+                {cadence ? (
+                  <span
+                    className="ml-2"
+                    data-testid="text-reroll-digest-cadence"
+                  >
+                    every <span className="text-foreground">{cadence}</span>
+                  </span>
+                ) : null}
+                {d.windowHours != null ? (
+                  <span
+                    className="ml-2"
+                    data-testid="text-reroll-digest-window"
+                  >
+                    window{" "}
+                    <span className="text-foreground">{d.windowHours}h</span>
+                  </span>
+                ) : null}
+              </p>
+            );
+          })()}
+
+          {(() => {
             // Task #128: surface the in-process watchdog (task #113)
             // distinctly from the checkedStale badge. checkedStale is
             // derived from the persisted sidecar's lastCheckedAt and

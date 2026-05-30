@@ -7,6 +7,7 @@
  */
 import type { LedgerIntegrityStatusLastOkSidecarStatus } from './ledgerIntegrityStatusLastOkSidecarStatus';
 import type { LedgerIntegrityStatusMonitor } from './ledgerIntegrityStatusMonitor';
+import type { LedgerIntegrityStatusRerollDigest } from './ledgerIntegrityStatusRerollDigest';
 import type { LedgerIntegrityStatusStatus } from './ledgerIntegrityStatusStatus';
 
 export interface LedgerIntegrityStatus {
@@ -302,4 +303,14 @@ export interface LedgerIntegrityStatus {
   instead of silently missing tampers.
    */
   monitor?: LedgerIntegrityStatusMonitor;
+  /** Task #223. Effective state of the daily checkpoint
+  re-roll digest scheduler. Task #198 made the digest
+  short-circuit when no alert sink is configured, logging a
+  line operators can't see from the dashboard. This surface
+  makes the three possible states distinguishable so a
+  misconfigured deployment (interval live but no sink) no
+  longer looks identical to a healthy quiet one or a
+  deliberate opt-out.
+   */
+  rerollDigest?: LedgerIntegrityStatusRerollDigest;
 }

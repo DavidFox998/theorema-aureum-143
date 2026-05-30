@@ -1048,6 +1048,69 @@ export type LedgerIntegrityStatusMonitor = {
   watchdogLastFiredAt: string | null;
 };
 
+/**
+ * `enabled`: the digest timer is running;
+`intervalSeconds`/`windowHours` describe its cadence.
+`disabled_interval_off`: an operator set
+`MORNINGSTAR_REROLL_DIGEST_INTERVAL_SECONDS` to
+`off`/`0`/`none` — a deliberate opt-out, nothing to
+fix. `disabled_no_sink`: the interval is live but
+neither `MORNINGSTAR_ALERT_WEBHOOK_URL` nor
+`MORNINGSTAR_ALERT_EMAIL_TO` is set, so the scheduler
+short-circuits (task #198) — a likely misconfiguration
+an operator can fix by setting an alert sink.
+
+ */
+export type LedgerIntegrityStatusRerollDigestState = typeof LedgerIntegrityStatusRerollDigestState[keyof typeof LedgerIntegrityStatusRerollDigestState];
+
+
+export const LedgerIntegrityStatusRerollDigestState = {
+  enabled: 'enabled',
+  disabled_interval_off: 'disabled_interval_off',
+  disabled_no_sink: 'disabled_no_sink',
+} as const;
+
+/**
+ * Task #223. Effective state of the daily checkpoint
+re-roll digest scheduler. Task #198 made the digest
+short-circuit when no alert sink is configured, logging a
+line operators can't see from the dashboard. This surface
+makes the three possible states distinguishable so a
+misconfigured deployment (interval live but no sink) no
+longer looks identical to a healthy quiet one or a
+deliberate opt-out.
+
+ */
+export type LedgerIntegrityStatusRerollDigest = {
+  /** `enabled`: the digest timer is running;
+  `intervalSeconds`/`windowHours` describe its cadence.
+  `disabled_interval_off`: an operator set
+  `MORNINGSTAR_REROLL_DIGEST_INTERVAL_SECONDS` to
+  `off`/`0`/`none` — a deliberate opt-out, nothing to
+  fix. `disabled_no_sink`: the interval is live but
+  neither `MORNINGSTAR_ALERT_WEBHOOK_URL` nor
+  `MORNINGSTAR_ALERT_EMAIL_TO` is set, so the scheduler
+  short-circuits (task #198) — a likely misconfiguration
+  an operator can fix by setting an alert sink.
+   */
+  state: LedgerIntegrityStatusRerollDigestState;
+  /**
+     * Configured digest cadence in whole seconds when
+  `state` is `enabled`; null for both disabled states.
+
+     * @nullable
+     */
+  intervalSeconds: number | null;
+  /**
+     * Digest look-back window in whole hours when `state` is
+  `enabled` (tracks the cadence, 1h floor); null for both
+  disabled states.
+
+     * @nullable
+     */
+  windowHours: number | null;
+};
+
 export interface LedgerIntegrityStatus {
   /** `ok` when the live ledger's first `checkpointSize` bytes hash
   to `checkpointSha`. `missing` when either `data/hits.txt` or
@@ -1341,6 +1404,16 @@ export interface LedgerIntegrityStatus {
   instead of silently missing tampers.
    */
   monitor?: LedgerIntegrityStatusMonitor;
+  /** Task #223. Effective state of the daily checkpoint
+  re-roll digest scheduler. Task #198 made the digest
+  short-circuit when no alert sink is configured, logging a
+  line operators can't see from the dashboard. This surface
+  makes the three possible states distinguishable so a
+  misconfigured deployment (interval live but no sink) no
+  longer looks identical to a healthy quiet one or a
+  deliberate opt-out.
+   */
+  rerollDigest?: LedgerIntegrityStatusRerollDigest;
 }
 
 export interface UploadUrlRequest {

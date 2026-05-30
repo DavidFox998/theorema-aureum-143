@@ -42,6 +42,8 @@ export * from './ledgerIntegrityStatus';
 export * from './ledgerIntegrityStatusLastOkSidecarStatus';
 export * from './ledgerIntegrityStatusMonitor';
 export * from './ledgerIntegrityStatusMonitorWatchdogState';
+export * from './ledgerIntegrityStatusRerollDigest';
+export * from './ledgerIntegrityStatusRerollDigestState';
 export * from './ledgerIntegrityStatusStatus';
 export * from './morningstarHits';
 export * from './morningstarProbe';

@@ -315,3 +315,73 @@ export function resolveRerollDigestIntervalSeconds(
   if (!Number.isFinite(n) || n <= 0) return DEFAULT_DIGEST_INTERVAL_SECONDS;
   return Math.floor(n);
 }
+
+/**
+ * Convert an interval (whole seconds) into the digest window in whole
+ * hours, matching the boot-time wiring: the digest window tracks the
+ * cadence, with a 1h floor so a sub-hour interval still digests at
+ * least an hour.
+ */
+export function rerollDigestWindowHours(intervalSeconds: number): number {
+  return Math.max(1, Math.round(intervalSeconds / 3600));
+}
+
+/**
+ * Task #223. The digest scheduler can be live, off-by-interval, or
+ * silently off because no alert sink is wired up — three states that
+ * are indistinguishable from the dashboard today (all you see is a
+ * quiet log line). `state` makes the distinction explicit:
+ *  - `enabled`: the timer is running; `intervalSeconds`/`windowHours`
+ *    describe the cadence and digest window.
+ *  - `disabled_interval_off`: an operator set
+ *    `MORNINGSTAR_REROLL_DIGEST_INTERVAL_SECONDS=off` (or 0/none) — a
+ *    deliberate opt-out, nothing to fix.
+ *  - `disabled_no_sink`: the interval is live but neither
+ *    `MORNINGSTAR_ALERT_WEBHOOK_URL` nor `MORNINGSTAR_ALERT_EMAIL_TO`
+ *    is set, so the scheduler short-circuits (task #198) — a likely
+ *    misconfiguration that an operator can fix by setting a sink.
+ */
+export type RerollDigestState =
+  | "enabled"
+  | "disabled_interval_off"
+  | "disabled_no_sink";
+
+export interface RerollDigestStatus {
+  state: RerollDigestState;
+  /** Cadence in whole seconds when enabled; null otherwise. */
+  intervalSeconds: number | null;
+  /** Digest look-back window in whole hours when enabled; null otherwise. */
+  windowHours: number | null;
+}
+
+/**
+ * Task #223. Resolve the digest's *effective* state from the same two
+ * inputs the boot wiring uses — the interval env var and whether an
+ * alert sink is configured — so the dashboard can surface exactly why
+ * the digest is (or isn't) running.
+ */
+export function resolveRerollDigestStatus(
+  rawInterval: string | undefined,
+  hasSink: boolean = hasAlertSinkConfigured(),
+): RerollDigestStatus {
+  const intervalSeconds = resolveRerollDigestIntervalSeconds(rawInterval);
+  if (intervalSeconds == null) {
+    return {
+      state: "disabled_interval_off",
+      intervalSeconds: null,
+      windowHours: null,
+    };
+  }
+  if (!hasSink) {
+    return {
+      state: "disabled_no_sink",
+      intervalSeconds: null,
+      windowHours: null,
+    };
+  }
+  return {
+    state: "enabled",
+    intervalSeconds,
+    windowHours: rerollDigestWindowHours(intervalSeconds),
+  };
+}

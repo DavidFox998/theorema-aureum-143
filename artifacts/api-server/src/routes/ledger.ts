@@ -26,6 +26,7 @@ import {
   isAlertAcknowledged,
 } from "../lib/alertAckStore.js";
 import { logger as defaultLogger } from "../lib/logger.js";
+import type { RerollDigestStatus } from "../lib/rerollDigest.js";
 
 type FailureMode =
   | "hits_missing"
@@ -1141,6 +1142,15 @@ const DISABLED_MONITOR_INFO: LedgerMonitorInfo = {
   watchdogLastFiredAt: null,
 };
 
+// Task #223: fallback digest state before boot wiring registers the
+// real provider (or if the provider throws). "disabled_no_sink" is the
+// safe default — it never overstates the digest as running.
+const DISABLED_REROLL_DIGEST_STATUS: RerollDigestStatus = {
+  state: "disabled_no_sink",
+  intervalSeconds: null,
+  windowHours: null,
+};
+
 export interface LedgerChecker {
   router: IRouter;
   buildStatus: () => LedgerIntegrityStatus;
@@ -1152,6 +1162,14 @@ export interface LedgerChecker {
    * fresh on every request — provider may return live state.
    */
   setMonitorInfoProvider: (fn: () => LedgerMonitorInfo) => void;
+  /**
+   * Task #223: register a provider for the daily re-roll digest's
+   * effective state so GET /api/ledger/integrity can surface
+   * `rerollDigest: {...}`. Lets the dashboard distinguish a running
+   * digest from one disabled by interval vs. silently disabled by a
+   * missing alert sink. Called fresh on every request.
+   */
+  setRerollDigestStatusProvider: (fn: () => RerollDigestStatus) => void;
   /**
    * Task #110: one-shot latch consumed by the background monitor on
    * its first tick. Returns `true` exactly once — and only when the
@@ -1924,6 +1942,8 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
   }
 
   let monitorInfoProvider: () => LedgerMonitorInfo = () => DISABLED_MONITOR_INFO;
+  let rerollDigestStatusProvider: () => RerollDigestStatus = () =>
+    DISABLED_REROLL_DIGEST_STATUS;
   const router: IRouter = Router();
   router.get("/ledger/integrity", (_req, res) => {
     const status = buildStatus();
@@ -1933,7 +1953,13 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
     } catch {
       monitor = DISABLED_MONITOR_INFO;
     }
-    res.status(200).json({ ...status, monitor });
+    let rerollDigest: RerollDigestStatus;
+    try {
+      rerollDigest = rerollDigestStatusProvider();
+    } catch {
+      rerollDigest = DISABLED_REROLL_DIGEST_STATUS;
+    }
+    res.status(200).json({ ...status, monitor, rerollDigest });
   });
 
   function acknowledgeForgedSidecar(
@@ -2213,6 +2239,9 @@ export function createLedgerChecker(opts: LedgerRouterOptions): LedgerChecker {
     checkpointPath: CHECKPOINT,
     setMonitorInfoProvider(fn) {
       monitorInfoProvider = fn;
+    },
+    setRerollDigestStatusProvider(fn) {
+      rerollDigestStatusProvider = fn;
     },
     consumeBootForgedAlert() {
       if (!bootForgedAlertPending) return false;
@@ -2995,12 +3024,22 @@ if (monitorIntervalSeconds != null) {
 import {
   hasAlertSinkConfigured,
   resolveRerollDigestIntervalSeconds,
+  resolveRerollDigestStatus,
   startRerollDigestScheduler,
 } from "../lib/rerollDigest.js";
 
 const rerollDigestIntervalSeconds = resolveRerollDigestIntervalSeconds(
   process.env["MORNINGSTAR_REROLL_DIGEST_INTERVAL_SECONDS"],
 );
+// Task #223: snapshot the digest's effective state at boot (the env
+// inputs don't change for a process lifetime) and surface it on
+// GET /ledger/integrity so the dashboard can tell operators whether
+// the digest is running, off-by-interval, or silently off for want of
+// an alert sink.
+const rerollDigestStatus = resolveRerollDigestStatus(
+  process.env["MORNINGSTAR_REROLL_DIGEST_INTERVAL_SECONDS"],
+);
+defaultChecker.setRerollDigestStatusProvider(() => rerollDigestStatus);
 if (rerollDigestIntervalSeconds != null && !hasAlertSinkConfigured()) {
   defaultLogger.info(
     "reroll digest: no sinks configured, digest disabled (set MORNINGSTAR_ALERT_WEBHOOK_URL or MORNINGSTAR_ALERT_EMAIL_TO)",
