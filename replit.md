@@ -152,6 +152,17 @@ history. Roadmap → `docs/ROADMAP.md`.
   explicit unfreeze order from the user. Surface #1 (`global_smooth_exists`) and
   Surface #2 (modeled `weak_solution_exists`) stay OPEN; "NS solved" /
   "regularity proven" / "weak solutions exist (literally)" claims are REFUSED.
+  - **Unfreeze exception (2026-05-31): `Towers/NS/Wall300_Scaffold.lean`** added
+    under an EXPLICIT user unfreeze order. HONEST CONDITIONAL combinator
+    `navier_stokes_global_regularity`: threads THREE named open surfaces —
+    weak existence (`∃ u, WeakNS u u₀ f`), local-in-time regularity
+    (`global_smooth_exists`), and global continuation / no finite-time blow-up —
+    through the genuine `Regularity.weak_implies_strong` to a MODELED global-in-
+    time smoothness shape. SORRY: 0, `axiom`-free (classical trio), NOT a brick /
+    NOT in BRICKS / NOT a lakefile root. Proves NO regularity; Surfaces #1/#2
+    stay OPEN; NS_STATUS: OPEN. Fresh `lake env`/`#print axioms` DEFERRED while
+    the `v4.12.0` tag is unresolved (running `lake` would wipe the pin). NS is
+    otherwise still frozen at the Clay boundary.
 - **Infra (in progress).** Disabling the `towers-build` auto-run and permanently
   locking the mathlib `v4.12.0` pin is tracked as a background Project Task
   (#294); until it lands, every boot/merge can still wipe the pin and require
