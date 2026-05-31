@@ -12,4 +12,5 @@
 - [OS positivity Gram recipe](os-positivity-gram-recipe.md) — land OS2 as genuine Gram-PSD (inner_self_nonneg) + a named-open GNS surface hGNS; never attempt the actual Wilson measure; OS2 is one of OS0–OS4.
 - [linarith opaque decimals](linarith-opaque-decimals.md) — linarith treats decimal `OfScientific` literals as opaque atoms; launder each to a rational via `norm_num` first, then linarith.
 - [Workflow limit-checker stuck](workflow-limit-checker-stuck.md) — configureWorkflow can freeze at 10/10 ignoring removals; don't removeWorkflow to free slots; run long jobs as checkpoint-resumable bash with an internal time budget.
+- [Deterministic docs-visual toolchain](docs-visual-toolchain.md) — build figures hand-authored (no AI): DejaVu fonts, verify via ephemeral `uvx cairosvg`, mono lacks long arrows ⟹/⟺ (use ⇒/⇔), honesty review mandatory.
 - [pi/10 exceptional-primes sieve](pi10-exceptional-primes-sieve.md) — enumerate CF convergents+semiconvergents (not random ints) + exact integer test + margin certificate; 20 primes ≤10^4000; BPSW is not a formal proof.

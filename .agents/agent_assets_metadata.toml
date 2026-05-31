@@ -168,3 +168,15 @@ id = "4QL6wosDOhTZDRXKlNL_0"
 uri = "file://docs/Wall256_Lattice.png"
 type = "image"
 title = "Wall256 — SU(3) lattice slice (single-plaquette w1 = H1)"
+
+[[outputs]]
+id = "1rriEctYFkmzmvfl-GKgJ"
+uri = "file://docs/H4_Hypericosahedron.png"
+type = "image"
+title = "The hypericosahedron — 600-cell on the H4 Coxeter plane"
+
+[[outputs]]
+id = "nsm8DdrA50JIKPH3-guzI"
+uri = "file://docs/H4_CoxeterModel.svg"
+type = "image"
+title = "H4 / 600-cell — what is machine-checked (model card)"
