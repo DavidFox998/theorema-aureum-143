@@ -1,3 +1,5 @@
+-- Axiom status: Uses [propext, Classical.choice, Quot.sound]
+-- Scope: Conditional SU(3) lattice reduction. 3 named hypotheses. YM stays Open.
 /-
 Wall256_Scaffold — HONEST CONDITIONAL strong-coupling LATTICE reduction for the
 SU(3) truncated polymer activity, packaged over its THREE open inputs.
