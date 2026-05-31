@@ -209,6 +209,38 @@ history. Roadmap → `docs/ROADMAP.md`.
 - Be honest about scope — never overstate a placeholder/stand-in as a real
   result (no false "mass gap proven" / "Surface #1 closed" claims).
 
+## 600-cell geometry — Wall264 (MACHINE-CHECKED geometry leaf; NOT a YM brick)
+
+- **`Towers/YM/Wall264_H4Vertices.lean`** (2026-05-31) — a standalone, formally
+  verified leaf for the 600-cell ({3,3,5}, H4 root system) vertex geometry that
+  the `theorema-certs` dashboard renders in 3D (mirrors
+  `artifacts/theorema-certs/src/lib/h4-600cell.ts`). NOT a brick / NOT in BRICKS
+  / NOT a lakefile root / touches NO YM or NS surface.
+  - **Proves** (exact φ arithmetic, reuses `Wall261.phi` + `phi_sq_eq : φ²=φ+1`;
+    division-free — `(φ-1)/2` stands for `1/(2φ)` since `1/φ = φ-1`): the vertex
+    set is exactly `120 = 8 + 16 + 96` (`famA/famB/famC_length`, `vertices_card`);
+    every vertex lies EXACTLY on the unit 3-sphere `nSq v = 1`
+    (`vertices_on_sphere`, famC closes by `linear_combination (1/2)*phi_sq_eq`);
+    and the nearest-neighbor edge separation `2 − φ = 1/φ²` is REALIZED between
+    two vertices (`exists_unit_edge` / `edge_realized`).
+  - **HONEST SCOPE.** Proves the vertices lie on the sphere and that `2−φ` is
+    realized as an edge; does NOT prove global edge minimality (that `2−φ` is the
+    MINIMUM over all 7140 pairs) nor the full 720-edge / 12-regular adjacency
+    (DEFERRED). Makes NO Yang–Mills, mass-gap, Surface-#1, μ>0, or
+    Riemann-hypothesis claim. YM and NS stay `Status: Open`.
+  - **Verified live:** classical trio `{propext, Classical.choice, Quot.sound}`
+    on `vertices_on_sphere`, `exists_unit_edge`, `vertices_card`, all three
+    `*_length`; 0 `sorry`/`sorryAx`; raw `lean` v4.12.0, EXIT=0. Verified by
+    DIRECT `lean` (NOT `lake`/`check-towers.sh`): the mathlib `v4.12.0` git tag
+    is currently unresolved, so `lake env` would wipe the oleans — but the oleans
+    themselves are intact, so compile with a hand-built
+    `LEAN_PATH = <each .lake/packages/*/.lake/build/lib>:.lake/build/lib` and
+    invoke `lean Towers/YM/Wall264_H4Vertices.lean` from `lean-proof-towers/`.
+  - **Website plaque.** `/miegakure` (`artifacts/theorema-certs`) carries a
+    "✓ Machine-checked" card stating exactly the three proven facts, the
+    classical-trio axiom footprint, 0 `sorry`, and the explicit scope disclaimer
+    (no YM / mass-gap / RH claim; edge minimality + 720-edge structure deferred).
+
 ## theorema-certs dashboard
 
 Web artifact (`artifacts/theorema-certs`) — the certificate-ledger dashboard.

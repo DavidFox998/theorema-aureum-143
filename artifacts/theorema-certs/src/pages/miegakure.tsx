@@ -118,10 +118,69 @@ export default function MiegakurePage() {
         </div>
       </Card>
 
+      <Card className="p-6 border-emerald-500/30 bg-card" data-testid="card-machine-checked">
+        <div className="flex items-center gap-2 border-b border-border pb-2 mb-4">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider rounded-sm bg-emerald-500/15 text-emerald-500 border border-emerald-500/40">
+            <span aria-hidden>✓</span> Machine-checked
+          </span>
+          <h3 className="text-sm font-mono font-bold uppercase text-muted-foreground">
+            600-cell vertex geometry
+          </h3>
+        </div>
+        <div className="space-y-3 font-mono text-xs leading-relaxed text-muted-foreground">
+          <p>
+            The 120 vertices rendered above are formally verified in Lean&nbsp;4 / Mathlib
+            (<code className="text-foreground">Towers/YM/Wall264_H4Vertices.lean</code>), with exact
+            golden-ratio arithmetic (<span className="text-foreground">φ² = φ + 1</span>, no floating point).
+            Proven:
+          </p>
+          <ul className="space-y-1.5 pl-1">
+            <li className="flex gap-2">
+              <span className="text-emerald-500" aria-hidden>✓</span>
+              <span>
+                exactly <span className="text-foreground">120 vertices</span>, split{" "}
+                <span className="text-foreground">8 + 16 + 96</span> (axis vectors, half-integer cube,
+                even golden permutations)
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-emerald-500" aria-hidden>✓</span>
+              <span>
+                every vertex lies <span className="text-foreground">exactly on the unit 3-sphere</span>{" "}
+                (‖v‖² = 1)
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-emerald-500" aria-hidden>✓</span>
+              <span>
+                the nearest-neighbor edge separation{" "}
+                <span className="text-foreground">2 − φ = 1/φ²</span> is realized between two vertices
+              </span>
+            </li>
+          </ul>
+          <p className="text-[11px]">
+            Axioms: <span className="text-foreground">{"{propext, Classical.choice, Quot.sound}"}</span>{" "}
+            (classical trio) · 0 <code>sorry</code> · Lean 4.12.0.
+          </p>
+          <p className="text-[11px] border-t border-border pt-2">
+            <span className="text-foreground uppercase tracking-wider">Scope —</span> this certifies the
+            polytope&apos;s vertex geometry only. It does <span className="text-foreground">not</span> prove
+            edge-set minimality (the full 720-edge structure is deferred), and makes{" "}
+            <span className="text-foreground">no Yang–Mills, mass-gap, or Riemann-hypothesis claim</span>.
+            The slice / ζ / L_min narrative below is an artistic visualization, not a theorem.
+          </p>
+        </div>
+      </Card>
+
       <Card className="p-6 border-border bg-card">
-        <h3 className="text-sm font-mono font-bold uppercase text-muted-foreground border-b border-border pb-2 mb-4">
-          Identity
-        </h3>
+        <div className="flex items-center gap-2 border-b border-border pb-2 mb-4">
+          <h3 className="text-sm font-mono font-bold uppercase text-muted-foreground">
+            Identity
+          </h3>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-500/90 border border-amber-500/30 rounded-sm px-1.5 py-0.5">
+            conjectural · not a Lean theorem
+          </span>
+        </div>
         <div className="space-y-3 font-mono text-sm">
           <div className="bg-muted p-4 border border-border">
             <code className="text-foreground">slice_volume(θ) = 0  ⇔  ζ(½ + i·30θ/π) = 0</code>
