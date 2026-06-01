@@ -60,11 +60,21 @@
         "status": "OPEN"
       },
       "D4_w1_strict_bound": {
-        "statement": "w1 := ∫_{SU(3)} exp(-β·S) d haarSU3 ;  w1 < 1/7  for β > β₀≈0.85",
+        "statement": "w1 := ∫_{SU(3)} exp(-β·S) d haarSU3 ;  w1 < 1/7  for β > β₀≈2.07942  (under repo action S=(3-Re tr U)/3)",
         "strictness_critical": "= 1/7 ⟹ I=log 7 ⟹ ∑ₙ 7ⁿ(1/7)ⁿ diverges; STRICT < required",
         "status": "OPEN",
+        "d4_verdict": "TESTED NEGATIVE — requires β > 2.07942",
+        "tested_2026_06_01": {
+          "verdict": "VERIFIED_OUT_OF_TOWER_NEGATIVE",
+          "w1_0p86": 0.432367,
+          "passes_at_0p86": false,
+          "beta0_repo_action": 2.07942,
+          "method": "Weyl-torus quadrature + 2e6-draw MC validation (numerical, NOT Arb/MPFI, NOT Lean)",
+          "stale_threshold_corrected": "the earlier β>~0.85 was for the UN-normalized action 3-Re tr; repo uses /3-normalized S ⟹ threshold ~3x",
+          "evidence": "lean-proof-towers/exports/D4_w1_strict_bound_draft.yaml ; D4_w1_NEGATIVE_Certificate_2026-06-01.pdf"
+        },
         "provenance": "OUT_OF_TOWER",
-        "needs": "SU(3) character theory OR verified cubature",
+        "needs": "SU(3) character theory OR verified interval cubature (Arb/MPFI) to certify β₀ rigorously — see CERT_Arb plan draft",
         "in_mathlib_v4_12_0": false
       },
       "D5_os_cluster_step": {
@@ -136,8 +146,9 @@
     {
       "id": "E1",
       "for": "D4_w1_strict_bound",
-      "need": "verified numeric/analytic bound  ∫_{SU(3)} exp(-β·S) d haarSU3 < 1/7  for β>~0.85",
-      "method_options": ["SU(3) character expansion", "interval-arithmetic cubature over SU(3)"],
+      "need": "verified numeric/analytic bound  ∫_{SU(3)} exp(-β·S) d haarSU3 < 1/7  for β > β₀≈2.07942 (repo action)",
+      "status_2026_06_01": "numerically TESTED NEGATIVE at β=0.86 (w1≈0.4324); β₀≈2.07942 from Weyl quadrature + MC; rigorous Arb/MPFI enclosure still ABSENT (see CERT_Arb plan draft)",
+      "method_options": ["SU(3) character expansion", "interval-arithmetic cubature over SU(3) (Arb/MPFI)"],
       "mathlib_v4_12_0": "absent"
     },
     {
