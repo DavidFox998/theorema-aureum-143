@@ -11,6 +11,7 @@ import WalkthroughPage from "@/pages/walkthrough";
 import FoundationsPage from "@/pages/foundations";
 import LineagePage from "@/pages/lineage";
 import HodgePage from "@/pages/hodge";
+import DesertMapPage from "@/pages/desert-map";
 import { Layout } from "@/components/layout";
 
 const queryClient = new QueryClient({
@@ -32,6 +33,7 @@ function Router() {
         <Route path="/miegakure" component={MiegakurePage} />
         <Route path="/walkthrough" component={WalkthroughPage} />
         <Route path="/foundations" component={FoundationsPage} />
+        <Route path="/desert-map" component={DesertMapPage} />
         <Route path="/hodge" component={HodgePage} />
         <Route path="/lineage" component={LineagePage} />
         <Route component={NotFound} />
