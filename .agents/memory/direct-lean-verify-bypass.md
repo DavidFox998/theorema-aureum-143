@@ -48,3 +48,20 @@ false-negative that looks like a namespace/path bug but is staleness.
 (`lean -o .lake/build/lib/Towers/<Path>.olean Towers/<Path>.lean`), in
 dependency order, THEN compile the consumer. `open` finding the namespace but
 NOT the identifier is the tell-tale sign of a stale dep olean.
+
+## Whole-tower axiom sweep (fast, no source re-elaboration)
+
+To axiom-audit MANY landed bricks at once (e.g. all YM), DON'T re-elaborate each
+source file (~1.5 min each). Instead write one temp `.lean` that `import`s the
+prebuilt modules and lists `#print axioms <Fully.Qualified.decl>` for every
+brick, then run it under the direct-`lean` LEAN_PATH. `#print axioms` only LOADS
+oleans (cheap), so hundreds of decls cost ~one olean-load.
+**Gotcha — the 2-min bash-tool limit:** importing the WHOLE YM set (76 modules)
+in ONE file loads the *union* of their transitive mathlib closures and exceeds
+the 2-min timeout. CHUNK the imports (split modules into groups, ~8-20 each) and
+run each group separately. The transfer / OS-positivity / spectrum / two-point
+modules are the HEAVY ones (a single group of ~8 took ~1m48s); isolate them into
+smaller sub-chunks. Aggregate the per-chunk outputs and scan: extract every
+`axioms: [...]` body (lists wrap across lines — slurp with `perl -0777`), split
+on commas, `sort -u`; a clean tower yields exactly `{propext, Classical.choice,
+Quot.sound}` (some decls print "does not depend on any axioms").
