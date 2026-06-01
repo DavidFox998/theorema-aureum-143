@@ -6,6 +6,69 @@ this file is the version history.
 
 ---
 
+## Hodge SMap bridge — `Towers/Hodge/SMap.lean` (2026-06-01)
+
+Honest cross-reference of `Towers/Hodge/Twelve.lean` with Battle Plan v1.6
+Modules 1–5 (Machine Certificate v1.6, all SHAs attested), using REAL data only.
+NOT a brick; proves nothing; makes no Hodge / BSD / Bost-violation claim.
+
+What the documents actually provide (and what they do NOT):
+
+- There is ONE exceptional set `S(α₀) = { p prime : ‖p·α₀‖ < 1/p }`
+  (`Defs.S_alpha_0`), α₀ = 299 + π/10 (M1). It is **curve-independent**.
+- M4 certifies the finite window `S(α₀) ∩ [1,10^4000] = S_14` (the 14 explicit
+  primes already in `Defs.S_14`; M4 stdout SHA `53315d4e6649a40b…`, depends on
+  M3 stdout `e687bb09a55e4eda…`).
+- M5 certifies the Bost bound on the leading prefix `S_4 = {2,3,19,191}`:
+  `C(S_4) ≈ 11.4221 > 2√13 ≈ 7.2111`, `C(s) = Σ_{p∈s} log p · p/(p-1)`.
+- The documents give **NO per-curve family `S_X`** indexed by the 12 CM levels.
+  The `S_k` objects (S_4, S_5, …, S_14) are NESTED PREFIXES of the single
+  `S(α₀)`, sized by a genus bound — not one set per curve.
+
+Contents (namespace `…Hodge.SMap`):
+
+- `def Sexc : Finset ℕ := Defs.S_14` — the single certified window, reused.
+- `def S_of_curve (_X : Twelve.CM_Curve) : Finset ℕ := Sexc` — the set attached
+  to a curve. CONSTANT; the unused curve argument (`_X`) makes the
+  curve-independence explicit in code. NOT a fabricated per-curve map.
+- `def M4_window_eq : Prop := ∀ p, p ≤ 10^4000 → (Defs.S_alpha_0 p ↔ p ∈
+  Defs.S_14)` — M4 attestation, asserted by NO theorem (external certificate).
+  The upper bound is inclusive (`≤`) to match the certificate's `∩ [1,10^4000]`;
+  the lower bound `1 ≤ p` is implied by `Nat.Prime p` inside `S_alpha_0`.
+- `noncomputable def C_S4 : ℝ := Twelve.C Defs.S_4` — the M5 Bost sum of S_4.
+- `def M5_BostBound_S4 : Prop := Twelve.BostBound Defs.S_4` and
+  `def M5_BostBound_Sexc : Prop := Twelve.BostBound Sexc` — M5 attestations,
+  asserted by NO theorem (external `arb` interval certificate).
+
+Honesty / locks: registered as lakefile root `Towers.Hodge.SMap`; direct-lean
+verify EXIT=0; `#print axioms` = classical trio for every decl (`Sexc` and
+`S_of_curve` use the `{propext, Quot.sound}` subset). SORRY: 0; no new axiom.
+
+REFUSED from the drafted spec — each is impossible in-kernel or would fabricate
+data / break a lock:
+
+1. `def S_of_level d := Finset.filter S_alpha_0 (Finset.range 5000)` —
+   `S_alpha_0` is a REAL inequality with π. It IS classically decidable
+   (`by classical` / `Classical.propDecidable` gives `DecidablePred`), but the
+   resulting `Finset.filter` is NONCOMPUTABLE, so it cannot drive the requested
+   `#eval!` workflow. It also IGNORES `d` (not per-curve), and `Finset.range
+   5000` contradicts the 10^4000 window (p₅ = 3.99×10¹² ≫ 5000 ⟹ it could only
+   ever return ⊆ S_4).
+2. Overwriting `Twelve.S` (the honest `opaque`) with that map — refused; the
+   `opaque` is correct precisely because no per-curve data exists.
+3. `#eval! … C (S X) … decide (C (S X) > 2√13)` — `C` is NONCOMPUTABLE
+   (`Real.log`/`Real.sqrt`); the M5 bound is an external `arb` interval
+   certificate, not an in-kernel computation. No `#eval!`/`decide` is possible.
+
+HONEST OBSERVATION (asserted by no theorem): under the real certified data the
+violation conjecture `Twelve.TwelveViolation_Surface` has NO support — one set,
+every prefix has only positive Bost terms and `C` only GROWS (M10
+`C(S_5)=40.438`). It stays OPEN and unasserted (neither it nor its negation is
+proved). Commit drafted as a per-curve `S` + `#eval!` was shipped as the honest
+named-attestation bridge, **SORRY: 0**.
+
+---
+
 ## Hodge 12-curve set — `Towers/Hodge/Twelve.lean` (2026-06-01)
 
 Formalizes the REAL, documented 12-element CM set from the certificate chain

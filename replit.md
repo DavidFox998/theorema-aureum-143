@@ -7,6 +7,27 @@ history. Roadmap → `docs/ROADMAP.md`.
 
 ## Current status — 2026-06-01
 
+- **HODGE SMap BRIDGE — `Towers/Hodge/SMap.lean` (2026-06-01).** Honest
+  cross-reference of `Twelve.lean` with Battle Plan v1.6 Modules 1–5, REAL data
+  only. Ties the 12-curve scaffold to the SINGLE certified α₀ exceptional set:
+  `Sexc := Defs.S_14` (the M4-certified window `S(α₀)∩[1,10^4000]=S_14`),
+  `S_of_curve (_X : CM_Curve) := Sexc` (CONSTANT — the docs define ONE set, not a
+  per-curve family; unused curve arg is explicit `_X`), `C_S4 := Twelve.C
+  Defs.S_4` (noncomputable). M4/M5 results are NAMED ATTESTED Props asserted by
+  NO theorem: `M4_window_eq` (`∀p≤10^4000, S_alpha_0 p ↔ p∈S_14`; inclusive
+  bound matches the `∩[1,10^4000]` window),
+  `M5_BostBound_S4` (`C(S_4)>2√13`), `M5_BostBound_Sexc`. Registered lakefile
+  root `Towers.Hodge.SMap`; direct-lean EXIT=0; classical trio (`Sexc`/
+  `S_of_curve` use the `{propext, Quot.sound}` subset). SORRY: 0, no new axiom,
+  NOT a brick. REFUSED from the drafted spec (impossible or fabricating):
+  `S_of_level d := Finset.filter S_alpha_0 (range 5000)` (S_alpha_0 is a real-π
+  predicate — classically decidable but the `filter` is NONCOMPUTABLE, unusable
+  for `#eval!`; also IGNORES `d`, and `range 5000` ≪ p₅=3.99×10¹² so it could
+  only ever return ⊆ S_4); overwriting `Twelve.S` (honest opaque); `#eval!`/`decide` over
+  `C (S X)` (C is noncomputable over Reals — M5 is an external `arb`
+  certificate). Proves NOTHING; under the real data the violation conjecture has
+  NO support (one set, C only grows: M10 `C(S_5)=40.438`) — it stays OPEN and
+  unasserted. Detail → `docs/CHANGELOG.md`.
 - **HODGE 12-CURVE SET — `Towers/Hodge/Twelve.lean` (2026-06-01).** Real
   documented CM data only (M10/M13), NO 269. `exceptional_12 : Finset ℕ :=
   {27,32,36,49,64,81,121,144,169,196,225,256}` (the 12 CM levels `N` of M10/M13
