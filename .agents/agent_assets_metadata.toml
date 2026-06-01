@@ -228,3 +228,9 @@ id = "x8O7HtQfq9K1fhv-DejO4"
 uri = "file://docs/Diophantine_Bridge_Report_P5.pdf"
 type = "pdf"
 title = "Diophantine Bridge Verification at P5"
+
+[[outputs]]
+id = "qJ1G1FiZ2gEUQ-0nwma-o"
+uri = "file://docs/YM_Gap_Analysis.pdf"
+type = "pdf"
+title = "YM Gap Analysis — Two Distinct Concepts"
