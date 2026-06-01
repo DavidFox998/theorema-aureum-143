@@ -6,6 +6,8 @@ import {
   Sparkles,
   Telescope,
   ShieldCheck,
+  FileText,
+  Download,
 } from "lucide-react";
 import {
   LineChart,
@@ -26,6 +28,17 @@ import {
 import data from "@/data/desert-map.json";
 
 const mono = "font-mono text-sm bg-muted px-1.5 py-0.5 border border-border";
+
+const CERT_PDF_URL = `${import.meta.env.BASE_URL}pdfs/desert_map_summary.pdf`;
+const CERT_PDF_SHA256 =
+  "c9bc888b586f597b638a0ca4c1d1fb99d3878c450cd5777d5a2be9f0a79e98ce";
+
+// Row flag classes requested for the data tables: P5 = bridge, P6-P20 = beyond-tolerance.
+function rowClass(k: number): string {
+  if (k === 5) return "bridge bg-primary/5";
+  if (k >= 6) return "beyond-tolerance";
+  return "";
+}
 
 type Regime = "Classical-Z" | "Bridge" | "Desert";
 
@@ -179,6 +192,33 @@ export default function DesertMapPage() {
           observation we can verify only where our arithmetic reaches; the
           12-curve reading is an interpretation, not a theorem.
         </p>
+      </Card>
+
+      {/* Certificate download ------------------------------------------- */}
+      <Card className="p-5 border-primary/50 bg-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <FileText className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary mb-1">
+              Certificate
+            </div>
+            <div className="font-sans font-semibold text-base">
+              Certificate: Exceptional-Prime Desert Map
+            </div>
+            <div className="font-mono text-[10px] text-muted-foreground mt-1 break-all">
+              sha256 {CERT_PDF_SHA256}
+            </div>
+          </div>
+        </div>
+        <a
+          href={CERT_PDF_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-3 py-2 border border-primary/50 bg-primary/10 text-primary font-mono text-xs uppercase tracking-wide hover:bg-primary/20 transition-colors shrink-0"
+          data-testid="link-certificate-pdf"
+        >
+          <Download className="w-3.5 h-3.5" /> View PDF
+        </a>
       </Card>
 
       {/* The two concepts, kept distinct -------------------------------- */}
@@ -388,22 +428,21 @@ export default function DesertMapPage() {
         </div>
       </Card>
 
-      {/* The 20 primes table -------------------------------------------- */}
+      {/* Table 1 — primes · widths · r · regime ------------------------- */}
       <Card className="p-0 border-border bg-card overflow-hidden">
         <div className="p-4 border-b border-border font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          The twenty exceptional primes · desert widths · regime · bridge status
+          Table 1 · the twenty exceptional primes — Dₖ · pₖ · wₖ · rₖ · regime
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" data-testid="table-primes-1">
             <thead>
               <tr className="border-b border-border text-[10px] font-mono uppercase tracking-wide text-muted-foreground">
                 <th className="text-left p-3">k</th>
-                <th className="text-left p-3">prime (head…tail)</th>
-                <th className="text-right p-3">digits</th>
-                <th className="text-right p-3">desert width</th>
-                <th className="text-left p-3">regime</th>
-                <th className="text-right p-3">H4 axes</th>
-                <th className="text-left p-3">bridge (error rate)</th>
+                <th className="text-right p-3">Dₖ</th>
+                <th className="text-left p-3">pₖ (head…tail)</th>
+                <th className="text-right p-3">wₖ (desert width)</th>
+                <th className="text-right p-3">rₖ</th>
+                <th className="text-left p-3">Regime</th>
               </tr>
             </thead>
             <tbody className="font-mono text-xs">
@@ -412,35 +451,72 @@ export default function DesertMapPage() {
                 return (
                   <tr
                     key={p.k}
-                    className={`border-b border-border/60 ${p.k === 5 ? "bg-primary/5" : ""}`}
-                    data-testid={`row-prime-${p.k}`}
+                    className={`border-b border-border/60 ${rowClass(p.k)}`}
+                    data-testid={`row-t1-prime-${p.k}`}
                   >
                     <td className="p-3 text-muted-foreground">P{p.k}</td>
-                    <td className="p-3 text-foreground">{p.display}</td>
                     <td className="p-3 text-right text-muted-foreground">{p.digits}</td>
+                    <td className="p-3 text-foreground">{p.display}</td>
                     <td className="p-3 text-right text-muted-foreground">
                       {p.k === 1 ? "—" : p.desert_width_display}
                     </td>
+                    <td className="p-3 text-right text-foreground">{p.r}</td>
                     <td className="p-3">
                       <span className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 border text-[10px] uppercase tracking-wide ${rs.chip}`}>
                         <span className={`w-1.5 h-1.5 ${rs.dot}`} />
                         {rs.label}
                       </span>
                     </td>
-                    <td className="p-3 text-right">{p.h4_axes_active}</td>
-                    <td className="p-3">
-                      <span className="inline-flex items-center gap-2">
-                        <StatusChip status={p.bdp.status} />
-                        {p.bdp.error !== null ? (
-                          <span className="text-muted-foreground">{p.bdp.error}</span>
-                        ) : p.bdp.status === "BEYOND_TOLERANCE" ? (
-                          <span className="text-muted-foreground italic">indeterminate</span>
-                        ) : null}
-                      </span>
-                    </td>
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Table 2 — weighted energy & bridge status ---------------------- */}
+      <Card className="p-0 border-border bg-card overflow-hidden">
+        <div className="p-4 border-b border-border font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          Table 2 · weighted energy &amp; bridge status — Cwt · H4 · BDP_status · error · log₁₀τ
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="table-primes-2">
+            <thead>
+              <tr className="border-b border-border text-[10px] font-mono uppercase tracking-wide text-muted-foreground">
+                <th className="text-left p-3">k</th>
+                <th className="text-right p-3">Cwt (cum.)</th>
+                <th className="text-right p-3">H4</th>
+                <th className="text-left p-3">BDP_status</th>
+                <th className="text-right p-3">error</th>
+                <th className="text-right p-3">log₁₀τ</th>
+              </tr>
+            </thead>
+            <tbody className="font-mono text-xs">
+              {primes.map((p) => (
+                <tr
+                  key={p.k}
+                  className={`border-b border-border/60 ${rowClass(p.k)}`}
+                  data-testid={`row-t2-prime-${p.k}`}
+                >
+                  <td className="p-3 text-muted-foreground">P{p.k}</td>
+                  <td className="p-3 text-right text-foreground">{p.c_wt_cum}</td>
+                  <td className="p-3 text-right text-muted-foreground">{p.h4_axes_active}</td>
+                  <td className="p-3">
+                    <StatusChip status={p.bdp.status} />
+                  </td>
+                  <td className="p-3 text-right text-muted-foreground">
+                    {p.bdp.error !== null ? (
+                      p.bdp.error
+                    ) : (
+                      <span className="italic">indeterminate</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-right text-muted-foreground">
+                    {p.bdp.tolerance_log10 !== null ? p.bdp.tolerance_log10 : "—"}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
