@@ -276,3 +276,9 @@ id = "kGA6CGQAc9hbW0DBKkkHP"
 uri = "file://lean-proof-towers/exports/CERT_Arb_beta0.pdf"
 type = "pdf"
 title = "CERT_Arb — β₀ enclosure (VERIFIED_OUT_OF_TOWER, locked)"
+
+[[outputs]]
+id = "b2PFG0bHOBU9_dnbE9CVD"
+uri = "file://lean-proof-towers/exports/Big_Day_Status_2026-06-01.md"
+type = "text"
+title = "YM Wall256 Status — 2026-06-01 (slide deck)"
