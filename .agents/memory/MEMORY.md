@@ -20,3 +20,4 @@
 - [Stale composite-lib .d.ts](stale-composite-lib-dts.md) — leaf artifact typecheck shows phantom TS2305/TS7006 from stale gitignored lib `dist/*.d.ts`; fix is `typecheck:libs`, NOT editing the consumer.
 - [Finset.toList noncomputable v4.12.0](finset-tolist-noncomputable.md) — #eval over a Finset fails ("no executable code"); use `Finset.sort (·≤·)` to materialize a List, not toList.
 - [Explicit 4x4 det in v4.12.0](explicit-matrix-det-v4_12.md) — no det_fin_four; Laplace via PLAIN simp (not simp only)+Fin.succAbove/Fin.lt_def then ring; φ∉spectrum via spectrum.not_mem_iff+isUnit_iff_isUnit_det; `-/` in docstring closes it early.
+- [w1 SU(3) normalization & Wall256 β₀](w1-su3-normalization-threshold.md) — repo action is (3−Re tr)/3; w1<1/7 needs β>~2.08 NOT the stale doc's 0.85 (that's the un-normalized 3−Re tr); numerical only, discharges nothing.
