@@ -2,6 +2,7 @@
   "module": "D_Derivation",
   "task": 327,
   "author": "D. Fox",
+  "orcid": "0009-0008-1290-6105",
   "engine": "Towers.YM.H4Core",
   "theorem_name": "C13_law",
   "theorem_statement": "forall p, p.Prime -> digit_len p >= 13 -> symOf p = 1",

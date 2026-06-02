@@ -2,6 +2,7 @@
   "module": "A1_H4Boundary",
   "task": 325,
   "author": "D. Fox",
+  "orcid": "0009-0008-1290-6105",
   "status": "EMPIRICAL",
   "engine": "Towers.YM.H4Core",
   "decode": "natAbs-euclidean-remainder",
