@@ -27,3 +27,4 @@
 - [Rat.cast_min/max gap v4.12.0](rat-cast-min-max-gap.md) — no Rat.cast_min/Rat.cast_max for ℚ→ℝ; prove cast/min(max) commute inline via le_total + min_eq_left/right.
 - [SU(3) heat-kernel Varadhan honesty trap](su3-heat-kernel-varadhan.md) — at-identity envelope blows up ~C/t⁴ (NO e^{-c/t}); `≤C·e^{-c/t}/t⁴` is FALSE small-t; minC₂=4 (=4/3) is large-t gap only.
 - [omega + nonlinear ℕ goals](omega-nonlinear-atoms.md) — omega abstracts m²/m*n as nonneg atoms; feed it the one nonlinear bound (e.g. 1≤m²) and it closes the linear rest.
+- [Toeplitz det norm_num cost](toeplitz-det-normnum-cost.md) — assembled w1_weyl finite enclosure IS norm_num-feasible (~6s/det, 51 shifts ≈325s, trio); MUST unfold β₀_rat; only discharges w1_weyl_beta0_lt (→4 axioms), never trio (w1_eq_weyl remains).
