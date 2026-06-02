@@ -7,6 +7,25 @@ history. Roadmap → `docs/ROADMAP.md`.
 
 ## Current status — 2026-06-02
 
+- **MODULE C LANDED — `Towers/YM/H4_TimeBound.lean` (2026-06-02).** Magnitude
+  comparison over the Module-A decode; imports `Towers.YM.H4Core`, mathlib-FREE,
+  `sorry`/`admit`/`sorryAx`/`native_decide`-free, NOT a brick, NOT in BRICKS, NOT
+  a lakefile root, compiled direct (EXIT 0). `N40:=40`, `TimeHorizon:=3^40 =
+  12157665459056928801` (a plain integer — NO temporal/dynamical meaning),
+  `C13_digit_min:=10^12=1000000000000` (smallest 13-digit number). For the six
+  13-digit witnesses `[1000000001119,1000000001357,1000000001511,1000000001723,
+  1000000001831,1000000002111]` the engine gives `digit_len=[13×6]`,
+  `symOf=[1×6]` (from `H4Core.symOf`, NOT hardcoded), `p>3^40=[false×6]`,
+  `below_3_40=[true×6]`. `time_bound_test` (`p>10^12 ⟹ symOf=1`) is `true` on all
+  six — CHECKED SAMPLE FACT, NOT a proved ∀-law (NOT shown that every `p>10^12`
+  has `Sym=1`, NOR that `10^12` is a universal boundary). Axiom-free kernel facts
+  `N40_val` and `min_lt_horizon` (`10^12 < 3^40`; `#print axioms` = none). Per-
+  module `data.json` (`Towers/YM/H4_TimeBound.data.json`, SHA-256
+  `3e8cea21a15afbaffdd5bf1611d9219c6147d41643d9c0afed4e6520196b6187`) records
+  `{p,digit_len,sym,below_3_40}`. **HONEST FRAMING:** `10^12 < 3^40` by ~7 orders
+  of magnitude, so as a collapse horizon `3^40` sits far above where the sample
+  collapse first appears — a magnitude observation, NOT a proof about all `p`.
+  Proves NO YM/mass-gap/Surface-#1 result; pure finite geometry + ℕ arithmetic.
 - **MODULE B LANDED — `Towers/YM/H4_Boundary.lean` (2026-06-02).** Boundary
   check over the Module-A decode; imports the shared core `Towers.YM.H4Core`,
   mathlib-FREE, `sorry`/`admit`/`sorryAx`/`native_decide`-free, NOT a brick, NOT
