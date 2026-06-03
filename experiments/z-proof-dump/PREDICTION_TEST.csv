@@ -1,0 +1,3 @@
+fn,x,T,method,trials,errors,error_rate,value_15dp,note
+besselJ_1,0.0,1,tool_mpmath,100,0,0.0000,0.0,
+besselJ_1,0.0,0,LLM_direct,0,NOT_RUN_NO_API,NOT_RUN_NO_API,NOT_RUN_NO_API,T=0 requires LLM API (NO-API set)

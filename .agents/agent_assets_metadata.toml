@@ -354,3 +354,33 @@ id = "Leh_TnRxfOqjzl2ZxmkjO"
 uri = "file://experiments/z-local/Z_POLYMER_TEST.csv"
 type = "table"
 title = "Z_POLYMER_TEST.csv — random binary polymers via random.choice (100 rows)"
+
+[[outputs]]
+id = "aAf73qdVxFACYbRcZ--bw"
+uri = "file://experiments/z-proof-dump/Z_BESSEL_I_COMPLETE.csv"
+type = "table"
+title = "Z_BESSEL_I_COMPLETE.csv (T=1 real / T=0 not-run)"
+
+[[outputs]]
+id = "J2u04r8s9t_LC-T8utj25"
+uri = "file://experiments/z-proof-dump/Z_DIGITS_T0.csv"
+type = "table"
+title = "Z_DIGITS_T0.csv (50 strings; T=1 real / T=0 not-run)"
+
+[[outputs]]
+id = "f3PElyFWlHfTGYjONbzQK"
+uri = "file://experiments/z-proof-dump/Z_POLYMER_RESULTS.csv"
+type = "table"
+title = "Z_POLYMER_RESULTS.csv (100 bits; T=1 rule / T=0 not-run)"
+
+[[outputs]]
+id = "dsProSOUjSrG-mAGJrb0_"
+uri = "file://experiments/z-proof-dump/PREDICTION_TEST.csv"
+type = "table"
+title = "PREDICTION_TEST.csv (BesselJ_1(0)=0)"
+
+[[outputs]]
+id = "qXfeWIn8R-94F-3WakCE1"
+uri = "file://experiments/z-proof-dump/UNIFIED_FIT.json"
+type = "unspecified"
+title = "UNIFIED_FIT.json (R² null — no T=0 variance)"
