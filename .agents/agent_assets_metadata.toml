@@ -324,3 +324,21 @@ id = "J15aAC-FuJJ-POckQkV5J"
 uri = "file://experiments/bessel-z/BesselI_Z_MEASURE.csv"
 type = "table"
 title = "BesselI_Z_MEASURE.csv — 96 rows (48 cases × 2 methods)"
+
+[[outputs]]
+id = "JaL5FzVPhmptL5CeKRRA9"
+uri = "file://experiments/z-unified/Z_COMM_CHANNEL.csv"
+type = "table"
+title = "Z_COMM_CHANNEL.csv — BSC capacity (T=0 LLM / T=1 tool)"
+
+[[outputs]]
+id = "TBr99GEx6NEBz8Wb4LzHd"
+uri = "file://experiments/z-unified/Z_POLYMER.csv"
+type = "table"
+title = "Z_POLYMER.csv — binary→decimal polymer (T=0 / T=1)"
+
+[[outputs]]
+id = "beDIvdHhj0ia7zzdKxpOU"
+uri = "file://experiments/z-unified/Z_BOSTCONNES.csv"
+type = "table"
+title = "Z_BOSTCONNES.csv — Bost-Connes ζ(β) (T=0 / T=1)"
