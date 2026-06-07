@@ -1,0 +1,121 @@
+{
+  "description": "Opera Numerorum Lean proof tower freeze manifest",
+  "series": "Opera Numerorum",
+  "internal": "Battle Plan v1.6",
+  "freeze_records": [
+    {
+      "freeze_id": "FREEZE_C01+C02+C03+C04+C05+C06+C07_20260607",
+      "timestamp": "2026-06-07T01:58:41Z",
+      "author": "David Fox",
+      "reason": "Battle Plan v1.6: RH/BSD tower lockdown",
+      "modules": {
+        "C01": {
+          "file": "lean-proof-towers/C01_Arakelov.lean",
+          "sha256": "db291fc7dcf6debf9503a98d032f3238fef3e04af9d76d6cb5705eb8882c0c96",
+          "sorry_tokens_in_file": 0,
+          "sorry_count_declared": 0,
+          "status": "ZERO_SORRY"
+        },
+        "C02": {
+          "file": "lean-proof-towers/C02_Modularity.lean",
+          "sha256": "f4e92cc80deb4b16d30ffd3cd53f683e5c9607d5a379d31cf0828e1a71416826",
+          "sorry_tokens_in_file": 0,
+          "sorry_count_declared": null,
+          "status": "ZERO_SORRY"
+        },
+        "C03": {
+          "file": "lean-proof-towers/C03_Positivity.lean",
+          "sha256": "43f936d43edbc2d1fa24f796b24437bcc6fbcaa309d8e26190e424d5088a0562",
+          "sorry_tokens_in_file": 0,
+          "sorry_count_declared": null,
+          "status": "ZERO_SORRY"
+        },
+        "C04": {
+          "file": "lean-proof-towers/C04_HeightBound.lean",
+          "sha256": "bb19ed1035e6bcb1d69f3001afe3e3f97d4238ba060afd8bdc795d63166bb632",
+          "sorry_tokens_in_file": 0,
+          "sorry_count_declared": null,
+          "status": "ZERO_SORRY"
+        },
+        "C05": {
+          "file": "lean-proof-towers/C05_Discriminant.lean",
+          "sha256": "05faa464a681f712d3ba3d9f8016a8c25655fb980f67b4ac0d83a0e0635c4e55",
+          "sorry_tokens_in_file": 0,
+          "sorry_count_declared": null,
+          "status": "ZERO_SORRY"
+        },
+        "C06": {
+          "file": "lean-proof-towers/C06_ZetaControl.lean",
+          "sha256": "3fabeb28b3226c5a2586577218aa64066e4f75ee97d7bbcf9d2c46e7ae4f2a20",
+          "sorry_tokens_in_file": 0,
+          "sorry_count_declared": null,
+          "status": "ZERO_SORRY"
+        },
+        "C07": {
+          "file": "lean-proof-towers/C07_RH.lean",
+          "sha256": "0f7faf2c4e604e9c17619d5472ece16c1bfcb2591476169c7f21bca7377f9c3e",
+          "sorry_tokens_in_file": 0,
+          "sorry_count_declared": null,
+          "status": "ZERO_SORRY"
+        }
+      }
+    }
+  ],
+  "latest_freeze": {
+    "freeze_id": "FREEZE_C01+C02+C03+C04+C05+C06+C07_20260607",
+    "timestamp": "2026-06-07T01:58:41Z",
+    "author": "David Fox",
+    "reason": "Battle Plan v1.6: RH/BSD tower lockdown",
+    "modules": {
+      "C01": {
+        "file": "lean-proof-towers/C01_Arakelov.lean",
+        "sha256": "db291fc7dcf6debf9503a98d032f3238fef3e04af9d76d6cb5705eb8882c0c96",
+        "sorry_tokens_in_file": 0,
+        "sorry_count_declared": 0,
+        "status": "ZERO_SORRY"
+      },
+      "C02": {
+        "file": "lean-proof-towers/C02_Modularity.lean",
+        "sha256": "f4e92cc80deb4b16d30ffd3cd53f683e5c9607d5a379d31cf0828e1a71416826",
+        "sorry_tokens_in_file": 0,
+        "sorry_count_declared": null,
+        "status": "ZERO_SORRY"
+      },
+      "C03": {
+        "file": "lean-proof-towers/C03_Positivity.lean",
+        "sha256": "43f936d43edbc2d1fa24f796b24437bcc6fbcaa309d8e26190e424d5088a0562",
+        "sorry_tokens_in_file": 0,
+        "sorry_count_declared": null,
+        "status": "ZERO_SORRY"
+      },
+      "C04": {
+        "file": "lean-proof-towers/C04_HeightBound.lean",
+        "sha256": "bb19ed1035e6bcb1d69f3001afe3e3f97d4238ba060afd8bdc795d63166bb632",
+        "sorry_tokens_in_file": 0,
+        "sorry_count_declared": null,
+        "status": "ZERO_SORRY"
+      },
+      "C05": {
+        "file": "lean-proof-towers/C05_Discriminant.lean",
+        "sha256": "05faa464a681f712d3ba3d9f8016a8c25655fb980f67b4ac0d83a0e0635c4e55",
+        "sorry_tokens_in_file": 0,
+        "sorry_count_declared": null,
+        "status": "ZERO_SORRY"
+      },
+      "C06": {
+        "file": "lean-proof-towers/C06_ZetaControl.lean",
+        "sha256": "3fabeb28b3226c5a2586577218aa64066e4f75ee97d7bbcf9d2c46e7ae4f2a20",
+        "sorry_tokens_in_file": 0,
+        "sorry_count_declared": null,
+        "status": "ZERO_SORRY"
+      },
+      "C07": {
+        "file": "lean-proof-towers/C07_RH.lean",
+        "sha256": "0f7faf2c4e604e9c17619d5472ece16c1bfcb2591476169c7f21bca7377f9c3e",
+        "sorry_tokens_in_file": 0,
+        "sorry_count_declared": null,
+        "status": "ZERO_SORRY"
+      }
+    }
+  }
+}
