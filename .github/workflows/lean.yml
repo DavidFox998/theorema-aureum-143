@@ -8,30 +8,51 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  lock-sources:
+    name: SHA Lock Lean Sources
     runs-on: ubuntu-latest
-    
+    outputs:
+      lock_passed: ${{ steps.lock.outputs.passed }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Install elan
-      run: |
-        curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
-        echo "$HOME/.elan/bin" >> $GITHUB_PATH
+      - name: Lock Lean source SHAs
+        id: lock
+        run: |
+          sha256sum -c <<< "9c69ac553e4c5fa679a1bce2aa928bbd6ac82f8beb2a4d0f5cd86be3a5461576  lean/RH_Tower.lean"
+          sha256sum -c <<< "3fabeb28b3226c5a2586577218aa64066e4f75ee97d7bbcf9d2c46e7ae4f2a20  lean/TheoremaAureum/C06_ZetaControl.lean"
+          sha256sum -c <<< "0f7faf2c4e604e9c17619d5472ece16c1bfcb2591476169c7f21bca7377f9c3e  lean/TheoremaAureum/C07_RH.lean"
+          sha256sum -c <<< "07b0fabb0aaf227cc1b9668efb4b4e1c867abb65b097a464cc29af3bef633c8a  lean/lakefile.lean"
+          echo "passed=true" >> $GITHUB_OUTPUT
+          echo "All Lean source locks verified."
 
-    - name: Get Lean version
-      working-directory: ./lean
-      run: lean --version
+  build:
+    name: Lean Build
+    needs: lock-sources
+    if: needs.lock-sources.outputs.lock_passed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Update dependencies
-      working-directory: ./lean
-      run: lake update
+      - name: Install elan
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
 
-    - name: Build project
-      working-directory: ./lean
-      run: lake build
+      - name: Get Lean version
+        working-directory: ./lean
+        run: lean --version
 
-    - name: Run Main
-      working-directory: ./lean
-      run: lake exe theorema-aureum-143
+      - name: Update dependencies
+        working-directory: ./lean
+        run: lake update
+
+      - name: Build project
+        working-directory: ./lean
+        run: lake build
+
+      - name: Run Main
+        working-directory: ./lean
+        run: lake exe theorema-aureum-143
