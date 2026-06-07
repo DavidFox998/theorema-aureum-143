@@ -1,25 +1,20 @@
 {
   "upload_type": "software",
-  "access_right": "open",
-  "license": "MIT",
-  "publication_date": "2026-05-21",
+  "title": "Theorema Aureum 143: Lean 4 Proof Chain ArakelovPositivity => RH for X_0(143)",
+  "description": "Seven Lean 4 modules (C01-C07): Arakelov positivity for X_0(143) implies RH for L(s, X_0(143)). ZERO_SORRY freeze, SHA-256 bound. Opera Numerorum certified.",
   "creators": [
     {
       "name": "Fox, David J.",
-      "orcid": "0009-0008-1290-6105",
-      "affiliation": "Independent researcher, Aberdeen/Seattle WA"
+      "orcid": "0009-0008-1290-6105"
     }
   ],
-  "title": "Theorema Aureum 143: Lean 4 Proof Chain ArakelovPositivity => RH for X_0(143)",
-  "description": "Seven Lean 4 modules (C01-C07) forming the proof chain: Arakelov positivity for X_0(143) implies the Riemann Hypothesis for L(s, X_0(143)). ZERO_SORRY freeze, SHA-256 bound, Opera Numerorum certified.",
+  "license": "MIT",
+  "access_right": "open",
   "keywords": [
     "Lean 4",
     "formal proof",
     "Riemann hypothesis",
-    "X_0(143)",
     "Arakelov",
-    "Bost-Connes",
-    "ZERO_SORRY",
     "Opera Numerorum"
   ]
 }
